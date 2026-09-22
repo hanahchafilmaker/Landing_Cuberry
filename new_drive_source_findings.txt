@@ -1,0 +1,13 @@
+Replacement source: https://drive.google.com/drive/folders/1nd_QHnTcZQ9Wywdcw-F9ye8_Zt87gcyx?usp=sharing
+
+The public folder contains 8 shared videos:
+1. AI엑스콘다광고 — ID 1uVP4Ih6kKHxb0uUHsntCR7UsepMJ2djG — 216.8 MB
+2. seedwar.mp4 — ID 1jP4J4RbNFDlK3bZI5dWz_atj4pYMPFeo — 132.7 MB
+3. 미국광고_세로숏폼_9x16.mp4 — ID 1Gg2_R8jnLgaVBYWEwrn8KB-mt_yJ6J43 — 34.4 MB
+4. 애니메이션_토이팜 — ID 1o5pVmIcxeoCE4CEq090ememV_lj-IQF4 — 74.6 MB
+5. 이엘_웹드라마_트레일러 — ID 13jH_tndgmbI7MOOOW02I2ADEMFXY6Ii8 — 1.02 GB
+6. 천년의사랑_웹드라마 — ID 1OWlKxIH2LRfohRSSR2Fk46Ou2RdYmOya — 270.5 MB
+7. 콜드사이트_트레일러 — ID 1IxNbAvzwgJFMo7CZbhv6mWQWVNafEqMZ — 116.4 MB
+8. 턴_광고 — ID 1a9mwJiB5NJPEu70l3UWaNNE-Y-kKr_Nm — 218 MB
+
+Direct Drive MP4 range requests returned video/mp4 only for files 3 and 4; the remaining six returned Drive confirmation HTML. Therefore the page uses poster-first lazy loading: all cards initially load only Drive thumbnails; on tap, files 3/4 create native HTML5 players, while the other six create Drive preview iframes. This avoids loading hundreds of MB or a 1.02 GB file during initial page load.
