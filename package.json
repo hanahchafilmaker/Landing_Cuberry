@@ -3,7 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --experimental-sqlite server/index.mjs"
+    "start": "node --experimental-sqlite server/index.mjs",
+    "test": "node test/client-origin.mjs && node test/static-paths.mjs",
+    "test:origin": "node test/client-origin.mjs",
+    "test:paths": "node test/static-paths.mjs",
+    "test:dom": "node test/dom-flow.mjs"
   },
   "engines": {
     "node": ">=22.5.0 <23"

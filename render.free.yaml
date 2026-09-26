@@ -1,0 +1,35 @@
+# 무료(Free) 구성 — 비용 0원이지만 아래 제약을 반드시 알고 사용하세요.
+#
+#   * Render 무료 인스턴스는 영구 디스크를 붙일 수 없습니다.
+#     → data/cuberry.sqlite 와 data/uploads/ 가 **재배포·재시작마다 사라집니다.**
+#   * 15분 동안 요청이 없으면 잠들고, 다음 방문 때 50초 안팎의 콜드 스타트가 걸립니다.
+#
+# 그래서 콘텐츠 보존은 Git 으로 합니다:
+#   1. 어드민 → Settings → Backup → "콘텐츠 JSON 내보내기"
+#   2. 내려받은 파일을 server/seed.json 으로 덮어쓰고 커밋·푸시
+#   3. 재배포되면 서버가 그 seed.json 으로 다시 시작합니다 (수동 복구 불필요)
+#
+# 업로드한 이미지는 사라지므로, 무료 구성에서는 이미지 URL 을
+# 외부 저장소( drive.google.com 썸네일, CDN 등 ) 절대주소로 넣는 편이 안전합니다.
+#
+# 배포: Render → New → Blueprint → 저장소 연결 → **Blueprint 파일 경로를 render.free.yaml 로 지정**
+services:
+  - type: web
+    name: cuberry-landing-free
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: ADMIN_PASSWORD
+        sync: false
+      # GitHub Pages 에 올려둔 랜딩/어드민 화면이 이 서버의 API 를 직접 호출할 수 있게 허용할 Origin.
+      # 여러 개는 쉼표로 구분합니다. 모든 사이트를 허용하려면 "*".
+      - key: ADMIN_ALLOWED_ORIGINS
+        value: https://hanahchafilmaker.github.io

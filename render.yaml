@@ -1,3 +1,5 @@
+# 유료(Starter) + 영구 디스크 구성 — SQLite 와 업로드 이미지가 재배포 후에도 그대로 남습니다.
+# Render → New → Blueprint 에서 이 저장소를 연결하면 이 파일이 사용됩니다.
 services:
   - type: web
     name: cuberry-landing
@@ -14,6 +16,11 @@ services:
         value: "1"
       - key: ADMIN_PASSWORD
         sync: false
+      # GitHub Pages 에 올려둔 랜딩/어드민 화면이 이 서버의 API 를 직접 호출할 수 있게 허용할 Origin.
+      # 여러 개는 쉼표로 구분합니다. 예) "https://hanahchafilmaker.github.io,https://cuberry.com"
+      # 모든 사이트를 허용하려면 "*" (토큰 인증만 사용하므로 쿠키는 무시됩니다).
+      - key: ADMIN_ALLOWED_ORIGINS
+        value: https://hanahchafilmaker.github.io
     disk:
       name: cuberry-data
       mountPath: /opt/render/project/src/data

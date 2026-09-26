@@ -13,6 +13,17 @@ const DB_PATH = path.join(DATA_DIR, "cuberry.sqlite");
 const SEED_PATH = path.join(__dirname, "seed.json");
 const PORT = Number(process.env.PORT || 8080);
 const HOST = "0.0.0.0";
+// GitHub Pages 처럼 정적 호스팅에 올린 화면이 이 서버의 API를 직접 호출할 수 있도록 허용할 Origin.
+// 예) ADMIN_ALLOWED_ORIGINS="https://hanahchafilmaker.github.io,https://cuberry.com"
+// "*" 로 지정하면 모든 Origin 을 허용합니다(토큰 인증만 사용하므로 쿠키 자격증명은 무시됩니다).
+const ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
+  .split(/[\s,]+/)
+  .map((value) => value.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS.includes("*");
+// 리버스 프록시 뒤에서 외부에 노출되는 주소. 업로드 이미지 URL 을 절대경로로 만들 때 사용합니다.
+// Render 에서는 RENDER_EXTERNAL_URL 이 자동으로 주입되므로 별도 설정 없이도 채워집니다.
+const PUBLIC_ORIGIN = String(process.env.PUBLIC_ORIGIN || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
 const INITIAL_PASSWORD = "cuberry2026"; // 화면에 안내되는 기본 초기 비밀번호
 const DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || INITIAL_PASSWORD;
 const SESSION_MS = 1000 * 60 * 60 * 24 * 14;
@@ -368,6 +379,24 @@ function adminContent() {
   };
 }
 
+// 현재 콘텐츠를 server/seed.json 과 같은 형태로 내보낸다.
+// Render 무료 인스턴스처럼 디스크가 휘발성인 환경에서는, 이 파일을 seed.json 으로 커밋해 두면
+// 재배포·재시작 때마다 최신 콘텐츠로 자동으로 다시 시작한다.
+function exportSeed() {
+  const omit = (object, keys) => Object.fromEntries(Object.entries(object || {}).filter(([key]) => !keys.includes(key)));
+  const content = adminContent();
+  return {
+    exportedAt: nowIso(),
+    settings: omit(content.settings, ["updatedAt"]),
+    services: content.services.map((item) => omit(item, ["id", "updatedAt"])),
+    portfolio: content.portfolio.map((item) => omit(item, ["id", "createdAt", "updatedAt"])),
+    faqs: content.faqs.map((item) => omit(item, ["id", "updatedAt"])),
+    team: content.team.map((item) => omit(item, ["id", "updatedAt"])),
+    // 문의로 들어온 상담 기록. seed 로더는 이 키를 읽지 않지만 백업에 함께 담아둔다.
+    inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt"])),
+  };
+}
+
 function summary() {
   const count = (sql) => Number(db.prepare(sql).get().n || 0);
   return {
@@ -508,6 +537,33 @@ function readBody(req, limit = 8_000_000) {
 
 function isHttps(req) {
   return req.headers["x-forwarded-proto"] === "https" || process.env.COOKIE_SECURE === "1" || Boolean(req.socket?.encrypted);
+}
+
+function normalizeOrigin(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+// 요청이 허용된 Origin 에서 왔는지 판별합니다. 아니면 빈 문자열.
+function corsOrigin(req) {
+  const origin = normalizeOrigin(req.headers.origin);
+  if (!origin) return "";
+  if (ALLOW_ANY_ORIGIN) return origin;
+  return ALLOWED_ORIGINS.includes(origin) ? origin : "";
+}
+
+// /api/* 응답에 CORS 헤더를 미리 심어둔다.
+// send() 가 res.writeHead(headers) 를 쓰더라도 setHeader 값은 함께 전송된다.
+function applyCors(req, res) {
+  const origin = corsOrigin(req);
+  if (!origin) return "";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Vary", "Origin");
+  // 어드민은 쿠키 대신 Bearer 토큰을 주로 쓰지만, 같은 서버의 /admin 에서 여는 경우도 있어 자격증명을 허용한다.
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token");
+  res.setHeader("Access-Control-Max-Age", "600");
+  return origin;
 }
 
 function sessionCookie(token, req) {
@@ -708,6 +764,17 @@ function serveFile(req, res, filePath) {
 async function handleApi(req, res, url) {
   const { pathname } = url;
   if (req.method === "GET" && pathname === "/api/health") return send(res, 200, { ok: true });
+  if (req.method === "GET" && pathname === "/api/config") {
+    // 정적 호스트에서 열린 화면이 "이 서버의 공개 주소"를 알아내 업로드 이미지 등을 절대경로로 만들 때 사용한다.
+    const host = String(req.headers["x-forwarded-host"] || req.headers.host || "").replace(/\/+$/, "");
+    const derived = host ? `${isHttps(req) ? "https" : "http"}://${host}` : "";
+    return send(res, 200, {
+      ok: true,
+      publicOrigin: PUBLIC_ORIGIN || derived,
+      allowedOrigins: ALLOW_ANY_ORIGIN ? ["*"] : ALLOWED_ORIGINS,
+      hasAdmin: adminAccount.hasAdmin,
+    });
+  }
   if (req.method === "GET" && pathname === "/api/public/content") return send(res, 200, publicContent());
   if (req.method === "GET" && pathname === "/api/auth/status") {
     return send(res, 200, {
@@ -797,6 +864,7 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
   if (req.method === "GET" && pathname === "/api/admin/content") return send(res, 200, adminContent());
+  if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
   if (req.method === "PUT" && pathname === "/api/admin/settings") {
     const body = await readBody(req);
     const stamp = nowIso();
@@ -868,6 +936,22 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     if (url.pathname.startsWith("/api/")) {
+      const origin = normalizeOrigin(req.headers.origin);
+      applyCors(req, res);
+      if (req.method === "OPTIONS") {
+        // 사전요청(preflight). Origin 이 허용 목록에 없으면 설정 방법을 알려주는 403 을 돌려준다.
+        if (origin && !corsOrigin(req)) {
+          console.warn(`[cors] 거부된 Origin: ${origin} → ADMIN_ALLOWED_ORIGINS 에 추가하세요.`);
+          res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });
+          res.end(JSON.stringify({
+            error: `이 서버는 ${origin} 에서의 API 호출을 허용하지 않습니다. 서버 환경변수 ADMIN_ALLOWED_ORIGINS 에 이 주소를 추가하세요.`,
+          }));
+          return;
+        }
+        res.writeHead(204);
+        res.end();
+        return;
+      }
       await handleApi(req, res, url);
       return;
     }

@@ -7,6 +7,9 @@
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
+npm test               # 의존성 없이 도는 검증 (Pages 서브경로·원격 API 주소 결정 35건)
+npm i -D jsdom         # 아래 종단 테스트를 돌리려면 한 번만 (선택)
+npm run test:dom       # 실제 DOM + 브라우저 CORS 규칙 시뮬레이션 종단 테스트 (45건)
 ```
 
 - 랜딩: `/`
@@ -14,18 +17,97 @@ PORT=3000 npm start    # 포트 변경
 - 데이터: `data/cuberry.sqlite` (SQLite, 최초 실행 시 `server/seed.json` 으로 자동 시드)
 - 업로드 이미지: `data/uploads/`
 
-## 배포 (GitHub Pages에서는 어드민 API를 사용할 수 없음)
+## 배포
 
-현재 어드민은 화면만 있는 정적 페이지가 아니라 Node.js API와 SQLite 데이터베이스가 함께 필요한 앱입니다. GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행하지 않으므로 `/api/auth/status` 가 404, 로그인 POST가 405로 실패합니다. 이는 비밀번호 문제가 아닙니다.
+어드민은 화면만 있는 정적 페이지가 아니라 Node.js API와 SQLite 데이터베이스가 함께 필요한 앱입니다.
+GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행하지 않으므로, Pages 주소에서는 `/api/auth/status` 가 404, 로그인 POST가 405로 실패합니다. **이는 비밀번호 문제가 아닙니다.**
 
-이 저장소에는 한 서비스에서 랜딩과 API를 함께 실행하는 Render Blueprint(`render.yaml`)가 있습니다.
+그래서 배포는 두 조각으로 나뉩니다.
 
-1. 변경 사항을 배포할 브랜치에 반영한 뒤 Render에서 **New → Blueprint**를 선택하고 이 저장소를 연결합니다.
-2. Blueprint 설정에서 `ADMIN_PASSWORD`에 사용할 강력한 비밀번호를 입력합니다. 이 값은 Git에 저장되지 않습니다.
-3. 서비스 생성 전 플랜과 디스크 비용을 확인하세요. SQLite와 업로드 파일을 재배포 후에도 보존하기 위해 1GB 영구 디스크를 사용하며, Render 영구 디스크에는 유료 인스턴스가 필요합니다.
-4. 배포가 완료되면 Render가 제공한 주소의 `/`와 `/admin`을 사용합니다. GitHub Pages 주소는 별도의 정적 사본으로 남으며, Render 어드민에서 저장한 변경사항은 반영되지 않습니다.
+| 조각 | 역할 | 호스팅 |
+| --- | --- | --- |
+| Node 서버 | `/api/*` (로그인·콘텐츠 저장) + 랜딩 + 어드민 화면 | Render 등 (아래 참고) |
+| GitHub Pages | 랜딩/어드민 **정적 사본** | `hanahchafilmaker.github.io/Landing_Cuberry/` |
 
-Render는 Node.js 22와 Singapore 리전을 사용하도록 설정되어 있습니다. [Blueprint 배포 안내](https://render.com/docs/infrastructure-as-code)와 [영구 디스크 안내](https://render.com/docs/disks)를 참고하세요.
+### A. Node 서버 배포 (Render Blueprint)
+
+이 저장소에는 한 서비스에서 랜딩과 API를 함께 실행하는 Blueprint가 두 개 있습니다.
+
+| 파일 | 플랜 | 영구 디스크 | 데이터 보존 |
+| --- | --- | --- | --- |
+| `render.yaml` | `0.5c-512mb` (Starter, 유료) | 1GB | 재배포·재시작 후에도 SQLite/업로드 그대로 |
+| `render.free.yaml` | `free` (0원) | 없음(무료는 디스크 불가) | **재배포·재시작마다 초기화** → 아래 "무료 플랜에서 콘텐츠 지키기" 참고 |
+
+절차:
+
+1. 배포할 브랜치에 변경 사항을 반영합니다.
+2. Render → **New → Blueprint** → 이 저장소 연결. 무료로 쓰려면 Blueprint 파일 경로를 `render.free.yaml` 로 지정합니다.
+3. `ADMIN_PASSWORD` 에 강력한 비밀번호를 입력합니다. 이 값은 Git에 저장되지 않습니다(`sync: false`).
+4. 배포 후 Render가 준 주소의 `/` 와 `/admin` 을 사용합니다.
+
+Render는 Node.js 22와 Singapore 리전을 쓰도록 설정되어 있습니다.
+[Blueprint 안내](https://render.com/docs/infrastructure-as-code) · [영구 디스크 안내](https://render.com/docs/disks)
+
+> **무료 호스팅에 관해**: Render·Koyeb 등 무료 티어는 영구 디스크를 붙일 수 없어 SQLite가 휘발성입니다.
+> Railway·Fly.io 는 무료 티어가 없어졌고, Glitch 는 앱 호스팅을 종료했습니다.
+> "진짜 무료 + 데이터 보존"을 원하면 Oracle Cloud Always Free VM 에 직접 올리는 방법이 남습니다.
+
+### B. GitHub Pages 화면에서 그 서버 API 쓰기 (원격 API 모드)
+
+Pages에 올라간 랜딩/어드민은 같은 주소에 API가 없으므로, **Node 서버 주소를 알려주면** 그 서버를 직접 호출합니다.
+서버가 다른 Origin의 요청을 받으려면 CORS 허용이 필요합니다.
+
+**1) 서버 쪽** — 환경변수 `ADMIN_ALLOWED_ORIGINS` 에 Pages 주소를 넣습니다. (두 Blueprint 모두 기본값으로 설정되어 있습니다.)
+
+```
+ADMIN_ALLOWED_ORIGINS=https://hanahchafilmaker.github.io
+# 여러 개:  https://hanahchafilmaker.github.io,https://cuberry.com
+# 전체 허용: *
+```
+
+허용되지 않은 Origin이 사전요청을 보내면 서버 로그에 `[cors] 거부된 Origin: …` 가 찍히고 403을 돌려줍니다.
+어떤 주소를 추가해야 할지 모를 때 이 로그를 보면 됩니다.
+
+**2) 브라우저 쪽** — Pages의 `/admin` 로그인 화면 아래 **API 서버 주소** 카드를 열고 Node 서버 주소를 넣은 뒤
+"저장 후 다시 연결"을 누릅니다. 값은 **그 브라우저의 localStorage에만** 저장되며 GitHub에는 전송되지 않습니다.
+
+주소 결정 우선순위는 어드민과 랜딩(`cms-bridge.js`)이 동일합니다.
+
+1. 주소창의 `?api=https://…` — 어드민은 저장, 랜딩은 이번 방문에만 적용
+2. localStorage `cuberry.apiOrigin` — 로그인 화면에서 저장한 값
+3. 소스의 `BAKED_API_ORIGIN` 상수 — 커밋해서 모든 방문자에게 고정하고 싶을 때
+   (`admin/index.html` 과 `cms-bridge.js` 맨 위 한 줄씩)
+4. 빈 값 → 현재 페이지와 같은 서버
+
+`?api=same` 을 붙이면 저장된 값을 지우고 같은 서버 모드로 돌아갑니다.
+
+인증은 쿠키가 아니라 **Bearer 토큰**(`sessionStorage`)으로 하므로, 사파리 등의 서드파티 쿠키 차단과 무관하게 동작합니다.
+원격 모드에서는 어드민이 주소를 바꾸지 않습니다(Pages에는 `/admin/portfolio` 같은 파일이 없어 새로고침 시 404이기 때문).
+
+### 무료 플랜에서 콘텐츠 지키기 (seed.json 워크플로)
+
+무료 인스턴스는 재배포·재시작마다 `data/` 가 사라져 `server/seed.json` 으로 다시 시작합니다.
+그래서 **현재 콘텐츠를 seed.json으로 되돌려 커밋**해 두면 복구 작업 없이 항상 최신 상태로 켜집니다.
+
+1. 어드민 → **Settings → Backup → "콘텐츠 JSON 내보내기"** (`GET /api/admin/export`, 관리자 로그인 필요)
+2. 내려받은 파일을 `server/seed.json` 으로 덮어쓰고 커밋·푸시
+3. 재배포되면 서버가 그 파일로 다시 시드합니다
+
+내보내는 JSON은 `seed.json` 과 필드 이름이 완전히 같고, `inquiries`(상담 문의)와 `exportedAt` 만 추가로 담깁니다.
+시드 로더는 이 두 키를 읽지 않으므로 그대로 `seed.json` 에 넣어도 안전합니다.
+
+> 무료 인스턴스는 **업로드 이미지**(`data/uploads/`)도 잃습니다. 무료 구성에서는 이미지 URL을
+> Google Drive 썸네일이나 CDN 같은 외부 절대주소로 넣는 편이 안전합니다.
+
+### GitHub Pages에서 고친 것
+
+Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트 절대경로(`/…`)가 전부 깨졌습니다.
+
+- `index.html`: `<script src="/cms-bridge.js">` → `cms-bridge.js`, `href="/admin"` ×3 → `admin/` ( 상대경로화 )
+  — 이전에는 Pages에서 `cms-bridge.js` 자체가 404라 어드민 변경 사항이 랜딩에 전혀 반영되지 않았습니다.
+- `index.html` B2B 문의 폼: `fetch('/api/partnership')` → `window.CuberryApi.url(...)` (원격 API 사용)
+- `admin/index.html`: `/admin` 고정 경로 대신 현재 경로에서 `admin` 위치를 찾아 동작 (`adminBase`, `siteRoot`, `pageFromPath`)
+- 업로드 이미지처럼 `/` 로 시작하는 콘텐츠 주소는 원격 서버 주소를 붙여 표시 (`assetUrl`)
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 
@@ -63,8 +145,34 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 
 ### 로그인이 안 될 때 점검 순서
 
+0. **`어드민 API 서버 없음` (404/405) 안내가 떴다면** — 지금 열어둔 주소가 GitHub Pages 같은 정적 호스트입니다.
+   로그인 화면의 **API 서버 주소** 카드에 Node 서버 주소를 넣고 저장하세요. (위 "원격 API 모드" 참고)
 1. 서버 로그 확인 — 기동 시 `Login: 초기 비밀번호 cuberry2026 (아직 변경되지 않음)` 처럼 현재 상태를 알려 줍니다.
 2. 로그인 실패 로그 — `로그인 실패 (IP) 3/10 - 비밀번호 12자, 본문 키: [password]` 형식으로 남습니다.
    - `비밀번호 0자` 로 찍히면 요청 본문이 서버까지 전달되지 않은 것입니다(프록시 문제).
+   - `[cors] 거부된 Origin: …` 이 찍히면 `ADMIN_ALLOWED_ORIGINS` 에 그 주소를 추가하세요.
 3. 비밀번호를 5분 안에 10회 틀리면 잠시 잠깁니다. 응답의 `retryAfter`(초)만큼 기다리면 다시 시도할 수 있습니다.
-4. 브라우저에서 직접 확인: `GET /api/health`, `GET /api/auth/status` (로그인 화면 안내 문구에 사용).
+4. 브라우저에서 직접 확인: `GET /api/health`, `GET /api/auth/status` (로그인 화면 안내 문구에 사용), `GET /api/config` (허용된 Origin 목록과 공개 주소).
+5. 원격 API 모드에서 `…서버에 연결하지 못했습니다` 가 뜨면 — 서버가 잠들어 있거나(무료 플랜 콜드 스타트), 주소가 잘못됐거나, CORS가 거부된 것입니다. DevTools Console의 CORS 오류 문구로 구분할 수 있습니다.
+
+## 테스트
+
+```bash
+npm test        # 의존성 없음 · 35건
+npm run test:dom  # jsdom 필요 · 45건 (서버가 켜져 있어야 함)
+```
+
+| 파일 | 무엇을 검증하나 |
+| --- | --- |
+| `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath` |
+| `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
+| `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 A(Pages + 원격 API)·B(Node 서버 한 곳)·C(허용 목록에 없는 Origin 차단) |
+
+`test/dom-flow.mjs` 는 서버가 켜져 있어야 합니다:
+
+```bash
+ADMIN_ALLOWED_ORIGINS=https://hanahchafilmaker.github.io npm start   # 다른 터미널
+npm i -D jsdom && npm run test:dom
+```
+
+`TEST_API_ORIGIN`, `TEST_ADMIN_PASSWORD` 환경변수로 대상 서버와 비밀번호를 바꿀 수 있습니다.
