@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>큐브베리 어드민</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:#f4f2ed; --card:#fbfaf6; --ink:#161616; --muted:#77766f; --faint:#929087;
+      --line:#dedbd0; --lime:#d8ff57; --orange:#e4570f; --sidebar:#151614;
+      --peach:#ffb37b; --violet:#c6b9ff; --danger:#a63d32;
+      --sans:'Manrope','Noto Sans KR',sans-serif; --mono:'DM Mono',ui-monospace,monospace;
+    }
+    * { box-sizing:border-box }
+    html, body { margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--sans) }
+    button, input, textarea, select { font:inherit; color:inherit }
+    button { cursor:pointer }
+    a { color:inherit }
+    .login {
+      min-height:100vh; display:grid; place-items:center; padding:28px;
+      background:
+        radial-gradient(circle at 12% 18%, rgba(216,255,87,.45), transparent 26%),
+        radial-gradient(circle at 88% 80%, rgba(228,87,15,.16), transparent 28%),
+        var(--bg);
+    }
+    .login-card { width:min(460px, 100%); background:var(--card); border:1px solid var(--line); border-radius:28px; padding:36px 32px; box-shadow:0 30px 70px rgba(22,22,22,.08) }
+    .mark { width:42px; height:42px; display:grid; place-items:center; border-radius:12px; background:var(--lime); font-weight:800 }
+    .kicker { margin:22px 0 0; font:11px var(--mono); letter-spacing:.22em; text-transform:uppercase; color:var(--orange) }
+    h1 { margin:12px 0 0; font-size:40px; letter-spacing:-.06em; line-height:.95 }
+    .lede { color:var(--muted); line-height:1.65; margin:14px 0 0 }
+    label { display:block; margin-top:18px; font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--faint) }
+    input, textarea, select {
+      width:100%; margin-top:8px; border:1px solid #cfcbbf; background:#fff; border-radius:12px;
+      padding:13px 14px; outline:none;
+    }
+    textarea { min-height:110px; resize:vertical }
+    input:focus, textarea:focus, select:focus { border-color:var(--orange); box-shadow:0 0 0 4px rgba(228,87,15,.12) }
+    .btn, .ghost, .danger {
+      border:0; border-radius:999px; padding:12px 16px; font:12px var(--mono); letter-spacing:.08em; text-transform:uppercase;
+    }
+    .btn { background:var(--ink); color:#fff }
+    .btn:hover { background:var(--orange) }
+    .btn.lime { background:var(--lime); color:var(--ink) }
+    .btn.lime:hover { background:#fff }
+    .ghost { background:transparent; color:var(--muted) }
+    .ghost:hover { color:var(--ink) }
+    .danger { background:transparent; color:var(--danger) }
+    .login .btn { width:100%; margin-top:18px; padding:15px }
+    .hint { margin:14px 0 0; color:var(--faint); font-size:13px }
+    .hint code { font-family:var(--mono); color:var(--ink); background:#efece4; padding:2px 6px; border-radius:6px }
+    .shell { min-height:100vh; display:grid; grid-template-columns:268px 1fr }
+    aside {
+      position:sticky; top:0; height:100vh; background:var(--sidebar); color:#ecebdd;
+      display:flex; flex-direction:column; padding:18px 14px;
+    }
+    .brand { display:flex; gap:12px; align-items:center; padding:8px 8px 18px; border-bottom:1px solid rgba(255,255,255,.08) }
+    .brand strong { display:block; font-size:14px }
+    .brand span, .nav-label { font:10px var(--mono); letter-spacing:.18em; text-transform:uppercase; color:rgba(255,255,255,.38) }
+    nav { display:grid; gap:6px; padding:18px 0; }
+    .nav-btn {
+      display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+      border:0; background:transparent; color:rgba(255,255,255,.62); text-align:left;
+      border-radius:14px; padding:12px 12px; font:12px var(--mono); letter-spacing:.06em; text-transform:uppercase;
+    }
+    .nav-btn.active, .nav-btn:hover { background:var(--lime); color:var(--ink) }
+    .badge { min-width:22px; height:22px; display:grid; place-items:center; border-radius:999px; background:var(--peach); color:var(--ink); font-size:11px }
+    .nav-btn.active .badge, .nav-btn:hover .badge { background:var(--ink); color:var(--lime) }
+    .side-foot { margin-top:auto; display:grid; gap:8px; padding-top:12px; border-top:1px solid rgba(255,255,255,.08) }
+    .side-link, .who { color:rgba(255,255,255,.62); text-decoration:none; font-size:13px; padding:8px }
+    .side-link:hover { color:var(--lime) }
+    .who small { display:block; color:rgba(255,255,255,.38); margin-top:3px }
+    main { min-width:0 }
+    header.page { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; padding:32px 36px 22px; border-bottom:1px solid var(--line) }
+    header.page h2 { margin:8px 0 0; font-size:clamp(32px, 4vw, 46px); letter-spacing:-.06em; line-height:.95 }
+    header.page p { max-width:560px; color:var(--muted); margin:8px 0 0 }
+    .page-body { padding:26px 36px 60px }
+    .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:14px }
+    .stat, .card, .row, .editor {
+      background:var(--card); border:1px solid var(--line); border-radius:22px;
+    }
+    .stat { text-align:left; padding:20px; transition:.18s transform, .18s border-color }
+    .stat:hover { transform:translateY(-3px); border-color:var(--ink) }
+    .stat b { display:block; margin-top:28px; font-size:34px; letter-spacing:-.05em }
+    .stat span, .meta { color:var(--faint); font:11px var(--mono); letter-spacing:.08em; text-transform:uppercase }
+    .split { display:grid; grid-template-columns:1.15fr .85fr; gap:16px; margin-top:16px }
+    .card { padding:8px 8px 12px }
+    .card h3, .editor h3 { display:flex; justify-content:space-between; align-items:center; margin:0; padding:14px 14px 8px; font-size:16px }
+    .list-btn, .row {
+      width:100%; display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center;
+      border:0; background:transparent; text-align:left; padding:12px 14px; border-radius:16px;
+    }
+    .list-btn:hover { background:#f0eee6 }
+    .list-btn strong, .row strong { display:block }
+    .list-btn small, .row small { color:var(--faint) }
+    .dark {
+      background:var(--ink); color:#fff; border-radius:22px; padding:28px; min-height:280px;
+      display:flex; flex-direction:column; justify-content:flex-end;
+    }
+    .dark p { color:rgba(255,255,255,.6); line-height:1.6 }
+    .pill { display:inline-flex; align-items:center; border-radius:999px; padding:5px 9px; font:10px var(--mono); letter-spacing:.08em; text-transform:uppercase }
+    .live { background:var(--lime); color:var(--ink) }
+    .draft { background:#ece9df; color:var(--faint) }
+    .new { background:var(--peach); color:var(--ink) }
+    .contacted { background:var(--violet); color:var(--ink) }
+    .closed { background:#e6e3da; color:#666 }
+    .toolbar { display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap }
+    .search { width:min(320px, 100%); margin:0 }
+    .table { display:grid; gap:8px }
+    .row { grid-template-columns:1.4fr .7fr .4fr auto; padding:16px 18px }
+    .actions { display:flex; gap:4px; justify-content:flex-end }
+    .inquiry { padding:18px 20px; display:grid; gap:10px }
+.inquiry select { width:auto; min-width:140px; margin-top:0 }
+    .inquiry-top, .checks { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    .inquiry p { margin:0; white-space:pre-wrap; line-height:1.65; color:#3f3f38 }
+    .editor { padding:22px; margin-bottom:16px }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px }
+    .span2 { grid-column:1 / -1 }
+    .savebar { display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
+    .checks label { margin:0; display:flex; gap:8px; align-items:center; text-transform:none; letter-spacing:0; font-size:14px; color:#444 }
+    .checks input { width:auto; margin:0 }
+    .empty { border:1px dashed #c9c6bc; border-radius:22px; padding:42px 20px; text-align:center; color:var(--faint) }
+    .filters { display:flex; gap:6px; flex-wrap:wrap }
+    .filters button { border:1px solid var(--line); background:#fff; border-radius:999px; padding:8px 12px; font:11px var(--mono) }
+    .filters button.on { background:var(--ink); color:#fff; border-color:var(--ink) }
+    .menu { display:none; position:sticky; top:0; z-index:5; background:rgba(244,242,237,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:12px 16px }
+    #toasts { position:fixed; right:16px; bottom:16px; display:grid; gap:8px; z-index:20 }
+    .toast { background:var(--ink); color:#fff; border-radius:14px; padding:12px 14px; box-shadow:0 12px 30px rgba(0,0,0,.18); max-width:320px }
+    .toast.bad { background:var(--danger) }
+    .thumb { width:54px; height:36px; object-fit:cover; border-radius:8px; background:#ece9df }
+    .title-cell { display:flex; gap:12px; align-items:center; min-width:0 }
+    .title-cell div { min-width:0 }
+    .title-cell strong, .title-cell small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns:1fr }
+      aside { position:fixed; z-index:8; transform:translateX(-105%); width:min(84vw, 300px); transition:.2s transform }
+      aside.open { transform:none }
+      .menu { display:flex; justify-content:space-between; align-items:center }
+      header.page, .page-body { padding-left:18px; padding-right:18px }
+      .stats, .split, .grid, .row { grid-template-columns:1fr }
+      .backdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:7 }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="toasts"></div>
+  <script>
+    const PAGES = [
+      ["overview", "Overview", "개요"],
+      ["portfolio", "Portfolio", "포트폴리오"],
+      ["services", "Services", "상품"],
+      ["faqs", "FAQ", "질문"],
+      ["inquiries", "Inquiries", "문의"],
+      ["settings", "Settings", "설정"],
+    ];
+    const state = { user: null, content: null, summary: null, query: "", inquiryFilter: "all", editor: null, busy: false };
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
+    const tokenKey = "cuberry-admin-token";
+    const pageFromPath = () => {
+      const part = location.pathname.replace(/\/$/, "").split("/")[2];
+      return PAGES.some(([id]) => id === part) ? part : "overview";
+    };
+
+    function toast(message, bad = false) {
+      const node = document.createElement("div");
+      node.className = `toast${bad ? " bad" : ""}`;
+      node.textContent = message;
+      document.querySelector("#toasts").append(node);
+      setTimeout(() => node.remove(), 3200);
+    }
+
+    async function api(path, options = {}) {
+      const headers = { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) };
+      const token = sessionStorage.getItem(tokenKey);
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const response = await fetch(path, { ...options, headers, credentials: "include" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "요청에 실패했습니다.");
+      return data;
+    }
+
+    function go(page) {
+      const next = page === "overview" ? "/admin" : `/admin/${page}`;
+      if (location.pathname !== next) history.pushState({}, "", next);
+      render();
+    }
+
+    async function load() {
+      const [content, summary] = await Promise.all([api("/api/admin/content"), api("/api/admin/summary")]);
+      state.content = content;
+      state.summary = summary;
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("이미지를 읽지 못했습니다."));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loginView() {
+      return `<div class="login"><form class="login-card" id="login-form">
+        <div class="mark">✦</div>
+        <p class="kicker">Cube Rry / Admin</p>
+        <h1>운영 콘솔</h1>
+        <p class="lede">포트폴리오, 상품, FAQ, 상담 문의와 첫 화면 문구를 한 곳에서 관리합니다. 저장하면 랜딩 페이지에 반영됩니다.</p>
+        <label>Password<input type="password" name="password" autocomplete="current-password" required placeholder="비밀번호" /></label>
+        <button class="btn" type="submit">Sign in</button>
+        <p class="hint">초기 비밀번호 <code>cuberry2026</code> · 로그인 후 설정에서 변경하세요.</p>
+        <p class="hint"><a href="/">← 사이트로 돌아가기</a></p>
+      </form></div>`;
+    }
+
+    function shell(body) {
+      const page = pageFromPath();
+      const fresh = state.summary?.newInquiries || 0;
+      return `<div class="shell">
+        <button class="menu" id="open-nav" type="button"><strong>CUBERRY ADMIN</strong><span>${esc(PAGES.find(([id]) => id === page)?.[2] || "")}</span></button>
+        <aside id="sidebar">
+          <div class="brand"><div class="mark">✦</div><div><span>Cube Rry</span><strong>Content OS</strong></div></div>
+          <p class="nav-label" style="padding:16px 12px 0">Workspace</p>
+          <nav>${PAGES.map(([id, en, ko]) => `<button class="nav-btn${id === page ? " active" : ""}" data-go="${id}"><span>${en}<br><small style="letter-spacing:0;text-transform:none;opacity:.7">${ko}</small></span>${id === "inquiries" && fresh ? `<b class="badge">${fresh}</b>` : ""}</button>`).join("")}</nav>
+          <div class="side-foot">
+            <a class="side-link" href="/" target="_blank" rel="noreferrer">Live site ↗</a>
+            <div class="who">${esc(state.user?.name || "Admin")}<small>${esc(state.user?.email || "owner")}</small></div>
+            <button class="ghost" id="logout" type="button" style="color:#fff;text-align:left">Sign out</button>
+          </div>
+        </aside>
+        <main>${body}</main>
+      </div>`;
+    }
+
+    function head(kicker, title, copy, action = "") {
+      return `<header class="page"><div><p class="kicker">${kicker}</p><h2>${title}</h2><p>${copy}</p></div>${action}</header>`;
+    }
+
+    function statusPill(item) {
+      return item.isPublished ? `<span class="pill live">Live</span>` : `<span class="pill draft">Draft</span>`;
+    }
+
+    function overview() {
+      const s = state.summary || {};
+      const content = state.content || {};
+      const cards = [
+        ["Portfolio", s.portfolio || 0, `${s.published || 0} published`, "portfolio"],
+        ["New inquiries", s.newInquiries || 0, `${s.inquiries || 0} total`, "inquiries"],
+        ["Services", s.services || 0, `${s.faqs || 0} FAQ`, "services"],
+      ];
+      return shell(`${head("Cube Rry / Overview", "Good to see you.", "랜딩 페이지에 노출되는 콘텐츠와 상담 문의를 한 곳에서 관리합니다.", `<a class="btn" href="/" target="_blank" rel="noreferrer">Live site ↗</a>`)}
+        <div class="page-body">
+          <div class="stats">${cards.map(([label, value, note, page]) => `<button class="stat" data-go="${page}"><span>${label}</span><b>${value}</b><span>${note}</span></button>`).join("")}</div>
+          <div class="split">
+            <section class="card"><h3>Recent inquiries <button class="ghost" data-go="inquiries">Manage →</button></h3>
+              ${(content.inquiries || []).slice(0, 5).map((item) => `<button class="list-btn" data-go="inquiries"><div><strong>${esc(item.name)}</strong><small>${esc(item.company || item.email)} · ${esc(item.projectType || "문의")}</small></div><span class="pill ${esc(item.status)}">${esc(item.status)}</span></button>`).join("") || `<p class="empty">아직 접수된 문의가 없습니다.</p>`}
+            </section>
+            <div class="dark"><p class="kicker" style="color:var(--lime)">Next best action</p><h2 style="font-size:34px;letter-spacing:-.05em">문의와 작업물을 최신으로 유지하세요.</h2><p>새 프로젝트를 등록하거나 비공개로 전환하면 랜딩의 해당 카드에 바로 반영됩니다.</p><button class="btn lime" data-go="portfolio" type="button">Add a project</button></div>
+          </div>
+        </div>`);
+    }
+
+    function editorShell(title, inner) {
+      return `<form class="editor" id="editor"><h3>${title}<button class="ghost" type="button" id="cancel-edit">Close</button></h3>${inner}<div class="savebar"><button class="ghost" type="button" id="cancel-edit-2">Cancel</button><button class="btn" type="submit">${state.busy ? "Saving..." : "Save changes"}</button></div></form>`;
+    }
+
+    function portfolioPage() {
+      const q = state.query.trim().toLowerCase();
+      const rows = (state.content?.portfolio || []).filter((item) => !q || `${item.title} ${item.category} ${item.tags}`.toLowerCase().includes(q));
+      const draft = state.editor || null;
+      const form = draft ? editorShell(draft.id ? "Edit portfolio" : "New portfolio", `<div class="grid">
+        <label>Title<input name="title" required value="${esc(draft.title)}" /></label>
+        <label>Category<input name="category" required value="${esc(draft.category)}" /></label>
+        <label>Year<input name="year" required value="${esc(draft.year)}" /></label>
+        <label>Sort<input name="sortOrder" type="number" value="${esc(draft.sortOrder)}" /></label>
+        <label>Kind<select name="kind">${["기업","브랜드","광고","유튜브","모션","인터뷰"].map((kind) => `<option ${draft.kind === kind ? "selected" : ""}>${kind}</option>`).join("")}</select></label>
+        <label>Tags<input name="tags" value="${esc(draft.tags)}" placeholder="AI, EDITING" /></label>
+        <label class="span2">Video URL<input name="videoUrl" value="${esc(draft.videoUrl)}" placeholder="https:// 또는 /us-ad-rere.mp4" /></label>
+        <label class="span2">Thumbnail URL<input name="thumbnailUrl" value="${esc(draft.thumbnailUrl)}" placeholder="https:// 또는 /portfolio_thumbs/..." /></label>
+        <label class="span2">Thumbnail file<input name="thumbnailFile" type="file" accept="image/*" /></label>
+        <label class="span2">Description<textarea name="description" required>${esc(draft.description)}</textarea></label>
+        <div class="checks span2"><label><input type="checkbox" name="isFeatured" ${draft.isFeatured ? "checked" : ""}/> Featured</label><label><input type="checkbox" name="isPublished" ${draft.isPublished ? "checked" : ""}/> Published</label></div>
+      </div>`) : "";
+      return shell(`${head("Content / Portfolio", "Selected works", "영상 링크, 카테고리, 설명과 공개 여부를 관리합니다. 공개된 항목은 랜딩 페이지에 반영됩니다.", `<button class="btn" id="add" type="button">Add work</button>`)}
+        <div class="page-body">${form}<div class="toolbar"><input class="search" id="search" placeholder="작품 검색" value="${esc(state.query)}" /><span class="meta">${rows.length} items</span></div>
+        <div class="table">${rows.map((item) => `<article class="row"><div class="title-cell">${item.thumbnailUrl ? `<img class="thumb" src="${esc(item.thumbnailUrl)}" alt="" />` : `<span class="thumb"></span>`}<div><strong>${esc(item.title)}</strong><small>${esc(item.description)}</small></div></div><span class="meta">${esc(item.category)}</span><span>${esc(item.year)}</span><div class="actions">${statusPill(item)}<button class="ghost" data-edit="${item.id}">Edit</button><button class="danger" data-delete="${item.id}">Delete</button></div></article>`).join("") || `<div class="empty">표시할 작품이 없습니다.</div>`}</div></div>`);
+    }
+
+    function servicesPage() {
+      const draft = state.editor;
+      const form = draft ? editorShell(draft.id ? "Edit service" : "New service", `<div class="grid">
+        <label>Slug<input name="slug" required value="${esc(draft.slug)}" /></label>
+        <label>Name<input name="name" required value="${esc(draft.name)}" /></label>
+        <label>Price<input name="price" required value="${esc(draft.price)}" /></label>
+        <label>Duration<input name="duration" required value="${esc(draft.duration)}" /></label>
+        <label>Accent<input name="accent" value="${esc(draft.accent || "lime")}" /></label>
+        <label>Sort<input name="sortOrder" type="number" value="${esc(draft.sortOrder)}" /></label>
+        <label class="span2">Description<textarea name="description" required>${esc(draft.description)}</textarea></label>
+        <div class="checks span2"><label><input type="checkbox" name="isPublished" ${draft.isPublished ? "checked" : ""}/> Published</label></div>
+      </div>`) : "";
+      const cards = (state.content?.services || []).map((item) => `<article class="card" style="padding:18px"><div class="inquiry-top"><span class="meta">${esc(item.slug)} / ${esc(item.duration)}</span>${statusPill(item)}</div><h3 style="padding:12px 0">${esc(item.name)}</h3><b style="font-size:28px;letter-spacing:-.04em">${esc(item.price)}</b><p class="lede">${esc(item.description)}</p><div class="actions"><span class="meta">Order ${item.sortOrder}</span><button class="ghost" data-edit="${item.id}">Edit</button><button class="danger" data-delete="${item.id}">Delete</button></div></article>`).join("");
+      return shell(`${head("Content / Services", "Pricing & services", "상담 상품 카드와 가격 정보를 관리합니다.", `<button class="btn" id="add" type="button">Add service</button>`)}<div class="page-body">${form}<div class="stats">${cards}</div></div>`);
+    }
+
+    function faqPage() {
+      const draft = state.editor;
+      const form = draft ? editorShell(draft.id ? "Edit FAQ" : "New FAQ", `<div class="grid">
+        <label class="span2">Question<input name="question" required value="${esc(draft.question)}" /></label>
+        <label class="span2">Answer<textarea name="answer" required>${esc(draft.answer)}</textarea></label>
+        <label>Sort<input name="sortOrder" type="number" value="${esc(draft.sortOrder)}" /></label>
+        <div class="checks"><label><input type="checkbox" name="isPublished" ${draft.isPublished ? "checked" : ""}/> Published</label></div>
+      </div>`) : "";
+      const rows = (state.content?.faqs || []).map((item) => `<article class="card" style="padding:18px;margin-bottom:10px"><div class="inquiry-top"><span class="pill live">${String(item.sortOrder).padStart(2, "0")}</span>${statusPill(item)}</div><h3 style="padding:10px 0 0">${esc(item.question)}</h3><p class="lede">${esc(item.answer)}</p><div class="actions"><button class="ghost" data-edit="${item.id}">Edit</button><button class="danger" data-delete="${item.id}">Delete</button></div></article>`).join("");
+      return shell(`${head("Content / FAQ", "Answers, ready.", "자주 묻는 질문과 답변을 편집하면 랜딩 페이지에 반영됩니다.", `<button class="btn" id="add" type="button">Add FAQ</button>`)}<div class="page-body">${form}${rows || `<div class="empty">FAQ가 없습니다.</div>`}</div>`);
+    }
+
+    function inquiriesPage() {
+      const filter = state.inquiryFilter;
+      const rows = (state.content?.inquiries || []).filter((item) => filter === "all" || item.status === filter);
+      const filters = ["all", "new", "contacted", "closed"].map((id) => `<button type="button" class="${filter === id ? "on" : ""}" data-filter="${id}">${id}</button>`).join("");
+      const list = rows.map((item) => `<article class="card inquiry"><div class="inquiry-top"><strong>${esc(item.name)}</strong>${item.company ? `<span class="meta">${esc(item.company)}</span>` : ""}<span class="pill ${esc(item.status)}">${esc(item.status)}</span><span class="meta">${esc(item.code)}</span></div><div class="meta"><a href="mailto:${esc(item.email)}">${esc(item.email)}</a> ${item.phone ? `· ${esc(item.phone)}` : ""} ${item.projectType ? `· ${esc(item.projectType)}` : ""} ${item.budget ? `· ${esc(item.budget)}` : ""}</div><p>${esc(item.message)}</p><div class="inquiry-top"><span class="meta">${new Date(item.createdAt).toLocaleString("ko-KR")}</span><label style="margin:0">Status<select data-status="${item.id}">${["new","contacted","closed"].map((status) => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label></div></article>`).join("");
+      return shell(`${head("Leads / Inquiries", "Project conversations", "랜딩 페이지에서 접수된 상담 문의를 확인하고 상태를 관리합니다.")}<div class="page-body"><div class="toolbar"><div class="filters">${filters}</div><span class="meta">${rows.length} leads</span></div><div class="table">${list || `<div class="empty">이 상태의 문의가 없습니다.</div>`}</div></div>`);
+    }
+
+    function settingsPage() {
+      const settings = state.content?.settings || {};
+      return shell(`${head("System / Settings", "Site settings", "랜딩 페이지의 첫인상과 연락처, 관리자 비밀번호를 관리합니다.")}<div class="page-body"><form class="editor" id="settings-form"><h3>Global content</h3><div class="grid">
+        <label>Brand name<input name="brandName" required value="${esc(settings.brandName)}" /></label>
+        <label>Hero eyebrow<input name="heroEyebrow" required value="${esc(settings.heroEyebrow)}" /></label>
+        <label class="span2">Hero title<input name="heroTitle" required value="${esc(settings.heroTitle)}" /></label>
+        <label class="span2">Hero subtitle<textarea name="heroSubtitle" required>${esc(settings.heroSubtitle)}</textarea></label>
+        <label>Contact email<input name="contactEmail" type="email" required value="${esc(settings.contactEmail)}" /></label>
+        <label>Contact phone<input name="contactPhone" required value="${esc(settings.contactPhone)}" /></label>
+      </div><div class="savebar"><button class="btn" type="submit">Save changes</button></div></form>
+      <form class="editor" id="password-form"><h3>Password</h3><div class="grid"><label>Current<input name="currentPassword" type="password" required /></label><label>New password<input name="nextPassword" type="password" minlength="8" required /></label></div><div class="savebar"><button class="btn" type="submit">Update password</button></div></form></div>`);
+    }
+
+    function view() {
+      if (!state.user) return loginView();
+      const page = pageFromPath();
+      if (!state.content) return shell(`<div class="page-body"><p>불러오는 중...</p></div>`);
+      if (page === "portfolio") return portfolioPage();
+      if (page === "services") return servicesPage();
+      if (page === "faqs") return faqPage();
+      if (page === "inquiries") return inquiriesPage();
+      if (page === "settings") return settingsPage();
+      return overview();
+    }
+
+    function bind() {
+      document.querySelector("#login-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        try {
+          const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ password: new FormData(event.currentTarget).get("password") }) });
+          sessionStorage.setItem(tokenKey, result.token);
+          state.user = result.user;
+          await load();
+          toast("로그인했습니다.");
+          render();
+        } catch (error) { toast(error.message, true); }
+      });
+      document.querySelectorAll("[data-go]").forEach((node) => node.addEventListener("click", () => { state.editor = null; go(node.dataset.go); }));
+      document.querySelector("#logout")?.addEventListener("click", async () => {
+        await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+        sessionStorage.removeItem(tokenKey);
+        state.user = null;
+        state.content = null;
+        render();
+      });
+      document.querySelector("#open-nav")?.addEventListener("click", () => {
+        document.querySelector("#sidebar")?.classList.add("open");
+        const backdrop = document.createElement("div");
+        backdrop.className = "backdrop";
+        backdrop.addEventListener("click", () => { document.querySelector("#sidebar")?.classList.remove("open"); backdrop.remove(); });
+        document.body.append(backdrop);
+      });
+      document.querySelector("#add")?.addEventListener("click", () => {
+        const page = pageFromPath();
+        state.editor = page === "portfolio"
+          ? { title:"", category:"BRAND FILM", year:"2026", description:"", videoUrl:"https://", thumbnailUrl:"", tags:"PLANNING, EDITING", sortOrder:(state.content.portfolio.at(-1)?.sortOrder || 0) + 1, kind:"광고", isFeatured:false, isPublished:true }
+          : page === "services"
+            ? { slug:"", name:"", price:"", duration:"", description:"", accent:"lime", sortOrder:(state.content.services.at(-1)?.sortOrder || 0) + 1, isPublished:true }
+            : { question:"", answer:"", sortOrder:(state.content.faqs.at(-1)?.sortOrder || 0) + 1, isPublished:true };
+        render();
+      });
+      document.querySelectorAll("[data-edit]").forEach((node) => node.addEventListener("click", () => {
+        const page = pageFromPath();
+        const list = state.content[page] || state.content.portfolio;
+        state.editor = { ...(list.find((item) => item.id === Number(node.dataset.edit)) || {}) };
+        render();
+      }));
+      document.querySelectorAll("#cancel-edit, #cancel-edit-2").forEach((node) => node.addEventListener("click", () => { state.editor = null; render(); }));
+      const search = document.querySelector("#search");
+      if (search) {
+        const applySearch = (event) => {
+          if (event.isComposing) return;
+          state.query = event.target.value;
+          const pos = event.target.selectionStart;
+          render();
+          const next = document.querySelector("#search");
+          if (next) { next.focus(); next.setSelectionRange(pos, pos); }
+        };
+        search.addEventListener("input", applySearch);
+        search.addEventListener("compositionend", applySearch);
+      }
+      document.querySelectorAll("[data-filter]").forEach((node) => node.addEventListener("click", () => { state.inquiryFilter = node.dataset.filter; render(); }));
+      document.querySelectorAll("[data-delete]").forEach((node) => node.addEventListener("click", async () => {
+        if (!confirm("이 항목을 삭제할까요? 랜딩 페이지에서도 숨겨집니다.")) return;
+        const page = pageFromPath();
+        const path = page === "portfolio" ? "portfolio" : page === "services" ? "services" : "faqs";
+        try {
+          await api(`/api/admin/${path}/${node.dataset.delete}`, { method: "DELETE" });
+          toast("삭제했습니다.");
+          await load();
+          render();
+        } catch (error) { toast(error.message, true); }
+      }));
+      document.querySelectorAll("[data-status]").forEach((node) => node.addEventListener("change", async () => {
+        try {
+          await api(`/api/admin/inquiries/${node.dataset.status}`, { method: "PATCH", body: JSON.stringify({ status: node.value }) });
+          toast("문의 상태를 변경했습니다.");
+          await load();
+          render();
+        } catch (error) { toast(error.message, true); }
+      }));
+      document.querySelector("#editor")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const data = Object.fromEntries(new FormData(form).entries());
+        data.isPublished = Boolean(form.isPublished?.checked);
+        data.isFeatured = Boolean(form.isFeatured?.checked);
+        data.sortOrder = Number(data.sortOrder || 0);
+        const page = pageFromPath();
+        const path = page === "portfolio" ? "portfolio" : page === "services" ? "services" : "faqs";
+        try {
+          if (form.thumbnailFile?.files?.[0]) data.thumbnailDataUrl = await fileToDataUrl(form.thumbnailFile.files[0]);
+          delete data.thumbnailFile;
+          const id = state.editor?.id;
+          await api(`/api/admin/${path}${id ? `/${id}` : ""}`, { method: id ? "PUT" : "POST", body: JSON.stringify(data) });
+          toast("저장했습니다. 랜딩 페이지에 반영됩니다.");
+          state.editor = null;
+          await load();
+          render();
+        } catch (error) { toast(error.message, true); }
+      });
+      document.querySelector("#settings-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+        try {
+          await api("/api/admin/settings", { method: "PUT", body: JSON.stringify(data) });
+          toast("사이트 설정을 저장했습니다.");
+          await load();
+          render();
+        } catch (error) { toast(error.message, true); }
+      });
+      document.querySelector("#password-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+        try {
+          await api("/api/auth/password", { method: "POST", body: JSON.stringify(data) });
+          event.currentTarget.reset();
+          toast("비밀번호를 변경했습니다.");
+        } catch (error) { toast(error.message, true); }
+      });
+    }
+
+    function render() {
+      document.querySelector("#app").innerHTML = view();
+      bind();
+    }
+
+    window.addEventListener("popstate", render);
+    (async () => {
+      try {
+        state.user = await api("/api/auth/me");
+        await load();
+      } catch {
+        state.user = null;
+      }
+      render();
+    })();
+  </script>
+</body>
+</html>

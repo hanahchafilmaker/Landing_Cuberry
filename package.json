@@ -1,0 +1,8 @@
+{
+  "name": "cuberry-landing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-sqlite server/index.mjs"
+  }
+}
