@@ -2,6 +2,11 @@
 
 큐브베리 랜딩 페이지(`index.html`)와 자체 어드민 콘솔(`/admin`)을 한 개의 Node 서버로 서비스합니다.
 
+https://landing-cuberry-admin.onrender.com/
+
+https://landing-cuberry-admin.onrender.com/admin
+
+
 ## 실행
 
 ```bash
