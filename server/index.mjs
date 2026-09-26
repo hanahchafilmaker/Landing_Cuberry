@@ -87,6 +87,22 @@ db.exec(`
     landing_slot TEXT,
     updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS team (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT '',
+    bio TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    photo_position INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_published INTEGER NOT NULL DEFAULT 1,
+    landing_slot TEXT,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS inquiries (
     id INTEGER PRIMARY KEY,
     code TEXT NOT NULL UNIQUE,
@@ -211,7 +227,31 @@ function ensureAdminUser() {
   }
 }
 
+// 팀(PD·감독) 프로필은 나중에 추가된 기능이라 기존 DB에도 한 번만 시드한다.
+// (관리자가 전부 삭제한 뒤 재시작해도 다시 생기지 않도록 meta 에 기록)
+function seedTeam() {
+  if (db.prepare("SELECT value FROM meta WHERE key = 'team_seeded'").get()) return;
+  const hasRows = Number(db.prepare("SELECT COUNT(*) AS n FROM team").get().n || 0) > 0;
+  if (!hasRows) {
+    const seed = JSON.parse(readFileSync(SEED_PATH, "utf8"));
+    const stamp = nowIso();
+    const insert = db.prepare(`INSERT INTO team (name, role, bio, photo_url, photo_position, sort_order, is_published, landing_slot, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    for (const item of seed.team || []) {
+      insert.run(item.name, item.role || "", item.bio || "", item.photoUrl || "", clampPosition(item.photoPosition), item.sortOrder || 0, bool(item.isPublished !== false), item.landingSlot || null, stamp);
+    }
+    console.log("팀 프로필 시드 데이터를 넣었습니다.");
+  }
+  db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('team_seeded', ?)").run(nowIso());
+}
+
+function clampPosition(value) {
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+}
+
 seedContent();
+seedTeam();
 ensureAdminUser();
 
 function rowSettings(row) {
@@ -276,6 +316,21 @@ function rowFaq(row) {
   };
 }
 
+function rowTeam(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    bio: row.bio,
+    photoUrl: row.photo_url || "",
+    photoPosition: row.photo_position,
+    sortOrder: row.sort_order,
+    isPublished: flag(row.is_published),
+    landingSlot: row.landing_slot,
+    updatedAt: row.updated_at,
+  };
+}
+
 function rowInquiry(row) {
   return {
     id: row.id,
@@ -298,7 +353,8 @@ function publicContent() {
   const services = db.prepare("SELECT * FROM services WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowService);
   const portfolio = db.prepare("SELECT * FROM portfolio WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowPortfolio);
   const faqs = db.prepare("SELECT * FROM faqs WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowFaq);
-  return { settings, services, portfolio, faqs };
+  const team = db.prepare("SELECT * FROM team WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowTeam);
+  return { settings, services, portfolio, faqs, team };
 }
 
 function adminContent() {
@@ -307,6 +363,7 @@ function adminContent() {
     services: db.prepare("SELECT * FROM services ORDER BY sort_order, id").all().map(rowService),
     portfolio: db.prepare("SELECT * FROM portfolio ORDER BY sort_order, id").all().map(rowPortfolio),
     faqs: db.prepare("SELECT * FROM faqs ORDER BY sort_order, id").all().map(rowFaq),
+    team: db.prepare("SELECT * FROM team ORDER BY sort_order, id").all().map(rowTeam),
     inquiries: db.prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC").all().map(rowInquiry),
   };
 }
@@ -318,6 +375,7 @@ function summary() {
     published: count("SELECT COUNT(*) AS n FROM portfolio WHERE is_published = 1"),
     services: count("SELECT COUNT(*) AS n FROM services"),
     faqs: count("SELECT COUNT(*) AS n FROM faqs"),
+    team: count("SELECT COUNT(*) AS n FROM team"),
     inquiries: count("SELECT COUNT(*) AS n FROM inquiries"),
     newInquiries: count("SELECT COUNT(*) AS n FROM inquiries WHERE status = 'new'"),
   };
@@ -533,6 +591,32 @@ function upsertService(id, input) {
   }
   const result = db.prepare(`INSERT INTO services (slug, name, price, duration, description, accent, sort_order, is_published, landing_slot, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`).run(slug, name, price, duration, description, accent, sortOrder, bool(input.isPublished !== false), stamp);
+  return Number(result.lastInsertRowid);
+}
+
+function upsertTeam(id, input) {
+  const name = requireText(input.name, "이름", 120);
+  const role = optionalText(input.role, 200);
+  // 이력은 한 줄에 하나씩. 빈 줄은 버린다.
+  const bio = String(input.bio ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).join("\n").slice(0, 4000);
+  let photoUrl = input.removePhoto ? "" : optionalText(input.photoUrl, 2000);
+  if (input.photoDataUrl) photoUrl = saveUpload(input.photoDataUrl);
+  if (photoUrl && !/^(https?:\/\/|\/)/.test(photoUrl)) {
+    throw Object.assign(new Error("사진 URL은 https:// 또는 / 로 시작해야 합니다."), { status: 400 });
+  }
+  const photoPosition = clampPosition(input.photoPosition);
+  const sortOrder = Number.isFinite(Number(input.sortOrder)) ? Number(input.sortOrder) : 0;
+  const stamp = nowIso();
+  if (id) {
+    const current = db.prepare("SELECT id FROM team WHERE id = ?").get(id);
+    if (!current) throw Object.assign(new Error("프로필을 찾을 수 없습니다."), { status: 404 });
+    db.prepare(`UPDATE team SET name=?, role=?, bio=?, photo_url=?, photo_position=?, sort_order=?, is_published=?, updated_at=? WHERE id=?`).run(
+      name, role, bio, photoUrl, photoPosition, sortOrder, bool(input.isPublished), stamp, id,
+    );
+    return id;
+  }
+  const result = db.prepare(`INSERT INTO team (name, role, bio, photo_url, photo_position, sort_order, is_published, landing_slot, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`).run(name, role, bio, photoUrl, photoPosition, sortOrder, bool(input.isPublished !== false), stamp);
   return Number(result.lastInsertRowid);
 }
 
@@ -755,6 +839,16 @@ async function handleApi(req, res, url) {
     if (req.method === "PUT" && id) return send(res, 200, { id: upsertFaq(id, await readBody(req)) });
     if (req.method === "DELETE" && id) {
       db.prepare("DELETE FROM faqs WHERE id = ?").run(id);
+      return send(res, 200, { ok: true });
+    }
+  }
+  const teamMatch = pathname.match(/^\/api\/admin\/team(?:\/(\d+))?$/);
+  if (teamMatch) {
+    const id = teamMatch[1] ? Number(teamMatch[1]) : null;
+    if (req.method === "POST" && !id) return send(res, 200, { id: upsertTeam(null, await readBody(req)) });
+    if (req.method === "PUT" && id) return send(res, 200, { id: upsertTeam(id, await readBody(req)) });
+    if (req.method === "DELETE" && id) {
+      db.prepare("DELETE FROM team WHERE id = ?").run(id);
       return send(res, 200, { ok: true });
     }
   }

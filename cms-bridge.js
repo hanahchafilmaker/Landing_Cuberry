@@ -193,6 +193,92 @@
     if (extra) extra.hidden = extras === 0;
   };
 
+  // 팀 프로필: "[텍스트](https://...)" 줄은 링크로, 나머지는 일반 텍스트로 렌더링한다.
+  const bioItem = (line) => {
+    const li = document.createElement("li");
+    const link = line.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    if (link) {
+      const a = document.createElement("a");
+      a.href = link[2];
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = link[1];
+      li.append(a);
+    } else {
+      li.textContent = line;
+    }
+    return li;
+  };
+
+  const fillPerson = (card, person) => {
+    card.hidden = false;
+    let portrait = card.querySelector(".portrait");
+    if (!portrait) {
+      portrait = document.createElement("div");
+      portrait.className = "portrait";
+      card.prepend(portrait);
+    }
+    let image = portrait.querySelector("img");
+    if (person.photoUrl) {
+      if (!image) {
+        image = document.createElement("img");
+        image.loading = "lazy";
+        portrait.append(image);
+      }
+      if (image.getAttribute("src") !== person.photoUrl) image.src = person.photoUrl;
+      image.alt = `${person.name} 프로필 사진`;
+      image.style.objectPosition = `center ${Number(person.photoPosition) || 0}%`;
+    } else if (image) {
+      image.remove();
+    }
+    let title = card.querySelector("h3");
+    if (!title) {
+      title = document.createElement("h3");
+      portrait.after(title);
+    }
+    title.textContent = person.name;
+    let role = card.querySelector(".role");
+    if (!role) {
+      role = document.createElement("div");
+      role.className = "role";
+      title.after(role);
+    }
+    role.textContent = person.role || "";
+    role.hidden = !person.role;
+    let list = card.querySelector("ul");
+    if (!list) {
+      list = document.createElement("ul");
+      role.after(list);
+    }
+    const lines = String(person.bio || "").split(/\n/).map((line) => line.trim()).filter(Boolean);
+    list.replaceChildren(...lines.map(bioItem));
+    list.hidden = lines.length === 0;
+  };
+
+  const applyTeam = (team) => {
+    const grid = document.querySelector('[data-cms="team-grid"]');
+    if (!grid || !Array.isArray(team)) return;
+    const slotCards = new Map([...grid.querySelectorAll("[data-cms-slot^='team-']")].map((card) => [card.dataset.cmsSlot, card]));
+    grid.querySelectorAll("[data-cms-id^='team-']").forEach((card) => card.remove());
+    const used = new Set();
+    // 관리자에서 정한 정렬 순서대로 카드를 다시 배치한다.
+    team.forEach((person) => {
+      let card = person.landingSlot ? slotCards.get(person.landingSlot) : null;
+      if (!card) {
+        card = document.createElement("article");
+        card.className = "person";
+        card.dataset.cmsId = `team-${person.id}`;
+        card.innerHTML = '<div class="portrait"></div><h3></h3><div class="role"></div><ul></ul>';
+      }
+      used.add(card);
+      fillPerson(card, person);
+      grid.append(card);
+    });
+    slotCards.forEach((card) => {
+      if (!used.has(card)) card.hidden = true;
+    });
+  };
+
   const style = document.createElement("style");
   style.textContent = ".faq-item.open .faq-answer{max-height:520px}#cms-extra-works{margin-top:18px}[hidden]{display:none!important}";
   document.head.append(style);
@@ -206,6 +292,7 @@
       applyServices(data.services || []);
       applyFaqs(data.faqs || []);
       applyPortfolio(data.portfolio || []);
+      applyTeam(data.team);
     })
     .catch(() => {});
 })();
