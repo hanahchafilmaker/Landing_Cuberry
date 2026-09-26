@@ -1,4 +1,49 @@
 (() => {
+  // ── API 서버 주소(Origin) 결정 ─────────────────────────────────────────
+  // GitHub Pages 처럼 정적 호스팅에 올린 랜딩 페이지는 같은 주소에 API 가 없다.
+  // 원격 Node 서버의 콘텐츠를 읽어오려면 아래 BAKED_API_ORIGIN 에 주소를 적거나,
+  // 어드민 로그인 화면의 "API 서버 주소"에서 저장하면 된다(둘은 같은 키를 공유한다).
+  // 서버 쪽 환경변수 ADMIN_ALLOWED_ORIGINS 에 이 페이지의 Origin 이 허용되어 있어야 한다.
+  const BAKED_API_ORIGIN = ""; // 예: "https://cuberry-landing.onrender.com"
+  const API_ORIGIN_KEY = "cuberry.apiOrigin";
+
+  const normalizeApiOrigin = (value) => {
+    let next = String(value ?? "").trim();
+    if (!next) return "";
+    if (/^(same|clear|reset)$/i.test(next)) return "";
+    if (!/^https?:\/\//i.test(next)) next = `https://${next}`;
+    try {
+      const parsed = new URL(next);
+      return /^https?:$/.test(parsed.protocol) ? parsed.origin : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const resolveApiOrigin = () => {
+    // 주소창의 ?api= 는 이번 방문에만 적용하고 저장하지 않는다(잘못된 링크가 사이트를 망가뜨리지 않게).
+    const fromQuery = normalizeApiOrigin(new URLSearchParams(location.search).get("api"));
+    if (fromQuery) return fromQuery;
+    let saved = "";
+    try { saved = window.localStorage.getItem(API_ORIGIN_KEY) || ""; } catch { saved = ""; }
+    return normalizeApiOrigin(saved) || normalizeApiOrigin(BAKED_API_ORIGIN) || "";
+  };
+
+  const apiOrigin = resolveApiOrigin();
+  const isSameOrigin = () => !apiOrigin || apiOrigin === location.origin;
+  const apiUrl = (path) => (isSameOrigin() ? path : `${apiOrigin}${path}`);
+  // "/uploads/a.jpg" 처럼 루트 상대경로인 콘텐츠는 원격 서버 주소를 붙여야 정적 호스트에서도 보인다.
+  const assetUrl = (value) => {
+    const text = String(value ?? "");
+    if (!text) return text;
+    if (/^(https?:|data:|blob:|\/\/|#|mailto:|tel:)/i.test(text)) return text;
+    if (!text.startsWith("/")) return text; // "portfolio_thumbs/a.jpg" 같은 상대경로는 그대로 둔다
+    return isSameOrigin() ? text : `${apiOrigin}${text}`;
+  };
+
+  // index.html 의 다른 인라인 스크립트(B2B 문의 폼 등)도 같은 서버 주소를 쓸 수 있도록 공개한다.
+  window.CuberryApi = { origin: apiOrigin, isSameOrigin, url: apiUrl, assetUrl };
+
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[char]));
@@ -121,11 +166,11 @@
     if (tag) tag.textContent = String(item.tags || "").replace(/,\s*/g, " · ");
     const image = card.querySelector("img");
     if (image && item.thumbnailUrl) {
-      image.src = item.thumbnailUrl;
+      image.src = assetUrl(item.thumbnailUrl);
       image.alt = `${item.title} 썸네일`;
     }
     const source = card.querySelector("video source");
-    if (source && item.videoUrl && !item.videoUrl.includes("drive.google.com")) source.src = item.videoUrl;
+    if (source && item.videoUrl && !item.videoUrl.includes("drive.google.com")) source.src = assetUrl(item.videoUrl);
   };
 
   const fillDrive = (card, item) => {
@@ -134,7 +179,7 @@
     setText(card.querySelector(".drive-video-meta p"), item.description);
     const link = card.querySelector(".drive-video-meta a");
     if (link && item.videoUrl) {
-      link.href = item.videoUrl;
+      link.href = assetUrl(item.videoUrl);
       link.setAttribute("aria-label", `${item.title} 새 창에서 보기`);
     }
     const button = card.querySelector(".drive-load");
@@ -143,7 +188,7 @@
     if (button && driveId) {
       button.dataset.driveId = driveId[1];
       const image = button.querySelector("img");
-      if (image) image.src = item.thumbnailUrl || `https://drive.google.com/thumbnail?id=${driveId[1]}&sz=w1000`;
+      if (image) image.src = assetUrl(item.thumbnailUrl) || `https://drive.google.com/thumbnail?id=${driveId[1]}&sz=w1000`;
     }
   };
 
@@ -159,7 +204,7 @@
     fillWork(card, item);
     if (!item.videoUrl) return card;
     const link = document.createElement("a");
-    link.href = item.videoUrl;
+    link.href = assetUrl(item.videoUrl);
     link.target = "_blank";
     link.rel = "noreferrer";
     link.append(...card.childNodes);
@@ -225,7 +270,7 @@
         image.loading = "lazy";
         portrait.append(image);
       }
-      if (image.getAttribute("src") !== person.photoUrl) image.src = person.photoUrl;
+      if (image.getAttribute("src") !== assetUrl(person.photoUrl)) image.src = assetUrl(person.photoUrl);
       image.alt = `${person.name} 프로필 사진`;
       image.style.objectPosition = `center ${Number(person.photoPosition) || 0}%`;
     } else if (image) {
@@ -283,7 +328,7 @@
   style.textContent = ".faq-item.open .faq-answer{max-height:520px}#cms-extra-works{margin-top:18px}[hidden]{display:none!important}";
   document.head.append(style);
 
-  fetch("/api/public/content")
+  fetch(apiUrl("/api/public/content"))
     .then((response) => (response.ok ? response.json() : null))
     .then((data) => {
       if (!data) return;

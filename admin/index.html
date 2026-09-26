@@ -21,13 +21,31 @@
     button { cursor:pointer }
     a { color:inherit }
     .login {
-      min-height:100vh; display:grid; place-items:center; padding:28px;
+      min-height:100vh; display:grid; place-items:center; align-content:center; padding:28px;
       background:
         radial-gradient(circle at 12% 18%, rgba(216,255,87,.45), transparent 26%),
         radial-gradient(circle at 88% 80%, rgba(228,87,15,.16), transparent 28%),
         var(--bg);
     }
     .login-card { width:min(460px, 100%); background:var(--card); border:1px solid var(--line); border-radius:28px; padding:36px 32px; box-shadow:0 30px 70px rgba(22,22,22,.08) }
+    /* GitHub Pages 등에서 원격 API 서버 주소를 지정하는 접이식 카드 */
+    .api-box {
+      width:min(460px, 100%); margin-top:14px; background:rgba(255,255,255,.66);
+      border:1px dashed var(--line); border-radius:20px; padding:0 20px;
+    }
+    .api-box summary {
+      cursor:pointer; padding:14px 0; list-style:none;
+      font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+    }
+    .api-box summary::-webkit-details-marker { display:none }
+    .api-box summary::before { content:"▸ "; }
+    .api-box[open] summary::before { content:"▾ "; }
+    .api-box[open] summary { border-bottom:1px solid var(--line) }
+    .api-box .inner { padding:4px 0 18px }
+    .api-box label { margin-top:14px }
+    .api-box .row { display:flex; gap:8px; margin-top:14px }
+    .api-box .row .ghost { flex:1; padding:12px; font-size:12px; border:1px solid var(--line); border-radius:12px }
+    .api-box .row .ghost:hover { background:#fff; color:var(--ink) }
     .mark { width:42px; height:42px; display:grid; place-items:center; border-radius:12px; background:var(--lime); font-weight:800 }
     .kicker { margin:22px 0 0; font:11px var(--mono); letter-spacing:.22em; text-transform:uppercase; color:var(--orange) }
     h1 { margin:12px 0 0; font-size:40px; letter-spacing:-.06em; line-height:.95 }
@@ -188,6 +206,62 @@
     const INITIAL_PASSWORD = "cuberry2026";
     let authStatus = null;
 
+    // ── API 서버 주소(Origin) 결정 ─────────────────────────────────────────
+    // GitHub Pages 같은 정적 호스팅에서는 같은 주소에 API 가 없다.
+    // 아래 순서로 Node 서버 주소를 찾는다.
+    //   1) 주소창의 ?api=https://...  (한 번만 입력하면 이 브라우저에 저장된다)
+    //   2) 브라우저에 저장된 값 — 로그인 화면의 "API 서버 주소" 입력으로 저장
+    //   3) BAKED_API_ORIGIN — 이 파일을 배포할 때 직접 적어두는 값
+    //   4) 빈 값 → 현재 페이지와 같은 서버(같은 Origin)
+    const BAKED_API_ORIGIN = ""; // 예: "https://cuberry-landing.onrender.com"
+    const API_ORIGIN_KEY = "cuberry.apiOrigin";
+
+    function readLocal(key) {
+      try { return window.localStorage.getItem(key); } catch { return null; }
+    }
+    function writeLocal(key, value) {
+      try {
+        if (value) window.localStorage.setItem(key, value);
+        else window.localStorage.removeItem(key);
+      } catch {}
+    }
+    // 잘못된 값(스크립트, 상대경로 등)을 걸러내고 "https://host" 형태로 정규화한다. 실패하면 null.
+    function normalizeApiOrigin(value) {
+      let next = String(value ?? "").trim();
+      if (!next) return "";
+      if (/^(same|clear|reset)$/i.test(next)) return "";
+      if (!/^https?:\/\//i.test(next)) next = `https://${next}`;
+      try {
+        const parsed = new URL(next);
+        if (!/^https?:$/.test(parsed.protocol)) return null;
+        return parsed.origin;
+      } catch {
+        return null;
+      }
+    }
+    function resolveApiOrigin() {
+      const fromQuery = new URLSearchParams(location.search).get("api");
+      if (fromQuery !== null) {
+        const normalized = normalizeApiOrigin(fromQuery);
+        writeLocal(API_ORIGIN_KEY, normalized || "");
+        if (normalized !== null) return normalized || "";
+      }
+      const saved = normalizeApiOrigin(readLocal(API_ORIGIN_KEY));
+      if (saved) return saved;
+      return normalizeApiOrigin(BAKED_API_ORIGIN) || "";
+    }
+    let apiOrigin = resolveApiOrigin();
+    const isSameOrigin = () => !apiOrigin || apiOrigin === location.origin;
+    const apiUrl = (path) => (isSameOrigin() ? path : `${apiOrigin}${path}`);
+    // "/uploads/a.jpg" 처럼 루트 상대경로인 콘텐츠는 원격 서버 주소를 붙여야 정적 호스트에서도 보인다.
+    function assetUrl(value) {
+      const text = String(value ?? "");
+      if (!text) return text;
+      if (/^(https?:|data:|blob:|\/\/|#|mailto:|tel:)/i.test(text)) return text;
+      if (!text.startsWith("/")) return text; // "portfolio_thumbs/a.jpg" 같은 상대경로는 그대로 둔다
+      return isSameOrigin() ? text : `${apiOrigin}${text}`;
+    }
+
     // sessionStorage 는 iframe/프라이빗 모드에서 접근이 막힐 수 있다.
     // (막히면 예전 코드는 로그인 직후 조용히 실패해 로그인 화면에 머물렀다)
     const memoryStore = new Map();
@@ -213,9 +287,31 @@
     const API_PATH = { portfolio: "portfolio", services: "services", faqs: "faqs", team: "team" };
 
     const pageFromPath = () => {
-      const part = location.pathname.replace(/\/$/, "").split("/")[2];
+      const parts = location.pathname.split("/");
+      const index = parts.lastIndexOf("admin");
+      const part = index >= 0 ? parts[index + 1] : "";
       return PAGES.some(([id]) => id === part) ? part : "overview";
     };
+
+    // 어드민이 도메인 루트(/admin)가 아니라 서브경로(/Landing_Cuberry/admin/)에 올라간 경우도 있다.
+    const adminBase = (() => {
+      const parts = location.pathname.split("/");
+      const index = parts.lastIndexOf("admin");
+      if (index < 0) return "/admin";
+      return parts.slice(0, index + 1).join("/") || "/admin";
+    })();
+
+    // 어드민보다 한 단계 위(사이트 루트). GitHub Pages 처럼 서브경로 배포에서도 "사이트로 돌아가기"가 동작하게.
+    const siteRoot = (() => {
+      const index = adminBase.lastIndexOf("/admin");
+      if (index < 0) return "/";
+      const root = adminBase.slice(0, index);
+      return root ? `${root}/` : "/";
+    })();
+
+    // 지금 화면에 띄운 페이지. 주소에서 한 번만 읽고 이후에는 go() 가 갱신한다.
+    // (원격 API 모드 = GitHub Pages 에서는 주소를 바꿀 수 없어 주소만 보면 화면이 영원히 overview 에 머물렀다)
+    let currentPage = pageFromPath();
 
     function toast(message, bad = false) {
       const node = document.createElement("div");
@@ -243,9 +339,15 @@
       }
       let response;
       try {
-        response = await fetch(path, { ...options, headers, credentials: "include" });
+        response = await fetch(apiUrl(path), { ...options, headers, credentials: "include" });
       } catch {
-        throw new ApiError("서버에 연결할 수 없습니다. 인터넷 연결과 서버 상태를 확인해 주세요.", 0);
+        // 원격 서버를 쓰는 경우 CORS 거부/서버 다운이 둘 다 여기로 온다.
+        throw new ApiError(
+          isSameOrigin()
+            ? "서버에 연결할 수 없습니다. 인터넷 연결과 서버 상태를 확인해 주세요."
+            : `${apiOrigin} 서버에 연결하지 못했습니다. 주소가 정확한지, 서버가 켜져 있는지, 서버의 ADMIN_ALLOWED_ORIGINS 에 ${location.origin} 이 들어 있는지 확인해 주세요.`,
+          0,
+        );
       }
       const text = await response.text().catch(() => "");
       let data = {};
@@ -270,8 +372,13 @@
     }
 
     function go(page) {
-      const next = page === "overview" ? "/admin" : `/admin/${page}`;
-      if (location.pathname !== next) history.pushState({}, "", next);
+      currentPage = page;
+      // 원격 API 모드(정적 호스팅)에서는 pushState 가 만든 주소가 새로고침 시 404 이므로 주소를 바꾸지 않는다.
+      if (isSameOrigin()) {
+        const keepsSlash = location.pathname.endsWith("/");
+        const next = page === "overview" ? `${adminBase}${keepsSlash ? "/" : ""}` : `${adminBase}/${page}`;
+        if (location.pathname !== next) history.pushState({}, "", next);
+      }
       render();
     }
 
@@ -312,10 +419,13 @@
 
     function loginHint() {
       if ([404, 405].includes(state.serverStatus)) {
-        return `<div class="alert"><strong>어드민 API 서버 없음</strong>현재 주소에서 로그인 API를 찾을 수 없습니다. GitHub Pages 같은 정적 호스팅에서는 로그인할 수 없으니, Node 서버를 배포한 주소의 <code>/admin</code>으로 접속해 주세요.</div>`;
+        return `<div class="alert"><strong>어드민 API 서버 없음</strong>현재 주소 <code>${esc(location.origin)}</code> 에서 로그인 API(<code>/api/auth/status</code>)를 찾을 수 없습니다. GitHub Pages 같은 정적 호스팅은 <code>server/index.mjs</code> 를 실행하지 않으므로 404/405 로 실패합니다. 비밀번호 문제가 아닙니다.<br><br>아래 <strong>API 서버 주소</strong>에 Node 서버를 배포한 주소(예: <code>https://cuberry-landing.onrender.com</code>)를 넣고 저장하면 이 화면 그대로 로그인됩니다. 단, 그 서버의 환경변수 <code>ADMIN_ALLOWED_ORIGINS</code> 에 <code>${esc(location.origin)}</code> 이 허용되어 있어야 합니다.</div>`;
       }
       if (state.serverError) {
-        return `<div class="alert"><strong>서버 연결 실패</strong>${esc(state.serverError)}<br>서버가 실행 중인지 확인해 주세요. (터미널에서 <code>npm start</code>)</div>`;
+        const extra = isSameOrigin()
+          ? `서버가 실행 중인지 확인해 주세요. (터미널에서 <code>npm start</code>)`
+          : `아래 <strong>API 서버 주소</strong>를 확인하거나, 서버의 <code>ADMIN_ALLOWED_ORIGINS</code> 에 <code>${esc(location.origin)}</code> 을 추가해 주세요.`;
+        return `<div class="alert"><strong>서버 연결 실패</strong>${esc(state.serverError)}<br>${extra}</div>`;
       }
       if (!authStatus) return "";
       if (!authStatus.hasAdmin) {
@@ -341,12 +451,33 @@
         <label>Password<input type="password" name="password" autocomplete="current-password" required placeholder="비밀번호" /></label>
         <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font:13px var(--sans);color:var(--muted)"><input type="checkbox" name="show" style="width:auto;margin:0" /> 비밀번호 표시</label>
         <button class="btn" type="submit">Sign in</button>
-        <p class="hint"><a href="/">← 사이트로 돌아가기</a></p>
-      </form></div>`;
+        <p class="hint"><a href="${siteRoot}">← 사이트로 돌아가기</a></p>
+      </form>
+      ${apiBoxView()}</div>`;
+    }
+
+    // GitHub Pages 등 정적 호스트에서 원격 Node 서버를 지정하는 카드.
+    // 같은 서버(/admin)에서 열었다면 접혀 있고, API 를 못 찾았으면 자동으로 펼쳐진다.
+    function apiBoxView() {
+      const broken = [0, 404, 405].includes(state.serverStatus) || Boolean(state.serverError);
+      return `<details class="api-box" id="api-box"${broken ? " open" : ""}>
+        <summary>API 서버 주소</summary>
+        <div class="inner">
+          <p class="hint" style="margin-top:8px">현재 사용 중: <code>${esc(apiOrigin || `${location.origin} (같은 주소)`)}</code></p>
+          <label for="api-origin-input">Node 서버 Origin
+            <input id="api-origin-input" type="text" name="apiOrigin" value="${esc(apiOrigin)}" placeholder="https://cuberry-landing.onrender.com" autocomplete="off" spellcheck="false" />
+          </label>
+          <p class="hint">비워두면 이 페이지와 같은 서버를 사용합니다. 값은 이 브라우저에만 저장되며(GitHub Pages 에는 전송되지 않음) 서버의 <code>ADMIN_ALLOWED_ORIGINS</code> 에 이 페이지 주소(<code>${esc(location.origin)}</code>)가 허용되어 있어야 합니다.</p>
+          <div class="row">
+            <button class="ghost" type="button" id="save-api-origin">저장 후 다시 연결</button>
+            <button class="ghost" type="button" id="clear-api-origin">같은 주소로 초기화</button>
+          </div>
+        </div>
+      </details>`;
     }
 
     function shell(body) {
-      const page = pageFromPath();
+      const page = currentPage;
       const fresh = state.summary?.newInquiries || 0;
       return `<div class="shell">
         <button class="menu" id="open-nav" type="button"><strong>CUBERRY ADMIN</strong><span>${esc(PAGES.find(([id]) => id === page)?.[2] || "")}</span></button>
@@ -355,7 +486,7 @@
           <p class="nav-label" style="padding:16px 12px 0">Workspace</p>
           <nav>${PAGES.map(([id, en, ko]) => `<button class="nav-btn${id === page ? " active" : ""}" data-go="${id}"><span>${en}<br><small style="letter-spacing:0;text-transform:none;opacity:.7">${ko}</small></span>${id === "inquiries" && fresh ? `<b class="badge">${fresh}</b>` : ""}</button>`).join("")}</nav>
           <div class="side-foot">
-            <a class="side-link" href="/" target="_blank" rel="noreferrer">Live site ↗</a>
+            <a class="side-link" href="${siteRoot}" target="_blank" rel="noreferrer">Live site ↗</a>
             <div class="who">${esc(state.user?.name || "Admin")}<small>${esc(state.user?.email || "owner")}</small></div>
             <button class="ghost" id="logout" type="button" style="color:#fff;text-align:left">Sign out</button>
           </div>
@@ -380,7 +511,7 @@
         ["New inquiries", s.newInquiries || 0, `${s.inquiries || 0} total`, "inquiries"],
         ["Services", s.services || 0, `${s.faqs || 0} FAQ`, "services"],
       ];
-      return shell(`${head("Cube Rry / Overview", "Good to see you.", "랜딩 페이지에 노출되는 콘텐츠와 상담 문의를 한 곳에서 관리합니다.", `<a class="btn" href="/" target="_blank" rel="noreferrer">Live site ↗</a>`)}
+      return shell(`${head("Cube Rry / Overview", "Good to see you.", "랜딩 페이지에 노출되는 콘텐츠와 상담 문의를 한 곳에서 관리합니다.", `<a class="btn" href="${siteRoot}" target="_blank" rel="noreferrer">Live site ↗</a>`)}
         <div class="page-body">
           <div class="stats">${cards.map(([label, value, note, page]) => `<button class="stat" data-go="${page}"><span>${label}</span><b>${value}</b><span>${note}</span></button>`).join("")}</div>
           <div class="split">
@@ -415,7 +546,7 @@
       </div>`) : "";
       return shell(`${head("Content / Portfolio", "Selected works", "영상 링크, 카테고리, 설명과 공개 여부를 관리합니다. 공개된 항목은 랜딩 페이지에 반영됩니다.", `<button class="btn" id="add" type="button">Add work</button>`)}
         <div class="page-body">${form}<div class="toolbar"><input class="search" id="search" placeholder="작품 검색" value="${esc(state.query)}" /><span class="meta">${rows.length} items</span></div>
-        <div class="table">${rows.map((item) => `<article class="row"><div class="title-cell">${item.thumbnailUrl ? `<img class="thumb" src="${esc(item.thumbnailUrl)}" alt="" />` : `<span class="thumb"></span>`}<div><strong>${esc(item.title)}</strong><small>${esc(item.description)}</small></div></div><span class="meta">${esc(item.category)}</span><span>${esc(item.year)}</span><div class="actions">${statusPill(item)}<button class="ghost" data-edit="${item.id}">Edit</button><button class="danger" data-delete="${item.id}">Delete</button></div></article>`).join("") || `<div class="empty">표시할 작품이 없습니다.</div>`}</div></div>`);
+        <div class="table">${rows.map((item) => `<article class="row"><div class="title-cell">${item.thumbnailUrl ? `<img class="thumb" src="${esc(assetUrl(item.thumbnailUrl))}" alt="" />` : `<span class="thumb"></span>`}<div><strong>${esc(item.title)}</strong><small>${esc(item.description)}</small></div></div><span class="meta">${esc(item.category)}</span><span>${esc(item.year)}</span><div class="actions">${statusPill(item)}<button class="ghost" data-edit="${item.id}">Edit</button><button class="danger" data-delete="${item.id}">Delete</button></div></article>`).join("") || `<div class="empty">표시할 작품이 없습니다.</div>`}</div></div>`);
     }
 
     function servicesPage() {
@@ -456,7 +587,7 @@
       const form = draft ? editorShell(draft.id ? "Edit profile" : "New profile", `<div class="photo-editor">
         <div>
           <div class="photo-preview" id="photo-preview">
-            <img id="photo-preview-img" alt="" ${draft.photoUrl ? `src="${esc(draft.photoUrl)}"` : "hidden"} style="object-position:center ${pos}%" />
+            <img id="photo-preview-img" alt="" ${draft.photoUrl ? `src="${esc(assetUrl(draft.photoUrl))}"` : "hidden"} style="object-position:center ${pos}%" />
             <span class="empty-face" id="photo-empty" ${draft.photoUrl ? "hidden" : ""}>No photo</span>
           </div>
           <div class="checks" style="margin-top:10px"><label><input type="checkbox" id="photo-color" /> 컬러로 보기</label></div>
@@ -482,7 +613,7 @@
       const cards = (state.content?.team || []).map((item) => {
         const lines = bioLines(item.bio);
         return `<article class="person-card">
-          <div class="face">${item.photoUrl ? `<img src="${esc(item.photoUrl)}" alt="${esc(item.name)} 프로필 사진" style="object-position:center ${Number(item.photoPosition) || 0}%" loading="lazy" />` : `<span class="no-photo">No photo</span>`}${statusPill(item)}</div>
+          <div class="face">${item.photoUrl ? `<img src="${esc(assetUrl(item.photoUrl))}" alt="${esc(item.name)} 프로필 사진" style="object-position:center ${Number(item.photoPosition) || 0}%" loading="lazy" />` : `<span class="no-photo">No photo</span>`}${statusPill(item)}</div>
           <div class="body"><strong>${esc(item.name)}</strong><span class="meta">${esc(item.role || "—")}</span>
             ${lines.length ? `<ul>${lines.slice(0, 3).map((line) => `<li>${esc(line)}</li>`).join("")}${lines.length > 3 ? `<li>외 ${lines.length - 3}줄</li>` : ""}</ul>` : ""}
           </div>
@@ -510,12 +641,20 @@
         <label>Contact email<input name="contactEmail" type="email" required value="${esc(settings.contactEmail)}" /></label>
         <label>Contact phone<input name="contactPhone" required value="${esc(settings.contactPhone)}" /></label>
       </div><div class="savebar"><button class="btn" type="submit">Save changes</button></div></form>
-      <form class="editor" id="password-form"><h3>Password</h3><div class="grid"><label>Current<input name="currentPassword" type="password" required /></label><label>New password<input name="nextPassword" type="password" minlength="8" required /></label></div><div class="savebar"><button class="btn" type="submit">Update password</button></div></form></div>`);
+      <form class="editor" id="password-form"><h3>Password</h3><div class="grid"><label>Current<input name="currentPassword" type="password" required /></label><label>New password<input name="nextPassword" type="password" minlength="8" required /></label></div><div class="savebar"><button class="btn" type="submit">Update password</button></div></form>
+      <div class="editor"><h3>Backup</h3>
+        <p class="hint" style="margin-top:0">현재 콘텐츠를 <code>server/seed.json</code> 과 같은 형태의 JSON 으로 내려받습니다. Render 무료 인스턴스처럼 디스크가 재배포마다 초기화되는 환경에서는, 내려받은 파일을 <code>server/seed.json</code> 으로 저장해 Git 에 커밋해 두면 다시 켜질 때마다 최신 콘텐츠로 시작합니다.</p>
+        <div class="savebar"><button class="btn" type="button" id="export-seed">콘텐츠 JSON 내보내기</button></div>
+      </div>
+      <div class="editor"><h3>API server</h3>
+        <p class="hint" style="margin-top:0">이 화면이 호출하는 API 서버: <code>${esc(apiOrigin || `${location.origin} (같은 주소)`)}</code><br>GitHub Pages 처럼 정적 호스팅에서 이 어드민을 열고 있다면 로그인 화면의 <strong>API 서버 주소</strong> 카드에서 바꿀 수 있습니다. 서버 쪽에서는 환경변수 <code>ADMIN_ALLOWED_ORIGINS</code> 에 이 페이지 주소(<code>${esc(location.origin)}</code>)가 들어 있어야 합니다.</p>
+        <div class="savebar"><a class="btn" href="${siteRoot}" target="_blank" rel="noreferrer">랜딩 페이지 열기 ↗</a></div>
+      </div></div>`);
     }
 
     function view() {
       if (!state.user) return loginView();
-      const page = pageFromPath();
+      const page = currentPage;
       if (!state.content) {
         // 로그인은 됐지만 데이터를 못 불러온 경우: 다시 시도할 수 있게 안내한다.
         if (state.loadError) {
@@ -575,6 +714,44 @@
         const input = document.querySelector("#login-form input[name=password]");
         if (input) input.type = event.currentTarget.checked ? "text" : "password";
       });
+      document.querySelector("#save-api-origin")?.addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.textContent = "연결 중...";
+        await applyApiOrigin(document.querySelector("#api-origin-input")?.value || "");
+      });
+      document.querySelector("#clear-api-origin")?.addEventListener("click", () => applyApiOrigin(""));
+      document.querySelector("#export-seed")?.addEventListener("click", async (event) => {
+        const button = event.currentTarget;
+        const label = button.textContent;
+        button.disabled = true;
+        button.textContent = "내보내는 중...";
+        try {
+          const data = await api("/api/admin/export");
+          const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+          const objectUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = objectUrl;
+          link.download = `cuberry-seed-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+          toast("seed.json 형식으로 내려받았습니다.");
+        } catch (error) {
+          toast(error.message, true);
+        } finally {
+          button.disabled = false;
+          button.textContent = label;
+        }
+      });
+      document.querySelector("#api-origin-input")?.addEventListener("keydown", (event) => {
+        // 입력창에서 Enter 를 눌렀을 때 비밀번호 제출이 아니라 주소 저장으로 동작하게 한다.
+        if (event.key === "Enter") {
+          event.preventDefault();
+          document.querySelector("#save-api-origin")?.click();
+        }
+      });
       document.querySelector("#retry-load")?.addEventListener("click", async () => {
         state.loadError = null;
         try {
@@ -612,7 +789,7 @@
         document.body.append(backdrop);
       });
       document.querySelector("#add")?.addEventListener("click", () => {
-        const page = pageFromPath();
+        const page = currentPage;
         state.editor = page === "portfolio"
           ? { title:"", category:"BRAND FILM", year:"2026", description:"", videoUrl:"https://", thumbnailUrl:"", tags:"PLANNING, EDITING", sortOrder:(state.content.portfolio.at(-1)?.sortOrder || 0) + 1, kind:"광고", isFeatured:false, isPublished:true }
           : page === "services"
@@ -623,7 +800,7 @@
         render();
       });
       document.querySelectorAll("[data-edit]").forEach((node) => node.addEventListener("click", () => {
-        const page = pageFromPath();
+        const page = currentPage;
         const list = state.content[page] || state.content.portfolio;
         state.editor = { ...(list.find((item) => item.id === Number(node.dataset.edit)) || {}) };
         render();
@@ -645,7 +822,7 @@
       document.querySelectorAll("[data-filter]").forEach((node) => node.addEventListener("click", () => { state.inquiryFilter = node.dataset.filter; render(); }));
       document.querySelectorAll("[data-delete]").forEach((node) => node.addEventListener("click", async () => {
         if (!confirm("이 항목을 삭제할까요? 랜딩 페이지에서도 숨겨집니다.")) return;
-        const page = pageFromPath();
+        const page = currentPage;
         const path = API_PATH[page] || "faqs";
         try {
           await api(`/api/admin/${path}/${node.dataset.delete}`, { method: "DELETE" });
@@ -669,7 +846,7 @@
         data.isPublished = Boolean(form.isPublished?.checked);
         data.isFeatured = Boolean(form.isFeatured?.checked);
         data.sortOrder = Number(data.sortOrder || 0);
-        const page = pageFromPath();
+        const page = currentPage;
         const path = API_PATH[page] || "faqs";
         const submit = form.querySelector("button[type=submit]");
         try {
@@ -697,7 +874,7 @@
       if (previewImg) {
         const empty = document.querySelector("#photo-empty");
         const showPhoto = (src) => {
-          if (src) { previewImg.src = src; previewImg.hidden = false; empty.hidden = true; }
+          if (src) { previewImg.src = assetUrl(src); previewImg.hidden = false; empty.hidden = true; }
           else { previewImg.removeAttribute("src"); previewImg.hidden = true; empty.hidden = false; }
         };
         let objectUrl = null;
@@ -755,14 +932,16 @@
       bind();
     }
 
-    window.addEventListener("popstate", render);
-    (async () => {
-      // 서버 상태와 로그인 화면 안내 문구를 먼저 확인한다.
+    window.addEventListener("popstate", () => { currentPage = pageFromPath(); render(); });
+
+    // 서버 상태와 로그인 세션을 확인한다. API 서버 주소를 바꾼 뒤에도 다시 호출한다.
+    async function bootstrap() {
       try {
         authStatus = await api("/api/auth/status");
         state.serverError = null;
         state.serverStatus = null;
       } catch (error) {
+        authStatus = null;
         state.serverError = error.message;
         state.serverStatus = error.status;
       }
@@ -780,7 +959,32 @@
         if (error.status === 0) state.serverError = error.message;
       }
       render();
-    })();
+    }
+
+    // 입력받은 주소를 검증해 저장하고 다시 연결한다. 반환값은 성공 여부.
+    async function applyApiOrigin(rawValue) {
+      const normalized = normalizeApiOrigin(rawValue);
+      if (normalized === null) {
+        toast("주소 형식을 확인해 주세요. (예: https://cuberry-landing.onrender.com)", true);
+        return false;
+      }
+      writeLocal(API_ORIGIN_KEY, normalized);
+      apiOrigin = normalized;
+      // 다른 서버의 토큰을 들고 있으면 안 되므로 세션을 비운다.
+      store.remove(tokenKey);
+      state.user = null;
+      state.content = null;
+      state.summary = null;
+      state.loginError = null;
+      state.loadError = null;
+      state.busy = false;
+      render();
+      toast(normalized ? `API 서버를 ${normalized} 로 바꿨습니다.` : "같은 주소(현재 서버)를 사용하도록 초기화했습니다.");
+      await bootstrap();
+      return true;
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>
