@@ -7,7 +7,7 @@
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 CORS/서빙 96건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 CORS/서빙 99건)
 npm i -D jsdom         # 아래 종단 테스트를 돌리려면 한 번만 (선택)
 npm run test:dom       # 실제 DOM + 브라우저 CORS 규칙 시뮬레이션 종단 테스트 (76건)
 ```
@@ -127,11 +127,25 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 
 Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트 절대경로(`/…`)가 전부 깨졌습니다.
 
-- `index.html`: `<script src="/cms-bridge.js">` → `cms-bridge.js`, `href="/admin"` ×3 → `admin/` ( 상대경로화 )
+- `index.html`: `<script src="/cms-bridge.js">` → `cms-bridge.js` ( 상대경로화 )
   — 이전에는 Pages에서 `cms-bridge.js` 자체가 404라 어드민 변경 사항이 랜딩에 전혀 반영되지 않았습니다.
 - `index.html` B2B 문의 폼: `fetch('/api/partnership')` → `window.CuberryApi.url(...)` (원격 API 사용)
+  — 루트 절대경로(`/…`)는 Pages 서브경로에 그 파일이 없어 404가 납니다.
 - `admin/index.html`: `/admin` 고정 경로 대신 현재 경로에서 `admin` 위치를 찾아 동작 (`adminBase`, `siteRoot`, `pageFromPath`)
 - 업로드 이미지처럼 `/` 로 시작하는 콘텐츠 주소는 원격 서버 주소를 붙여 표시 (`assetUrl`)
+
+> **⚠ 랜딩을 다시 빌드해 올릴 때** — 현재 `index.html` 은 React + Tailwind 빌드 산출물입니다.
+> 빌드 결과물에는 아래 두 가지가 기본적으로 들어 있지 않으므로, 새 빌드를 복사해 올 때마다 **반드시 다시 넣어 주세요.**
+> `npm test`(`test/static-paths.mjs`·`test/client-origin.mjs`)가 빠져 있는지 검사합니다.
+>
+> 1. `<head>` 의 `<script src="cms-bridge.js" defer></script>` — **루트 절대경로(`/cms-bridge.js`)로 쓰면 Pages 에서 404**
+> 2. B2B 문의 폼의 호출을 `fetch(window.CuberryApi&&window.CuberryApi.url?window.CuberryApi.url('/api/partnership'):'/api/partnership', …)` 로
+>
+> 빌드 소스(`new-design/`, Git 에 들어 있지 않음)에서 고치는 편이 دائم적입니다.
+>
+> 참고로 새 랜딩에는 어드민 콘텐츠 연동 훅(`data-cms="…"`, `#cms-extra-works` 등)이 들어 있지 않아,
+> **어드민에서 고친 문구·포트폴리오·팀은 현재 랜딩에 반영되지 않습니다.** (B2B 문의 접수만 동작)
+> 연동을 되살리려면 빌드 소스에 위 훅을 넣어야 합니다.
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 
@@ -185,13 +199,13 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 96건 (client-origin 40 + static-paths 15 + server-wiring 41)
+npm test           # 의존성 없음 · 99건 (client-origin 43 + static-paths 15 + server-wiring 41)
 npm run test:dom   # jsdom 필요 · 76건 (서버가 켜져 있어야 함)
 ```
 
 | 파일 | 무엇을 검증하나 |
 | --- | --- |
-| `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩·서버 기본값·`render.yaml`·`render.free.yaml` **다섯 곳에 적힌 주소가 서로 어긋나면 실패**한다 |
+| `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** 켠 서버에서 Pages Origin 의 사전요청이 204 로 통과하고 목록에 없는 Origin 은 403, Pages Origin 으로 로그인까지 성공 ② 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워져 오고 디스크 파일에는 남아 있는지 ③ `ADMIN_ALLOWED_ORIGINS` 가 기본 목록을 대체하지 않고 추가하는지, `*` 는 전부 허용하는지 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |

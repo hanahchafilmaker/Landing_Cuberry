@@ -286,6 +286,12 @@ const blueprintOrigins = (file) => {
   return match[1].split(",").map((value) => value.trim().replace(/\/+$/, "")).filter(Boolean);
 };
 
+// 랜딩(index.html)은 React 빌드 산출물이라 다시 빌드할 때마다 배선이 사라질 수 있다. 그래서 여기서 본다.
+const landingSource = readFileSync(path.join(ROOT, "index.html"), "utf8");
+expect("랜딩이 cms-bridge.js 를 상대경로로 로드", /<script[^>]+src="cms-bridge\.js"[^>]*>/.test(landingSource), true);
+expect("랜딩에 루트 절대경로 /api/… fetch 없음", (landingSource.match(/fetch\("\/api\//g) || []).length, 0);
+expect("랜딩 문의 폼이 CuberryApi.url 사용", landingSource.includes("CuberryApi.url('/api/partnership')"), true);
+
 const adminBaked = bakedOf(adminSource, "admin/index.html");
 const bridgeBaked = bakedOf(bridgeSource, "cms-bridge.js");
 const defaults = serverDefaults();
