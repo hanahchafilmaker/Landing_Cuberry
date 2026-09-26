@@ -6,3 +6,7 @@ data/uploads/
 .manus-logs/
 admin-import/dist/
 admin-import/node_modules/
+
+# Build artifacts
+new-design/
+*.backup
