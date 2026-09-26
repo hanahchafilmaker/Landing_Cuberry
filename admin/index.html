@@ -52,6 +52,10 @@
     .login .btn { width:100%; margin-top:18px; padding:15px }
     .hint { margin:14px 0 0; color:var(--faint); font-size:13px }
     .hint code { font-family:var(--mono); color:var(--ink); background:#efece4; padding:2px 6px; border-radius:6px }
+    .alert { margin:18px 0 0; padding:12px 14px; border-radius:14px; background:#fdece9; border:1px solid #f1c8bf; color:var(--danger); font-size:13px; line-height:1.55 }
+    .alert.warn { background:#fdf4e4; border-color:#eeddb8; color:#8a5a12 }
+    .alert.ok { background:#f1f8de; border-color:#d9e6b4; color:#4d6c15 }
+    .alert strong { display:block; font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:6px }
     .shell { min-height:100vh; display:grid; grid-template-columns:268px 1fr }
     aside {
       position:sticky; top:0; height:100vh; background:var(--sidebar); color:#ecebdd;
@@ -157,9 +161,33 @@
       ["inquiries", "Inquiries", "문의"],
       ["settings", "Settings", "설정"],
     ];
-    const state = { user: null, content: null, summary: null, query: "", inquiryFilter: "all", editor: null, busy: false };
+    const state = { user: null, content: null, summary: null, query: "", inquiryFilter: "all", editor: null, busy: false, loginError: null, loadError: null, serverError: null };
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
     const tokenKey = "cuberry-admin-token";
+    const INITIAL_PASSWORD = "cuberry2026";
+    let authStatus = null;
+
+    // sessionStorage 는 iframe/프라이빗 모드에서 접근이 막힐 수 있다.
+    // (막히면 예전 코드는 로그인 직후 조용히 실패해 로그인 화면에 머물렀다)
+    const memoryStore = new Map();
+    const store = {
+      get(key) {
+        try {
+          const value = window.sessionStorage.getItem(key);
+          if (value !== null && value !== undefined) return value;
+        } catch {}
+        return memoryStore.has(key) ? memoryStore.get(key) : null;
+      },
+      set(key, value) {
+        memoryStore.set(key, value);
+        try { window.sessionStorage.setItem(key, value); } catch {}
+      },
+      remove(key) {
+        memoryStore.delete(key);
+        try { window.sessionStorage.removeItem(key); } catch {}
+      },
+    };
+
     const pageFromPath = () => {
       const part = location.pathname.replace(/\/$/, "").split("/")[2];
       return PAGES.some(([id]) => id === part) ? part : "overview";
@@ -173,13 +201,47 @@
       setTimeout(() => node.remove(), 3200);
     }
 
+    class ApiError extends Error {
+      constructor(message, status, data) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status || 0;
+        this.data = data || {};
+      }
+    }
+
     async function api(path, options = {}) {
       const headers = { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) };
-      const token = sessionStorage.getItem(tokenKey);
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(path, { ...options, headers, credentials: "include" });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "요청에 실패했습니다.");
+      const token = store.get(tokenKey);
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+        headers["X-Admin-Token"] = token; // 프록시가 Authorization 을 지우는 경우 대비
+      }
+      let response;
+      try {
+        response = await fetch(path, { ...options, headers, credentials: "include" });
+      } catch {
+        throw new ApiError("서버에 연결할 수 없습니다. 인터넷 연결과 서버 상태를 확인해 주세요.", 0);
+      }
+      const text = await response.text().catch(() => "");
+      let data = {};
+      if (text) {
+        try { data = JSON.parse(text); } catch { data = {}; }
+      }
+      if (!response.ok) {
+        // 세션이 만료된 경우 토큰을 정리하고 로그인 화면으로 되돌린다.
+        if (response.status === 401 && store.get(tokenKey)) {
+          store.remove(tokenKey);
+          state.user = null;
+          state.content = null;
+          state.summary = null;
+          state.loginError = "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.";
+        }
+        const fallback = response.status >= 500
+          ? `서버 오류가 발생했습니다. (HTTP ${response.status})`
+          : `요청에 실패했습니다. (HTTP ${response.status})`;
+        throw new ApiError(data.error || fallback, response.status, data);
+      }
       return data;
     }
 
@@ -204,15 +266,34 @@
       });
     }
 
+    function loginHint() {
+      if (state.serverError) {
+        return `<div class="alert"><strong>서버 연결 실패</strong>${esc(state.serverError)}<br>서버가 실행 중인지 확인해 주세요. (터미널에서 <code>npm start</code>)</div>`;
+      }
+      if (!authStatus) return "";
+      if (!authStatus.hasAdmin) {
+        return `<div class="alert warn"><strong>관리자 계정 없음</strong>서버를 재시작하면 초기 관리자 계정이 자동으로 만들어집니다.</div>`;
+      }
+      if (authStatus.initialPasswordInUse) {
+        return `<p class="hint">초기 비밀번호 <code>${INITIAL_PASSWORD}</code> · 로그인 후 설정에서 변경하세요.</p>`;
+      }
+      if (authStatus.passwordSource === "environment") {
+        return `<p class="hint">비밀번호는 서버의 <code>ADMIN_PASSWORD</code> 환경변수 값입니다.</p>`;
+      }
+      return `<p class="hint">비밀번호를 잊었다면 서버를 <code>ADMIN_PASSWORD=새비밀번호 RESET_ADMIN_PASSWORD=1</code> 로 재시작해 재설정할 수 있습니다.</p>`;
+    }
+
     function loginView() {
       return `<div class="login"><form class="login-card" id="login-form">
         <div class="mark">✦</div>
         <p class="kicker">Cube Rry / Admin</p>
         <h1>운영 콘솔</h1>
         <p class="lede">포트폴리오, 상품, FAQ, 상담 문의와 첫 화면 문구를 한 곳에서 관리합니다. 저장하면 랜딩 페이지에 반영됩니다.</p>
+        ${state.loginError ? `<div class="alert"><strong>로그인 실패</strong>${esc(state.loginError)}</div>` : ""}
+        ${loginHint()}
         <label>Password<input type="password" name="password" autocomplete="current-password" required placeholder="비밀번호" /></label>
+        <label style="display:flex;gap:8px;align-items:center;text-transform:none;letter-spacing:0;font:13px var(--sans);color:var(--muted)"><input type="checkbox" name="show" style="width:auto;margin:0" /> 비밀번호 표시</label>
         <button class="btn" type="submit">Sign in</button>
-        <p class="hint">초기 비밀번호 <code>cuberry2026</code> · 로그인 후 설정에서 변경하세요.</p>
         <p class="hint"><a href="/">← 사이트로 돌아가기</a></p>
       </form></div>`;
     }
@@ -342,7 +423,15 @@
     function view() {
       if (!state.user) return loginView();
       const page = pageFromPath();
-      if (!state.content) return shell(`<div class="page-body"><p>불러오는 중...</p></div>`);
+      if (!state.content) {
+        // 로그인은 됐지만 데이터를 못 불러온 경우: 다시 시도할 수 있게 안내한다.
+        if (state.loadError) {
+          return shell(`<div class="page-body"><div class="alert"><strong>데이터 로드 실패</strong>${esc(state.loadError)}</div>
+            <div class="actions" style="margin-top:16px"><button class="btn" id="retry-load" type="button">다시 시도</button>
+            <button class="ghost" id="logout-2" type="button">로그아웃</button></div></div>`);
+        }
+        return shell(`<div class="page-body"><p>불러오는 중...</p></div>`);
+      }
       if (page === "portfolio") return portfolioPage();
       if (page === "services") return servicesPage();
       if (page === "faqs") return faqPage();
@@ -354,21 +443,67 @@
     function bind() {
       document.querySelector("#login-form")?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        const form = event.currentTarget;
+        const button = form.querySelector("button[type=submit]");
+        const password = String(new FormData(form).get("password") || "");
+        state.loginError = null;
+        if (button) { button.disabled = true; button.textContent = "Signing in..."; }
         try {
-          const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ password: new FormData(event.currentTarget).get("password") }) });
-          sessionStorage.setItem(tokenKey, result.token);
+          const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ password }) });
+          // 토큰 저장이 실패해도(sessionStorage 차단 등) 로그인 자체는 성공 처리한다.
+          store.set(tokenKey, result.token);
           state.user = result.user;
-          await load();
-          toast("로그인했습니다.");
+          state.loginError = null;
+          state.loadError = null;
+          state.serverError = null;
+          state.content = null;
+          authStatus = { ...(authStatus || {}), hasAdmin: true, initialPasswordInUse: Boolean(result.initialPasswordInUse) };
           render();
-        } catch (error) { toast(error.message, true); }
+          toast("로그인했습니다.");
+          try {
+            await load();
+          } catch (error) {
+            state.loadError = error.message;
+          }
+          render();
+        } catch (error) {
+          state.loginError = error.status === 401 && typeof error.data?.attemptsLeft === "number" && error.data.attemptsLeft > 0
+            ? `${error.message} (남은 시도 ${error.data.attemptsLeft}회)`
+            : error.message;
+          render();
+        }
+      });
+      document.querySelector("#login-form input[name=show]")?.addEventListener("change", (event) => {
+        const input = document.querySelector("#login-form input[name=password]");
+        if (input) input.type = event.currentTarget.checked ? "text" : "password";
+      });
+      document.querySelector("#retry-load")?.addEventListener("click", async () => {
+        state.loadError = null;
+        try {
+          await load();
+        } catch (error) {
+          state.loadError = error.message;
+        }
+        render();
+      });
+      document.querySelector("#logout-2")?.addEventListener("click", async () => {
+        await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+        store.remove(tokenKey);
+        state.user = null;
+        state.content = null;
+        state.summary = null;
+        state.loadError = null;
+        render();
       });
       document.querySelectorAll("[data-go]").forEach((node) => node.addEventListener("click", () => { state.editor = null; go(node.dataset.go); }));
       document.querySelector("#logout")?.addEventListener("click", async () => {
         await api("/api/auth/logout", { method: "POST" }).catch(() => {});
-        sessionStorage.removeItem(tokenKey);
+        store.remove(tokenKey);
         state.user = null;
         state.content = null;
+        state.summary = null;
+        state.loadError = null;
+        state.loginError = null;
         render();
       });
       document.querySelector("#open-nav")?.addEventListener("click", () => {
@@ -475,11 +610,25 @@
 
     window.addEventListener("popstate", render);
     (async () => {
+      // 서버 상태와 로그인 화면 안내 문구를 먼저 확인한다.
+      try {
+        authStatus = await api("/api/auth/status");
+        state.serverError = null;
+      } catch (error) {
+        state.serverError = error.message;
+      }
+      const hadToken = Boolean(store.get(tokenKey));
       try {
         state.user = await api("/api/auth/me");
-        await load();
-      } catch {
+        try {
+          await load();
+        } catch (error) {
+          state.loadError = error.message;
+        }
+      } catch (error) {
         state.user = null;
+        if (hadToken && error.status === 401) state.loginError = "로그인 세션이 만료되었습니다. 다시 로그인해 주세요.";
+        if (error.status === 0) state.serverError = error.message;
       }
       render();
     })();

@@ -13,8 +13,11 @@ const DB_PATH = path.join(DATA_DIR, "cuberry.sqlite");
 const SEED_PATH = path.join(__dirname, "seed.json");
 const PORT = Number(process.env.PORT || 8080);
 const HOST = "0.0.0.0";
-const DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || "cuberry2026";
+const INITIAL_PASSWORD = "cuberry2026"; // 화면에 안내되는 기본 초기 비밀번호
+const DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || INITIAL_PASSWORD;
 const SESSION_MS = 1000 * 60 * 60 * 24 * 14;
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
 mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -118,9 +121,18 @@ function verifyPassword(password, stored) {
   return next.length === prev.length && timingSafeEqual(next, prev);
 }
 
-function seedIfEmpty() {
+const adminAccount = {
+  hasAdmin: false,
+  passwordSource: "default", // default | environment | custom
+  initialPasswordInUse: true,
+};
+
+let freshInstall = false;
+
+function seedContent() {
   const existing = db.prepare("SELECT id FROM settings WHERE id = 1").get();
   if (existing) return;
+  freshInstall = true;
   const seed = JSON.parse(readFileSync(SEED_PATH, "utf8"));
   const stamp = nowIso();
   const settings = seed.settings;
@@ -145,14 +157,62 @@ function seedIfEmpty() {
   for (const item of seed.faqs) {
     insertFaq.run(item.question, item.answer, item.sortOrder || 0, bool(item.isPublished), item.landingSlot || null, stamp);
   }
-  db.prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'admin')").run(
-    "큐브베리 관리자",
-    settings.contactEmail,
-    hashPassword(DEFAULT_PASSWORD),
-  );
+  console.log("콘텐츠 시드 데이터를 새로 넣었습니다.");
 }
 
-seedIfEmpty();
+// 관리자 계정은 콘텐츠 시드와 분리해서 항상 보장한다.
+// (예전 버전으로 만들어진 DB에 users 행이 없으면 아무 비밀번호로도 로그인할 수 없던 문제 수정)
+function ensureAdminUser() {
+  const envPassword = String(process.env.ADMIN_PASSWORD || "");
+  const forceReset = process.env.RESET_ADMIN_PASSWORD === "1" || process.env.ADMIN_PASSWORD_RESET === "1";
+  const settingsRow = db.prepare("SELECT contact_email FROM settings WHERE id = 1").get();
+  const email = settingsRow?.contact_email || null;
+  const existing = db.prepare("SELECT * FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
+
+  if (!existing) {
+    const password = envPassword || DEFAULT_PASSWORD;
+    db.prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, 'admin')").run(
+      "큐브베리 관리자",
+      email,
+      hashPassword(password),
+    );
+    adminAccount.hasAdmin = true;
+    adminAccount.passwordSource = envPassword ? "environment" : "default";
+    adminAccount.initialPasswordInUse = password === INITIAL_PASSWORD;
+    console.log(envPassword
+      ? "관리자 계정을 ADMIN_PASSWORD 환경변수 값으로 생성했습니다."
+      : freshInstall
+        ? `관리자 계정을 초기 비밀번호 ${INITIAL_PASSWORD} 로 생성했습니다.`
+        : `관리자 계정이 없어서 초기 비밀번호 ${INITIAL_PASSWORD} 로 새로 만들었습니다.`);
+    return;
+  }
+
+  adminAccount.hasAdmin = true;
+
+  if (envPassword && forceReset && !verifyPassword(envPassword, existing.password_hash)) {
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(envPassword), existing.id);
+    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(existing.id);
+    adminAccount.passwordSource = "environment";
+    adminAccount.initialPasswordInUse = envPassword === INITIAL_PASSWORD;
+    console.log("RESET_ADMIN_PASSWORD=1 → ADMIN_PASSWORD 환경변수 값으로 관리자 비밀번호를 재설정했습니다. (기존 세션 모두 로그아웃)");
+    return;
+  }
+
+  adminAccount.initialPasswordInUse = verifyPassword(INITIAL_PASSWORD, existing.password_hash);
+  if (adminAccount.initialPasswordInUse) {
+    adminAccount.passwordSource = "default";
+  } else if (envPassword && verifyPassword(envPassword, existing.password_hash)) {
+    adminAccount.passwordSource = "environment";
+  } else {
+    adminAccount.passwordSource = "custom";
+  }
+  if (envPassword && forceReset) {
+    console.log("ADMIN_PASSWORD 값이 이미 현재 비밀번호와 같아 재설정할 필요가 없습니다.");
+  }
+}
+
+seedContent();
+ensureAdminUser();
 
 function rowSettings(row) {
   if (!row) return null;
@@ -283,19 +343,49 @@ function requireEmail(value) {
   return email;
 }
 
-const loginAttempts = new Map();
-function rateLimit(key, limit, windowMs) {
+const attempts = new Map();
+
+// 실패한 시도만 기록한다. (예전에는 성공 로그인까지 세서 8회 이후 10분간 잠기는 문제가 있었다)
+function attemptGate(key, limit, windowMs) {
   const now = Date.now();
-  const bucket = (loginAttempts.get(key) || []).filter((ts) => now - ts < windowMs);
-  if (bucket.length >= limit) return false;
-  bucket.push(now);
-  loginAttempts.set(key, bucket);
-  return true;
+  if (attempts.size > 1000) {
+    for (const [bucketKey, bucket] of attempts) {
+      if (!bucket.some((ts) => now - ts < windowMs)) attempts.delete(bucketKey);
+    }
+  }
+  const bucket = (attempts.get(key) || []).filter((ts) => now - ts < windowMs);
+  attempts.set(key, bucket);
+  const oldest = bucket[0];
+  const blocked = bucket.length >= limit;
+  return {
+    blocked,
+    remaining: Math.max(0, limit - bucket.length),
+    retryAfter: blocked && oldest ? Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000)) : 0,
+  };
+}
+
+function noteAttempt(key) {
+  const bucket = attempts.get(key) || [];
+  bucket.push(Date.now());
+  attempts.set(key, bucket);
+  return bucket.length;
+}
+
+function clearAttempts(key) {
+  attempts.delete(key);
+}
+
+function formatWait(seconds) {
+  if (seconds < 60) return `${seconds}초`;
+  return `${Math.ceil(seconds / 60)}분`;
 }
 
 function readToken(req) {
   const header = req.headers.authorization || "";
   if (header.startsWith("Bearer ")) return header.slice(7).trim();
+  // 프록시가 Authorization 헤더를 지우는 환경을 위한 대체 경로
+  const custom = req.headers["x-admin-token"];
+  if (custom) return String(custom).trim();
   const cookie = String(req.headers.cookie || "");
   const match = cookie.match(/(?:^|;\s*)cuberry_session=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
@@ -358,13 +448,20 @@ function readBody(req, limit = 8_000_000) {
   });
 }
 
-function sessionCookie(token, req) {
-  const secure = req.headers["x-forwarded-proto"] === "https" || process.env.COOKIE_SECURE === "1";
-  return `cuberry_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_MS / 1000)}${secure ? "; Secure" : ""}`;
+function isHttps(req) {
+  return req.headers["x-forwarded-proto"] === "https" || process.env.COOKIE_SECURE === "1" || Boolean(req.socket?.encrypted);
 }
 
-function clearCookie() {
-  return "cuberry_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+function sessionCookie(token, req) {
+  const secure = isHttps(req);
+  // HTTPS(미리보기/iframe)에서는 SameSite=None + Secure 여야 쿠키가 전달된다.
+  const sameSite = secure ? "None" : "Lax";
+  return `cuberry_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${Math.floor(SESSION_MS / 1000)}${secure ? "; Secure" : ""}`;
+}
+
+function clearCookie(req) {
+  const secure = req ? isHttps(req) : false;
+  return `cuberry_session=; Path=/; HttpOnly; SameSite=${secure ? "None" : "Lax"}; Max-Age=0${secure ? "; Secure" : ""}`;
 }
 
 function createSession(userId) {
@@ -528,6 +625,14 @@ async function handleApi(req, res, url) {
   const { pathname } = url;
   if (req.method === "GET" && pathname === "/api/health") return send(res, 200, { ok: true });
   if (req.method === "GET" && pathname === "/api/public/content") return send(res, 200, publicContent());
+  if (req.method === "GET" && pathname === "/api/auth/status") {
+    return send(res, 200, {
+      ok: true,
+      hasAdmin: adminAccount.hasAdmin,
+      initialPasswordInUse: adminAccount.initialPasswordInUse,
+      passwordSource: adminAccount.passwordSource,
+    });
+  }
   if (req.method === "GET" && pathname === "/api/auth/me") {
     const user = currentUser(req);
     if (!user) return send(res, 401, { error: "로그인이 필요합니다." });
@@ -535,22 +640,49 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "POST" && pathname === "/api/auth/login") {
     const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
-    if (!rateLimit(`login:${ip}`, 8, 10 * 60 * 1000)) return send(res, 429, { error: "시도 횟수가 많습니다. 잠시 후 다시 로그인해 주세요." });
+    const key = `login:${ip}`;
+    const gate = attemptGate(key, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+    if (gate.blocked) {
+      return send(res, 429, {
+        error: `비밀번호를 여러 번 틀렸습니다. ${formatWait(gate.retryAfter)} 후 다시 시도해 주세요.`,
+        retryAfter: gate.retryAfter,
+      }, { "Retry-After": String(gate.retryAfter) });
+    }
     const body = await readBody(req);
     const password = String(body.password || "");
     const user = db.prepare("SELECT * FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
-    if (!user || !verifyPassword(password, user.password_hash)) return send(res, 401, { error: "비밀번호가 올바르지 않습니다." });
+    if (!user) {
+      // 서버가 관리자 계정 없이 떠 있는 비정상 상태 (재시작하면 자동 생성됨)
+      console.error("관리자 계정이 없습니다. 서버를 재시작하면 자동으로 생성됩니다.");
+      return send(res, 503, { error: "관리자 계정이 아직 없습니다. 서버를 재시작해 주세요." });
+    }
+    if (!verifyPassword(password, user.password_hash)) {
+      const used = noteAttempt(key);
+      const left = Math.max(0, LOGIN_LIMIT - used);
+      console.warn(`로그인 실패 (${ip}) ${used}/${LOGIN_LIMIT} - 비밀번호 ${password.length}자, 본문 키: [${Object.keys(body).join(",")}]`);
+      return send(res, 401, {
+        error: left > 0 ? "비밀번호가 올바르지 않습니다." : `비밀번호를 여러 번 틀렸습니다. ${formatWait(LOGIN_WINDOW_MS / 1000)} 후 다시 시도해 주세요.`,
+        attemptsLeft: left,
+      });
+    }
+    clearAttempts(key);
     const token = createSession(user.id);
-    return send(res, 200, { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } }, { "Set-Cookie": sessionCookie(token, req) });
+    return send(res, 200, {
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      initialPasswordInUse: verifyPassword(INITIAL_PASSWORD, user.password_hash),
+    }, { "Set-Cookie": sessionCookie(token, req) });
   }
   if (req.method === "POST" && pathname === "/api/auth/logout") {
     const token = readToken(req);
     if (token) db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
-    return send(res, 200, { ok: true }, { "Set-Cookie": clearCookie() });
+    return send(res, 200, { ok: true }, { "Set-Cookie": clearCookie(req) });
   }
   if (req.method === "POST" && pathname === "/api/partnership") {
     const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
-    if (!rateLimit(`lead:${ip}`, 20, 60 * 60 * 1000)) return send(res, 429, { error: "잠시 후 다시 문의해 주세요." });
+    const leadKey = `lead:${ip}`;
+    if (attemptGate(leadKey, 20, 60 * 60 * 1000).blocked) return send(res, 429, { error: "잠시 후 다시 문의해 주세요." });
+    noteAttempt(leadKey);
     const body = await readBody(req);
     const name = requireText(body.contactName || body.name, "담당자명", 120);
     const email = requireEmail(body.email);
@@ -574,6 +706,9 @@ async function handleApi(req, res, url) {
     const next = String(body.nextPassword || "");
     if (next.length < 8) return send(res, 400, { error: "새 비밀번호는 8자 이상으로 설정해 주세요." });
     db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPassword(next), user.id);
+    adminAccount.initialPasswordInUse = next === INITIAL_PASSWORD;
+    adminAccount.passwordSource = adminAccount.initialPasswordInUse ? "default" : "custom";
+    console.log("관리자 비밀번호를 변경했습니다.");
     return send(res, 200, { ok: true });
   }
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
@@ -688,8 +823,18 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  const hint = process.env.ADMIN_PASSWORD ? "ADMIN_PASSWORD 환경변수" : `초기 비밀번호 ${DEFAULT_PASSWORD}`;
   console.log(`Cuberry site  http://${HOST}:${PORT}/`);
   console.log(`Cuberry admin http://${HOST}:${PORT}/admin`);
-  console.log(`Login: ${hint}`);
+  if (!adminAccount.hasAdmin) {
+    console.log("경고: 관리자 계정이 없습니다. 서버를 재시작하면 초기 계정이 생성됩니다.");
+  } else if (adminAccount.initialPasswordInUse) {
+    if (adminAccount.passwordSource === "environment") {
+      console.log("Login: ADMIN_PASSWORD 환경변수로 설정된 비밀번호");
+    } else {
+      console.log(`Login: 초기 비밀번호 ${INITIAL_PASSWORD} (아직 변경되지 않음)`);
+    }
+  } else {
+    console.log("Login: 설정된 관리자 비밀번호를 사용하세요.");
+    console.log("       비밀번호를 잊었다면 ADMIN_PASSWORD=새비밀번호 RESET_ADMIN_PASSWORD=1 로 재시작하세요.");
+  }
 });
