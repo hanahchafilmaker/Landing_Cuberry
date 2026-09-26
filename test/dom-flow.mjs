@@ -126,7 +126,7 @@ async function waitFor(dom, predicate, { timeout = 8000, label = "조건" } = {}
 }
 
 // 로그인 → 개요 → 포트폴리오 → 팀 → 설정 까지 실제로 클릭해 넘어가며 검증한다.
-async function runScenario({ title, documentUrl, html = ADMIN_HTML, remoteApi, stored = undefined, localNotice = undefined }) {
+async function runScenario({ title, documentUrl, html = ADMIN_HTML, remoteApi, stored = undefined, localNotice = undefined, saveTest = false }) {
   console.log(`\n${"=".repeat(72)}\n${title}\n${"=".repeat(72)}`);
   console.log(`문서 주소 : ${documentUrl}`);
   console.log(`API 서버  : ${remoteApi ? `${remoteApi} (교차출처)` : "문서와 같은 Origin"}`);
@@ -220,6 +220,22 @@ async function runScenario({ title, documentUrl, html = ADMIN_HTML, remoteApi, s
       expect("Live site 링크가 서버 루트", doc().querySelector('.side-link[href]').getAttribute("href"), "/");
     }
 
+    if (saveTest) {
+      console.log("\n[3-1] 설정 저장 버튼 → API → 관리자/공개 재조회");
+      const savedTitle = `DOM 저장 테스트 ${Date.now()}`;
+      const settingsForm = doc().querySelector("#settings-form");
+      settingsForm.querySelector('[name="heroTitle"]').value = savedTitle;
+      const putsBefore = dom.window.fetch.log.filter((line) => line.startsWith("PUT /api/admin/settings")).length;
+      settingsForm.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      await waitFor(dom, () => dom.window.fetch.log.filter((line) => line.startsWith("PUT /api/admin/settings → 200")).length > putsBefore, { label: "설정 PUT" });
+      await waitFor(dom, (d) => d.querySelector('#settings-form [name="heroTitle"]')?.value === savedTitle, { label: "저장 후 관리자 재조회" });
+      expect("PUT /api/admin/settings → 200", dom.window.fetch.log.some((line) => line === `${remoteApi ? "PUT /api/admin/settings → 200 (cross-origin)" : "PUT /api/admin/settings → 200"}`), true);
+      expect("저장 후 입력값 유지", doc().querySelector('#settings-form [name="heroTitle"]').value, savedTitle);
+      const publicResponse = await dom.window.fetch(`${remoteApi || documentOrigin}/api/public/content`);
+      const publicContent = await publicResponse.json();
+      expect("공개 API에 저장값 반영", publicContent.settings.heroTitle, savedTitle);
+    }
+
     console.log("\n[4] 로그아웃 후 다시 로그인 화면");
     doc().querySelector("#logout").dispatchEvent(new dom.window.Event("click", { bubbles: true }));
     await waitFor(dom, (d) => d.querySelector("#login-form"), { label: "로그아웃 후 로그인 폼" });
@@ -251,6 +267,7 @@ sentToProd.push(await runScenario({
   documentUrl: `${PAGES_ORIGIN}/Landing_Cuberry/admin/?api=${encodeURIComponent(API)}`,
   remoteApi: API,
   localNotice: false,
+  saveTest: true,
 }));
 
 // 저장소에 커밋된 admin/index.html 은 BAKED_API_ORIGIN = 운영 주소 이다.

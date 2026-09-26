@@ -135,6 +135,45 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   expect("Pages Origin 에서 공개 콘텐츠 → 200", content.status, 200);
   expect("공개 콘텐츠에도 Allow-Origin", allowOrigin(content), PAGES_ORIGIN);
 
+  // 실제 어드민 저장 경로를 모두 왕복한다. 예전 DOM 종단 테스트는 화면 이동만 해서
+  // 저장 버튼이 API까지 도달하지 않거나 공개 API에 반영되지 않는 회귀를 잡지 못했다.
+  const authHeaders = {
+    origin: PAGES_ORIGIN,
+    "content-type": "application/json",
+    authorization: `Bearer ${session.token}`,
+    "x-admin-token": session.token,
+  };
+  const adminBeforeResponse = await fetch(`${origin}/api/admin/content`, { headers: authHeaders });
+  expect("저장 전 관리자 콘텐츠 → 200", adminBeforeResponse.status, 200);
+  const before = await adminBeforeResponse.json();
+  const put = (route, body) => fetch(`${origin}${route}`, { method: "PUT", headers: authHeaders, body: JSON.stringify(body) });
+
+  const savedTitle = "관리자 저장 왕복 테스트";
+  expect("사이트 설정 PUT → 200", (await put("/api/admin/settings", { ...before.settings, heroTitle: savedTitle })).status, 200);
+
+  const service = before.services[0];
+  expect("상품 PUT → 200", (await put(`/api/admin/services/${service.id}`, { ...service, name: "저장된 테스트 상품" })).status, 200);
+  const work = before.portfolio[0];
+  expect("포트폴리오 PUT → 200", (await put(`/api/admin/portfolio/${work.id}`, { ...work, title: "저장된 테스트 작품" })).status, 200);
+  const faq = before.faqs[0];
+  expect("FAQ PUT → 200", (await put(`/api/admin/faqs/${faq.id}`, { ...faq, question: "저장된 테스트 질문" })).status, 200);
+  const person = before.team[0];
+  expect("팀 PUT → 200", (await put(`/api/admin/team/${person.id}`, { ...person, name: "저장된 테스트 감독" })).status, 200);
+
+  const after = await (await fetch(`${origin}/api/admin/content`, { headers: authHeaders })).json();
+  expect("관리자 재조회에 설정 저장값", after.settings.heroTitle, savedTitle);
+  expect("관리자 재조회에 상품 저장값", after.services.find((item) => item.id === service.id)?.name, "저장된 테스트 상품");
+  expect("관리자 재조회에 작품 저장값", after.portfolio.find((item) => item.id === work.id)?.title, "저장된 테스트 작품");
+  expect("관리자 재조회에 FAQ 저장값", after.faqs.find((item) => item.id === faq.id)?.question, "저장된 테스트 질문");
+  expect("관리자 재조회에 팀 저장값", after.team.find((item) => item.id === person.id)?.name, "저장된 테스트 감독");
+
+  const publicAfter = await (await fetch(`${origin}/api/public/content`, { headers: { origin: PAGES_ORIGIN } })).json();
+  expect("공개 API에도 설정 저장값", publicAfter.settings.heroTitle, savedTitle);
+  expect("공개 API에도 상품 저장값", publicAfter.services.find((item) => item.id === service.id)?.name, "저장된 테스트 상품");
+  expect("공개 API에도 작품 저장값", publicAfter.portfolio.find((item) => item.id === work.id)?.title, "저장된 테스트 작품");
+  expect("공개 API에도 FAQ 저장값", publicAfter.faqs.find((item) => item.id === faq.id)?.question, "저장된 테스트 질문");
+  expect("공개 API에도 팀 저장값", publicAfter.team.find((item) => item.id === person.id)?.name, "저장된 테스트 감독");
+
   expect("거부 로그 남음", logs.join("").includes("[cors] 거부된 Origin"), true);
   expect("시작 로그에 허용 Origin 표시", logs.join("").includes("CORS 허용 Origin"), true);
 });
