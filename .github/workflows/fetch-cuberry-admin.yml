@@ -1,0 +1,105 @@
+name: fetch-cuberry-admin
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - arena/01a0dc10-landing-cuberry
+    paths:
+      - .github/workflows/fetch-cuberry-admin.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: arena/01a0dc10-landing-cuberry
+          fetch-depth: 1
+
+      - name: Download Drive zip and publish source
+        run: |
+          set -euo pipefail
+          python3 - << 'PY'
+          import hashlib, os, pathlib, shutil, subprocess, sys, zipfile
+
+          url = "https://drive.google.com/uc?export=download&id=1_gahzWnKSgVQsEx4If03UieNt1EWeu_f&confirm=t"
+          dest = pathlib.Path("/tmp/cuberry-admin.zip")
+          print("downloading", url, flush=True)
+          subprocess.check_call([
+              "curl", "-L", "--fail", "--retry", "5", "--retry-all-errors",
+              "-A", "Mozilla/5.0",
+              "-o", str(dest),
+              url,
+          ])
+          data = dest.read_bytes()
+          print("bytes", len(data), "sha256", hashlib.sha256(data).hexdigest(), "head", data[:16], flush=True)
+          if data[:2] != b"PK":
+              print("not a zip, first 400 bytes:", data[:400], flush=True)
+              # try gdown
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "gdown"])
+              subprocess.check_call([
+                  sys.executable, "-m", "gdown", "--fuzzy",
+                  "https://drive.google.com/file/d/1_gahzWnKSgVQsEx4If03UieNt1EWeu_f/view?usp=sharing",
+                  "-O", str(dest),
+              ])
+              data = dest.read_bytes()
+              print("gdown bytes", len(data), "head", data[:16], flush=True)
+              if data[:2] != b"PK":
+                  raise SystemExit("download did not return a zip")
+
+          extract = pathlib.Path("/tmp/admin-extract")
+          if extract.exists():
+              shutil.rmtree(extract)
+          extract.mkdir()
+          with zipfile.ZipFile(dest) as zf:
+              print("ZIP LISTING", flush=True)
+              for info in zf.infolist():
+                  print(f"{info.file_size:10} {info.filename}", flush=True)
+              zf.extractall(extract)
+
+          out = pathlib.Path("admin-import")
+          if out.exists():
+              shutil.rmtree(out)
+          out.mkdir()
+          # If the zip has a single top-level directory, use its children.
+          children = [p for p in extract.iterdir() if p.name != "__MACOSX"]
+          src = children[0] if len(children) == 1 and children[0].is_dir() else extract
+          skip_dirs = {"node_modules", ".git", "__MACOSX", ".turbo", "dist"}
+          copied = 0
+          for root, dirs, files in os.walk(src):
+              dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith(".")]
+              rel_root = pathlib.Path(root).relative_to(src)
+              target_root = out / rel_root
+              target_root.mkdir(parents=True, exist_ok=True)
+              for name in files:
+                  if name.startswith("."):
+                      continue
+                  sp = pathlib.Path(root) / name
+                  if sp.stat().st_size > 25_000_000:
+                      print("skip huge", sp, sp.stat().st_size, flush=True)
+                      continue
+                  dp = target_root / name
+                  shutil.copy2(sp, dp)
+                  copied += 1
+          # Keep a copy of the zip if it is reasonably small, for fidelity.
+          if dest.stat().st_size <= 40_000_000:
+              shutil.copy2(dest, out / "cuberry-admin.zip")
+          listing = out / "ZIP_LISTING.txt"
+          with zipfile.ZipFile(dest) as zf:
+              listing.write_text("\n".join(f"{i.file_size}\t{i.filename}" for i in zf.infolist()) + "\n", encoding="utf-8")
+          print("copied files", copied, flush=True)
+          PY
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add admin-import
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Import cuberry-admin source from shared Drive archive"
+            git push origin HEAD:arena/01a0dc10-landing-cuberry
+          fi
