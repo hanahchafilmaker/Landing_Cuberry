@@ -335,20 +335,403 @@
     });
   };
 
+  // ── React + Tailwind 랜딩 어댑터 ────────────────────────────────────────
+  // 2026-09-26 랜딩 리빌드 뒤에는 예전 data-cms-* 훅이 사라졌다. API 저장은
+  // 정상이어도 위 함수들이 찾을 DOM이 없어서, 방문자에게는 "저장이 안 된 것"처럼
+  // 보였다. 빌드 소스가 이 저장소에 없으므로 현재 산출물의 섹션을 안전하게 복제해
+  // CMS 전용 뷰로 바꾼다. 복제본은 React가 관리하지 않기 때문에 문의 폼 입력이나
+  // FAQ 상태 변경으로 React가 다시 렌더되어도 관리자 콘텐츠가 원복되지 않는다.
+  const isModernLanding = () => Boolean(document.querySelector("#root #top"));
+
+  function cloneModernSection(source, key) {
+    const existing = document.querySelector(`[data-cms-modern="${key}"]`);
+    if (existing) return existing;
+    if (!source) return null;
+    const clone = source.cloneNode(true);
+    source.dataset.cmsOriginal = key;
+    source.hidden = true;
+    source.setAttribute("aria-hidden", "true");
+    source.removeAttribute("id");
+    if ("inert" in source) source.inert = true;
+    clone.dataset.cmsModern = key;
+    source.after(clone);
+    return clone;
+  }
+
+  function modernSection(selector, key) {
+    return document.querySelector(`[data-cms-modern="${key}"]`)
+      || cloneModernSection(document.querySelector(selector), key);
+  }
+
+  function modernPackagesSection() {
+    const existing = document.querySelector('[data-cms-modern="packages"]');
+    if (existing) return existing;
+    const source = [...document.querySelectorAll("main > section")].find((section) =>
+      section.querySelector("h2")?.textContent.includes("어떤 영상부터 시작할까요?"));
+    return cloneModernSection(source, "packages");
+  }
+
+  function replaceHeroCopy(copy, value) {
+    const next = String(value || "").trim();
+    if (!copy || !next || copy.textContent.replace(/\s+/g, " ").trim() === next.replace(/\s+/g, " ").trim()) return;
+    const [lead, ...rest] = next.split(/(?<=\.)\s+/);
+    const strong = document.createElement("strong");
+    strong.className = "text-[#f4f1ea]";
+    strong.textContent = lead;
+    copy.replaceChildren(strong);
+    if (rest.length) copy.append(document.createElement("br"), document.createTextNode(` ${rest.join(" ")}`));
+  }
+
+  function applyModernHero(settings) {
+    const section = modernSection("#top", "hero");
+    if (!section) return;
+    section.id = "top";
+    const lead = section.firstElementChild;
+    const paragraphs = lead ? [...lead.children].filter((node) => node.tagName === "P") : [];
+    setText(paragraphs[0], settings.heroEyebrow);
+    const title = lead?.querySelector("h1");
+    if (title && settings.heroTitle && compact(title.textContent) !== compact(settings.heroTitle)) title.textContent = settings.heroTitle;
+    replaceHeroCopy(paragraphs[1], settings.heroSubtitle);
+
+    if (settings.brandName) {
+      const logo = document.querySelector('header a[href="#top"]');
+      if (logo && /^CUBERRY$/i.test(logo.textContent.trim())) setText(logo, settings.brandName);
+    }
+  }
+
+  function applyModernContact(settings) {
+    if (!settings) return;
+    // CTA 섹션은 React의 문의 폼 상태와 분리된 복제본으로 둔다.
+    const section = modernSection("#contact", "contact");
+    if (section) section.id = "contact";
+    if (settings.contactEmail) {
+      document.querySelectorAll('a[href^="mailto:"]').forEach((link) => {
+        link.href = `mailto:${settings.contactEmail}`;
+        setText(link, `${settings.contactEmail} ↗`);
+      });
+    }
+    if (settings.contactPhone) {
+      const digits = String(settings.contactPhone).replace(/[^\d+]/g, "");
+      document.querySelectorAll('a[href^="tel:"]').forEach((link) => {
+        link.href = `tel:${digits}`;
+        setText(link, `${settings.contactPhone} ↗`);
+      });
+    }
+  }
+
+  function applyModernServices(services) {
+    const section = modernPackagesSection();
+    if (!section) return;
+    const layout = section.firstElementChild;
+    const cards = layout?.children?.[1];
+    if (!cards) return;
+    const originalCards = document.querySelector('[data-cms-original="packages"]')?.firstElementChild?.children?.[1];
+    const templates = cards.children.length ? [...cards.children] : [...(originalCards?.children || [])];
+    const template = templates[0];
+    if (!template) return;
+    const fragment = document.createDocumentFragment();
+    services.forEach((service, index) => {
+      const card = (templates[index] || template).cloneNode(false);
+      card.dataset.cmsId = `service-${service.id}`;
+      const name = document.createElement("b");
+      name.className = "block text-[12px] font-bold text-white";
+      name.textContent = service.name;
+      const detail = document.createElement("span");
+      detail.className = "block mt-1 text-purple-400 font-mono text-[11px]";
+      const duration = String(service.duration || "").split("·")[0].trim();
+      detail.textContent = duration ? `${service.price} · ${duration}` : service.price;
+      card.replaceChildren(name, detail);
+      fragment.append(card);
+    });
+    cards.replaceChildren(fragment);
+    section.hidden = services.length === 0;
+  }
+
+  function portfolioGroups(items) {
+    const drive = [];
+    const works = [];
+    items.forEach((item) => {
+      if (item.source === "drive" || String(item.landingSlot || "").startsWith("drive-")) drive.push(item);
+      else works.push(item);
+    });
+    return { drive, works };
+  }
+
+  function applyModernDrive(items) {
+    const section = modernSection("#drive-portfolio", "drive");
+    if (!section) return;
+    section.id = "drive-portfolio";
+    const layout = section.firstElementChild;
+    const grid = layout?.lastElementChild;
+    const template = grid?.querySelector("article") || document.querySelector('[data-cms-original="drive"] article');
+    if (!grid || !template) return;
+    const cards = items.map((item) => {
+      const card = template.cloneNode(true);
+      card.dataset.cmsId = `portfolio-${item.id}`;
+      const image = card.querySelector("img");
+      if (image) {
+        if (item.thumbnailUrl) image.src = assetUrl(item.thumbnailUrl);
+        else image.removeAttribute("src");
+        image.alt = `${item.title} 썸네일`;
+        image.hidden = !item.thumbnailUrl;
+      }
+      const links = card.querySelectorAll("a");
+      links.forEach((link) => {
+        if (item.videoUrl) link.href = assetUrl(item.videoUrl);
+        else link.removeAttribute("href");
+        link.setAttribute("aria-label", `${item.title} 새 창에서 보기`);
+      });
+      const copy = card.lastElementChild?.firstElementChild;
+      const labels = copy ? copy.querySelectorAll("p") : [];
+      setText(labels[0], item.tags || item.category || "PORTFOLIO");
+      setText(copy?.querySelector("h3"), item.title);
+      setText(labels[1], item.description);
+      return card;
+    });
+    grid.replaceChildren(...cards);
+    section.hidden = items.length === 0;
+  }
+
+  function workCard(template, item, index, total) {
+    const card = template.cloneNode(true);
+    card.dataset.cmsId = `portfolio-${item.id}`;
+    card.dataset.kind = item.kind || "기타";
+    const media = card.firstElementChild;
+    const image = media?.querySelector("img");
+    if (image) {
+      if (item.thumbnailUrl) image.src = assetUrl(item.thumbnailUrl);
+      else image.removeAttribute("src");
+      image.alt = `${item.title} 썸네일`;
+      image.hidden = !item.thumbnailUrl;
+    }
+    setText(media?.querySelector("span"), `${String(index + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`);
+    const body = card.lastElementChild;
+    const meta = body?.firstElementChild?.querySelectorAll("span") || [];
+    setText(meta[0], item.category);
+    setText(meta[1], item.year);
+    setText(body?.querySelector("h3"), item.title);
+    const description = body ? [...body.children].find((node) => node.tagName === "P") : null;
+    setText(description, item.description);
+    const tags = body?.lastElementChild;
+    if (tags) {
+      tags.replaceChildren(...String(item.tags || "").split(",").map((tag) => tag.trim()).filter(Boolean).map((tag) => {
+        const chip = document.createElement("span");
+        chip.className = "text-[9px] font-mono text-[#999] border border-white/10 px-2 py-0.5 rounded";
+        chip.textContent = tag;
+        return chip;
+      }));
+    }
+    if (media && item.videoUrl) {
+      media.tabIndex = 0;
+      media.setAttribute("role", "link");
+      media.setAttribute("aria-label", `${item.title} 새 창에서 보기`);
+      media.style.cursor = "pointer";
+      const open = () => window.open(assetUrl(item.videoUrl), "_blank", "noopener,noreferrer");
+      media.addEventListener("click", open);
+      media.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+      });
+    }
+    return card;
+  }
+
+  function applyModernWorks(items) {
+    const section = modernSection("#works", "works");
+    if (!section) return;
+    section.id = "works";
+    const layout = section.firstElementChild;
+    const grid = layout?.lastElementChild;
+    const filters = grid?.previousElementSibling;
+    const template = grid?.querySelector("article") || document.querySelector('[data-cms-original="works"] article');
+    if (!grid || !filters || !template) return;
+    const cards = items.map((item, index) => workCard(template, item, index, items.length));
+    grid.replaceChildren(...cards);
+
+    const eyebrow = layout.querySelector("div > div > p");
+    setText(eyebrow, `04 / Portfolio · ${items.length} works`);
+    const kinds = [...new Set(items.map((item) => item.kind).filter(Boolean))];
+    const labels = ["all", ...kinds];
+    const buttons = labels.map((kind, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `border rounded-full px-4 py-2 text-[11px] font-bold transition-all duration-200 ${index === 0 ? "bg-purple-600 border-purple-600 text-white" : "border-white/15 text-[#999] hover:bg-purple-600/20 hover:border-purple-500/30 hover:text-white"}`;
+      button.textContent = kind === "all" ? "ALL" : kind;
+      button.addEventListener("click", () => {
+        buttons.forEach((node) => {
+          const on = node === button;
+          node.className = `border rounded-full px-4 py-2 text-[11px] font-bold transition-all duration-200 ${on ? "bg-purple-600 border-purple-600 text-white" : "border-white/15 text-[#999] hover:bg-purple-600/20 hover:border-purple-500/30 hover:text-white"}`;
+        });
+        cards.forEach((card) => { card.hidden = kind !== "all" && card.dataset.kind !== kind; });
+      });
+      return button;
+    });
+    filters.replaceChildren(...buttons);
+    section.hidden = items.length === 0;
+  }
+
+  function applyModernTeam(team) {
+    const section = modernSection("#team", "team");
+    if (!section) return;
+    section.id = "team";
+    const layout = section.firstElementChild;
+    const note = layout?.lastElementChild;
+    const grid = note?.previousElementSibling;
+    const template = grid?.querySelector("article") || document.querySelector('[data-cms-original="team"] article');
+    if (!grid || !template) return;
+    const mediaClass = template.firstElementChild?.className || "h-[180px] relative overflow-hidden bg-[#222] rounded-md mb-4";
+    const titleClass = template.querySelector("h3")?.className || "text-[17px] font-bold mb-1";
+    const paragraphClasses = [...template.querySelectorAll(":scope > p")].map((node) => node.className);
+    const listClass = template.querySelector("ul")?.className || "pt-3 pl-4 space-y-1 list-disc text-[12px] text-[#64635e]";
+    const cards = team.map((person) => {
+      const card = document.createElement("article");
+      card.className = template.className;
+      card.dataset.cmsId = `team-${person.id}`;
+      const media = document.createElement("div");
+      media.className = mediaClass;
+      if (person.photoUrl) {
+        const image = document.createElement("img");
+        image.src = assetUrl(person.photoUrl);
+        image.alt = `${person.name} 프로필`;
+        image.loading = "lazy";
+        image.className = "w-full h-full object-cover filter grayscale group-hover:grayscale-[0.35] group-hover:scale-105 transition-all duration-350";
+        image.style.objectPosition = `center ${Number(person.photoPosition) || 0}%`;
+        media.append(image);
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "w-full h-full bg-gradient-to-br from-[#2a2a3a] to-[#1a1a25] flex items-center justify-center";
+        const label = document.createElement("span");
+        label.className = "text-[#555] font-mono text-[11px]";
+        label.textContent = "NO PHOTO";
+        empty.append(label);
+        media.append(empty);
+      }
+      const title = document.createElement("h3");
+      title.className = titleClass;
+      title.textContent = person.name;
+      const [roleText, ...backgroundParts] = String(person.role || "").split(" · ");
+      const role = document.createElement("p");
+      role.className = paragraphClasses[0] || "font-mono text-[10px] text-purple-400 tracking-wider";
+      role.textContent = roleText;
+      const background = document.createElement("p");
+      background.className = paragraphClasses[1] || "text-[11px] text-[#999] mt-0.5";
+      background.textContent = backgroundParts.join(" · ");
+      background.hidden = !background.textContent;
+      const lines = String(person.bio || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      const list = document.createElement("ul");
+      list.className = listClass;
+      list.replaceChildren(...lines.map(bioItem));
+      list.hidden = lines.length === 0;
+      card.append(media, title, role, background, list);
+      return card;
+    });
+    grid.replaceChildren(...cards);
+    section.hidden = team.length === 0;
+  }
+
+  function applyModernFaqs(faqs) {
+    const section = modernSection("#faq", "faqs");
+    if (!section) return;
+    section.id = "faq";
+    const layout = section.firstElementChild;
+    const list = layout?.lastElementChild;
+    const template = list?.firstElementChild || document.querySelector('[data-cms-original="faqs"]')?.firstElementChild?.lastElementChild?.firstElementChild;
+    if (!list || !template) return;
+    const buttonClass = template.querySelector("button")?.className || "w-full py-5 text-left flex justify-between items-center font-bold text-[15px]";
+    const answerClass = template.querySelector("p")?.className || "text-[#9b9992] text-[13px] max-w-[680px] pb-4";
+    const cards = faqs.map((faq) => {
+      const item = document.createElement("div");
+      item.className = "border-b border-white/[0.08]";
+      item.dataset.cmsId = `faq-${faq.id}`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = buttonClass;
+      button.setAttribute("aria-expanded", "false");
+      const question = document.createElement("span");
+      question.textContent = faq.question;
+      const icon = document.createElement("span");
+      icon.className = "font-mono text-[18px] transition-transform duration-200";
+      icon.textContent = "+";
+      const answer = document.createElement("p");
+      answer.className = answerClass;
+      answer.textContent = faq.answer;
+      answer.hidden = true;
+      button.append(question, icon);
+      button.addEventListener("click", () => {
+        const open = answer.hidden;
+        answer.hidden = !open;
+        button.setAttribute("aria-expanded", String(open));
+        icon.classList.toggle("rotate-45", open);
+      });
+      item.append(button, answer);
+      return item;
+    });
+    list.replaceChildren(...cards);
+    section.hidden = faqs.length === 0;
+  }
+
+  function applyModernContent(data) {
+    const settings = data.settings || {};
+    const portfolio = portfolioGroups(data.portfolio || []);
+    applyModernHero(settings);
+    applyModernContact(settings);
+    applyModernServices(data.services || []);
+    applyModernDrive(portfolio.drive);
+    applyModernWorks(portfolio.works);
+    applyModernTeam(data.team || []);
+    applyModernFaqs(data.faqs || []);
+  }
+
+  function applyLegacyContent(data) {
+    applyHero(data.settings || {});
+    applyContact(data.settings || {});
+    applyServices(data.services || []);
+    applyFaqs(data.faqs || []);
+    applyPortfolio(data.portfolio || []);
+    applyTeam(data.team);
+  }
+
   const style = document.createElement("style");
-  style.textContent = ".faq-item.open .faq-answer{max-height:520px}#cms-extra-works{margin-top:18px}[hidden]{display:none!important}";
+  style.textContent = ".faq-item.open .faq-answer{max-height:520px}#cms-extra-works{margin-top:18px}[hidden],[data-cms-original]{display:none!important}";
   document.head.append(style);
 
-  fetch(apiUrl("/api/public/content"))
-    .then((response) => (response.ok ? response.json() : null))
-    .then((data) => {
-      if (!data) return;
-      applyHero(data.settings || {});
-      applyContact(data.settings || {});
-      applyServices(data.services || []);
-      applyFaqs(data.faqs || []);
-      applyPortfolio(data.portfolio || []);
-      applyTeam(data.team);
-    })
-    .catch(() => {});
+  // API 응답이 React보다 먼저 도착할 수도 있으므로 실제 랜딩 마운트를 기다린다.
+  let mountPromise = null;
+  function waitForLandingMount() {
+    if (!document.querySelector("#root") || isModernLanding()) return Promise.resolve();
+    if (mountPromise) return mountPromise;
+    mountPromise = new Promise((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!isModernLanding()) return;
+        observer.disconnect();
+        resolve();
+      });
+      observer.observe(document.querySelector("#root"), { childList: true, subtree: true });
+      // 스크립트 오류가 있어도 Promise를 영원히 붙들지 않는다.
+      setTimeout(() => { observer.disconnect(); resolve(); }, 8000);
+    });
+    return mountPromise;
+  }
+
+  let loading = null;
+  async function refreshContent() {
+    if (loading) return loading;
+    loading = fetch(apiUrl("/api/public/content"), { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(async (data) => {
+        if (!data) return;
+        await waitForLandingMount();
+        if (isModernLanding()) applyModernContent(data);
+        else applyLegacyContent(data);
+      })
+      .catch(() => {})
+      .finally(() => { loading = null; });
+    return loading;
+  }
+
+  refreshContent();
+  // 어드민 탭에서 저장한 뒤 랜딩 탭으로 돌아오면 새로고침 없이 최신값을 다시 읽는다.
+  window.addEventListener("focus", refreshContent);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshContent();
+  });
 })();

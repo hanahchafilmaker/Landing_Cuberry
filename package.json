@@ -8,7 +8,8 @@
     "test:origin": "node test/client-origin.mjs",
     "test:paths": "node test/static-paths.mjs",
     "test:server": "node test/server-wiring.mjs",
-    "test:dom": "node test/dom-flow.mjs"
+    "test:dom": "node test/dom-flow.mjs",
+    "test:cms": "node test/landing-cms.mjs"
   },
   "engines": {
     "node": ">=22.5.0 <23"

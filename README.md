@@ -7,9 +7,10 @@
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 CORS/서빙 99건)
-npm i -D jsdom         # 아래 종단 테스트를 돌리려면 한 번만 (선택)
-npm run test:dom       # 실제 DOM + 브라우저 CORS 규칙 시뮬레이션 종단 테스트 (76건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 115건)
+npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택)
+npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
+npm run test:cms       # React 랜딩에 관리자 저장값 반영·포커스 갱신 테스트 (34건)
 ```
 
 - 랜딩: `/`
@@ -143,9 +144,11 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 >
 > 빌드 소스(`new-design/`, Git 에 들어 있지 않음)에서 고치는 편이 دائم적입니다.
 >
-> 참고로 새 랜딩에는 어드민 콘텐츠 연동 훅(`data-cms="…"`, `#cms-extra-works` 등)이 들어 있지 않아,
-> **어드민에서 고친 문구·포트폴리오·팀은 현재 랜딩에 반영되지 않습니다.** (B2B 문의 접수만 동작)
-> 연동을 되살리려면 빌드 소스에 위 훅을 넣어야 합니다.
+> 새 React 랜딩에는 예전 어드민 콘텐츠 연동 훅(`data-cms="…"`, `#cms-extra-works` 등)이 없습니다.
+> `cms-bridge.js`가 React 렌더 완료를 기다린 뒤 히어로·상품·포트폴리오·팀·FAQ·연락처 섹션을
+> CMS 전용 복제본으로 전환하므로, 현재는 **어드민 저장값이 새 디자인에도 반영됩니다.**
+> 어드민 탭에서 저장한 뒤 이미 열어 둔 랜딩 탭으로 돌아오면 `focus` 시 공개 API를 다시 읽어 자동 갱신합니다.
+> 새 빌드의 섹션 ID/DOM 구조를 바꾸면 `npm run test:cms`로 이 어댑터가 계속 동작하는지 확인하세요.
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 
@@ -199,22 +202,25 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 99건 (client-origin 43 + static-paths 15 + server-wiring 41)
-npm run test:dom   # jsdom 필요 · 76건 (서버가 켜져 있어야 함)
+npm test           # 의존성 없음 · 115건 (client-origin 43 + static-paths 15 + server-wiring 57)
+npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
+npm run test:cms   # jsdom 필요 · 34건 (서버 없이 React 랜딩 + mock API)
 ```
 
 | 파일 | 무엇을 검증하나 |
 | --- | --- |
 | `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
-| `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** 켠 서버에서 Pages Origin 의 사전요청이 204 로 통과하고 목록에 없는 Origin 은 403, Pages Origin 으로 로그인까지 성공 ② 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워져 오고 디스크 파일에는 남아 있는지 ③ `ADMIN_ALLOWED_ORIGINS` 가 기본 목록을 대체하지 않고 추가하는지, `*` 는 전부 허용하는지 |
+| `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
+| `test/landing-cms.mjs` | 새 React 단일 HTML을 실제로 마운트하고 mock 공개 API를 연결한다. API 응답이 React보다 먼저 와도 기다렸다가 히어로·상품·드라이브/일반 포트폴리오·팀·FAQ·연락처를 모두 관리자 값으로 바꾸는지, 원본 React 섹션은 숨기는지, FAQ 상호작용과 탭 `focus` 자동 갱신까지 확인한다. |
 
 `test/dom-flow.mjs` 는 서버가 켜져 있어야 합니다:
 
 ```bash
 npm start                              # 다른 터미널. 환경변수 없이 켜도 된다
 npm i -D jsdom && npm run test:dom     # Pages 주소는 서버 기본 허용 목록에 있으므로 그것까지 함께 검증된다
+npm run test:cms                       # 별도 서버 불필요
 ```
 
 `TEST_API_ORIGIN`, `TEST_ADMIN_PASSWORD` 환경변수로 대상 서버와 비밀번호를 바꿀 수 있습니다.
