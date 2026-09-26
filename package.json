@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "start": "node --experimental-sqlite server/index.mjs",
-    "test": "node test/client-origin.mjs && node test/static-paths.mjs",
+    "test": "node test/client-origin.mjs && node test/static-paths.mjs && node test/server-wiring.mjs",
     "test:origin": "node test/client-origin.mjs",
     "test:paths": "node test/static-paths.mjs",
+    "test:server": "node test/server-wiring.mjs",
     "test:dom": "node test/dom-flow.mjs"
   },
   "engines": {

@@ -1,11 +1,20 @@
 (() => {
   // ── API 서버 주소(Origin) 결정 ─────────────────────────────────────────
   // GitHub Pages 처럼 정적 호스팅에 올린 랜딩 페이지는 같은 주소에 API 가 없다.
-  // 원격 Node 서버의 콘텐츠를 읽어오려면 아래 BAKED_API_ORIGIN 에 주소를 적거나,
-  // 어드민 로그인 화면의 "API 서버 주소"에서 저장하면 된다(둘은 같은 키를 공유한다).
-  // 서버 쪽 환경변수 ADMIN_ALLOWED_ORIGINS 에 이 페이지의 Origin 이 허용되어 있어야 한다.
-  const BAKED_API_ORIGIN = ""; // 예: "https://cuberry-landing.onrender.com"
+  // 그래서 운영 Node 서버 주소를 아래 BAKED_API_ORIGIN 에 커밋해 두면 방문자가 아무것도
+  // 입력하지 않아도 그 서버의 콘텐츠를 읽어온다. 어드민 로그인 화면의 "API 서버 주소"에서
+  // 저장한 값(localStorage)이 있으면 그쪽이 우선한다(둘은 같은 키를 공유한다).
+  // 서버 쪽에서는 이 페이지의 Origin 을 기본 허용 목록에 넣어 두었다(server/index.mjs 의
+  // DEFAULT_ALLOWED_ORIGINS). 다른 사이트를 추가로 허용하려면 ADMIN_ALLOWED_ORIGINS 를 쓴다.
+  //
+  // 이 Node 서버가 화면을 직접 서빙할 때는 서버가 이 값을 "" 로 바꿔 보내므로 항상 같은 서버를 쓴다.
+  // 아래 로컬 가드는 파일을 바로 열거나 다른 정적 서버로 띄웠을 때의 안전장치다.
+  const BAKED_API_ORIGIN = "https://landing-cuberry-admin.onrender.com"; // 운영 Node 서버
   const API_ORIGIN_KEY = "cuberry.apiOrigin";
+  // 로컬 개발 가드 — localhost 에서 굽힌/저장된 운영 주소를 그대로 쓰면
+  // 로컬 서버를 띄워 놓고 하는 편집이 운영 데이터베이스에 반영된다. 그걸 막는다.
+  const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+  const isLocalHost = () => LOCAL_HOSTNAMES.has(String(location.hostname || ""));
 
   const normalizeApiOrigin = (value) => {
     let next = String(value ?? "").trim();
@@ -24,6 +33,8 @@
     // 주소창의 ?api= 는 이번 방문에만 적용하고 저장하지 않는다(잘못된 링크가 사이트를 망가뜨리지 않게).
     const fromQuery = normalizeApiOrigin(new URLSearchParams(location.search).get("api"));
     if (fromQuery) return fromQuery;
+    // 로컬 개발에서는 굽힌/저장된 주소를 무시하고 항상 이 서버를 쓴다. 전환은 ?api= 로만.
+    if (isLocalHost()) return "";
     let saved = "";
     try { saved = window.localStorage.getItem(API_ORIGIN_KEY) || ""; } catch { saved = ""; }
     return normalizeApiOrigin(saved) || normalizeApiOrigin(BAKED_API_ORIGIN) || "";

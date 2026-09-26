@@ -7,7 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const DATA_DIR = path.join(ROOT, "data");
+// 테스트가 저장소 밖 임시 폴더에서 돌 수 있도록 DATA_DIR 로 덮어쓸 수 있게 한다. (기본값은 그대로 data/)
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
 const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
 const DB_PATH = path.join(DATA_DIR, "cuberry.sqlite");
 const SEED_PATH = path.join(__dirname, "seed.json");
@@ -16,11 +17,22 @@ const HOST = "0.0.0.0";
 // GitHub Pages 처럼 정적 호스팅에 올린 화면이 이 서버의 API를 직접 호출할 수 있도록 허용할 Origin.
 // 예) ADMIN_ALLOWED_ORIGINS="https://hanahchafilmaker.github.io,https://cuberry.com"
 // "*" 로 지정하면 모든 Origin 을 허용합니다(토큰 인증만 사용하므로 쿠키 자격증명은 무시됩니다).
-const ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
+//
+// DEFAULT_ALLOWED_ORIGINS 는 환경변수와 무관하게 항상 허용되는 주소입니다.
+// Render 서비스를 Blueprint(render.yaml)가 아니라 대시보드에서 수동으로 만들면 환경변수가
+// 하나도 적용되지 않아 allowedOrigins 가 비고, 그 결과 Pages 화면의 사전요청이 403 으로
+// 거부되어 주소가 맞아도 로그인이 되지 않습니다. Pages 주소는 이미 저장소에 공개된 값이므로
+// 기본값으로 넣어 "재배포만 하면 되는" 상태로 만듭니다.
+// ADMIN_ALLOWED_ORIGINS 는 이 목록을 대체하지 않고 **추가**로 합쳐집니다.
+const DEFAULT_ALLOWED_ORIGINS = [
+  "https://hanahchafilmaker.github.io",
+];
+const ENV_ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
   .split(/[\s,]+/)
   .map((value) => value.trim().replace(/\/+$/, ""))
   .filter(Boolean);
-const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS.includes("*");
+const ALLOW_ANY_ORIGIN = ENV_ALLOWED_ORIGINS.includes("*");
+const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS])];
 // 리버스 프록시 뒤에서 외부에 노출되는 주소. 업로드 이미지 URL 을 절대경로로 만들 때 사용합니다.
 // Render 에서는 RENDER_EXTERNAL_URL 이 자동으로 주입되므로 별도 설정 없이도 채워집니다.
 const PUBLIC_ORIGIN = String(process.env.PUBLIC_ORIGIN || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
@@ -761,6 +773,34 @@ function serveFile(req, res, filePath) {
   createReadStream(filePath).pipe(res);
 }
 
+// 어드민(admin/index.html)과 랜딩 브리지(cms-bridge.js)에 커밋해 둔 BAKED_API_ORIGIN 은
+// GitHub Pages 처럼 "같은 주소에 API 가 없는 정적 호스트"를 위한 값이다.
+// 이 Node 서버가 그 화면을 직접 서빙할 때는 API 가 바로 옆에 있으므로 값을 비워서 보낸다.
+// 그래야 localhost · 미리보기 주소 · Render 주소에서 연 어드민이 항상 자기 서버(자기 DB)를 쓰고,
+// 로컬에서의 편집이 운영 서버에 그대로 반영되는 사고가 나지 않는다.
+// (파일 자체는 고치지 않으므로 Pages 에 올라간 사본에는 운영 주소가 그대로 남는다.)
+const BAKED_ORIGIN_PATTERN = /(const BAKED_API_ORIGIN = )"[^"]*"(;)/g;
+
+function serveClientFile(req, res, filePath) {
+  if (!existsSync(filePath) || !statSync(filePath).isFile()) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+    return;
+  }
+  const body = Buffer.from(readFileSync(filePath, "utf8").replace(BAKED_ORIGIN_PATTERN, '$1""$2'), "utf8");
+  res.writeHead(200, {
+    "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
+    "Content-Length": body.length,
+    // 서빙 시점에 값이 바뀌므로 캐시되면 안 된다.
+    "Cache-Control": "no-store",
+  });
+  if (req.method === "HEAD") {
+    res.end();
+    return;
+  }
+  res.end(body);
+}
+
 async function handleApi(req, res, url) {
   const { pathname } = url;
   if (req.method === "GET" && pathname === "/api/health") return send(res, 200, { ok: true });
@@ -771,7 +811,9 @@ async function handleApi(req, res, url) {
     return send(res, 200, {
       ok: true,
       publicOrigin: PUBLIC_ORIGIN || derived,
+      // 실제로 적용되는 목록(기본값 + 환경변수). "*" 면 ["*"].
       allowedOrigins: ALLOW_ANY_ORIGIN ? ["*"] : ALLOWED_ORIGINS,
+      defaultAllowedOrigins: DEFAULT_ALLOWED_ORIGINS,
       hasAdmin: adminAccount.hasAdmin,
     });
   }
@@ -956,11 +998,12 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      serveFile(req, res, path.join(ROOT, "admin", "index.html"));
+      // 굽혀둔 BAKED_API_ORIGIN 을 비워서 보낸다(같은 서버에 API 가 있으므로).
+      serveClientFile(req, res, path.join(ROOT, "admin", "index.html"));
       return;
     }
     if (url.pathname === "/cms-bridge.js") {
-      serveFile(req, res, path.join(ROOT, "cms-bridge.js"));
+      serveClientFile(req, res, path.join(ROOT, "cms-bridge.js"));
       return;
     }
     if (url.pathname.startsWith("/uploads/")) {
@@ -1003,6 +1046,8 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Cuberry site  http://${HOST}:${PORT}/`);
   console.log(`Cuberry admin http://${HOST}:${PORT}/admin`);
+  console.log(`CORS 허용 Origin: ${ALLOW_ANY_ORIGIN ? "* (모든 Origin)" : ALLOWED_ORIGINS.join(", ") || "(없음)"}`);
+  console.log(`  └ 기본값 ${JSON.stringify(DEFAULT_ALLOWED_ORIGINS)} + ADMIN_ALLOWED_ORIGINS ${JSON.stringify(ENV_ALLOWED_ORIGINS)}`);
   if (!adminAccount.hasAdmin) {
     console.log("경고: 관리자 계정이 없습니다. 서버를 재시작하면 초기 계정이 생성됩니다.");
   } else if (adminAccount.initialPasswordInUse) {

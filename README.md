@@ -7,14 +7,14 @@
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (Pages 서브경로·원격 API 주소 결정 35건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 CORS/서빙 96건)
 npm i -D jsdom         # 아래 종단 테스트를 돌리려면 한 번만 (선택)
-npm run test:dom       # 실제 DOM + 브라우저 CORS 규칙 시뮬레이션 종단 테스트 (45건)
+npm run test:dom       # 실제 DOM + 브라우저 CORS 규칙 시뮬레이션 종단 테스트 (76건)
 ```
 
 - 랜딩: `/`
 - 어드민: `/admin` (포트폴리오, 상품, FAQ, 팀 프로필, 상담 문의, 사이트 문구, 비밀번호 관리)
-- 데이터: `data/cuberry.sqlite` (SQLite, 최초 실행 시 `server/seed.json` 으로 자동 시드)
+- 데이터: `data/cuberry.sqlite` (SQLite, 최초 실행 시 `server/seed.json` 으로 자동 시드) — `DATA_DIR` 환경변수로 다른 폴더를 지정할 수 있습니다(테스트가 사용)
 - 업로드 이미지: `data/uploads/`
 
 ## 배포
@@ -28,6 +28,13 @@ GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행
 | --- | --- | --- |
 | Node 서버 | `/api/*` (로그인·콘텐츠 저장) + 랜딩 + 어드민 화면 | Render 등 (아래 참고) |
 | GitHub Pages | 랜딩/어드민 **정적 사본** | `hanahchafilmaker.github.io/Landing_Cuberry/` |
+
+현재 배포 주소 (둘 다 소스에 커밋되어 있어 방문자가 주소를 입력할 필요가 없습니다)
+
+| 조각 | 주소 |
+| --- | --- |
+| Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` |
+| GitHub Pages (화면) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — `server/index.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` |
 
 ### A. Node 서버 배포 (Render Blueprint)
 
@@ -57,29 +64,46 @@ Render는 Node.js 22와 Singapore 리전을 쓰도록 설정되어 있습니다.
 Pages에 올라간 랜딩/어드민은 같은 주소에 API가 없으므로, **Node 서버 주소를 알려주면** 그 서버를 직접 호출합니다.
 서버가 다른 Origin의 요청을 받으려면 CORS 허용이 필요합니다.
 
-**1) 서버 쪽** — 환경변수 `ADMIN_ALLOWED_ORIGINS` 에 Pages 주소를 넣습니다. (두 Blueprint 모두 기본값으로 설정되어 있습니다.)
+**1) 서버 쪽** — GitHub Pages 주소(`https://hanahchafilmaker.github.io`)는 `server/index.mjs` 의
+`DEFAULT_ALLOWED_ORIGINS` 에 **기본값으로 들어 있습니다.** 그래서 Render 서비스를 Blueprint 가 아니라
+대시보드에서 수동으로 만들었더라도(`render.yaml` 의 환경변수가 하나도 적용되지 않더라도) **재배포만으로** CORS 가 통과합니다.
+기동 로그에 `CORS 허용 Origin: …` 으로 실제 적용된 목록이 찍힙니다.
+
+다른 사이트를 추가로 열 때만 환경변수를 씁니다. 이 값은 기본 목록을 **대체하지 않고 추가**합니다.
 
 ```
-ADMIN_ALLOWED_ORIGINS=https://hanahchafilmaker.github.io
-# 여러 개:  https://hanahchafilmaker.github.io,https://cuberry.com
+ADMIN_ALLOWED_ORIGINS=https://cuberry.com
+# 여러 개:  https://cuberry.com,https://staging.cuberry.com
 # 전체 허용: *
 ```
 
+적용 상태는 `GET /api/config` 로 확인할 수 있습니다 — `allowedOrigins`(기본값 + 환경변수), `defaultAllowedOrigins`(기본값만), `publicOrigin`.
 허용되지 않은 Origin이 사전요청을 보내면 서버 로그에 `[cors] 거부된 Origin: …` 가 찍히고 403을 돌려줍니다.
 어떤 주소를 추가해야 할지 모를 때 이 로그를 보면 됩니다.
 
-**2) 브라우저 쪽** — Pages의 `/admin` 로그인 화면 아래 **API 서버 주소** 카드를 열고 Node 서버 주소를 넣은 뒤
-"저장 후 다시 연결"을 누릅니다. 값은 **그 브라우저의 localStorage에만** 저장되며 GitHub에는 전송되지 않습니다.
+**2) 브라우저 쪽** — 운영 서버 주소는 이미 소스에 커밋되어 있습니다(`BAKED_API_ORIGIN`).
+`https://hanahchafilmaker.github.io/Landing_Cuberry/admin/` 를 열면 **주소를 입력하지 않아도** 로그인 화면이 그 서버에 연결됩니다.
+다른 서버(스테이징 등)로 돌려야 할 때만 로그인 화면 아래 **API 서버 주소** 카드를 열고 주소를 넣은 뒤
+"저장 후 다시 연결"을 누르세요. 값은 **그 브라우저의 localStorage에만** 저장되며 GitHub에는 전송되지 않습니다.
 
 주소 결정 우선순위는 어드민과 랜딩(`cms-bridge.js`)이 동일합니다.
 
 1. 주소창의 `?api=https://…` — 어드민은 저장, 랜딩은 이번 방문에만 적용
 2. localStorage `cuberry.apiOrigin` — 로그인 화면에서 저장한 값
-3. 소스의 `BAKED_API_ORIGIN` 상수 — 커밋해서 모든 방문자에게 고정하고 싶을 때
-   (`admin/index.html` 과 `cms-bridge.js` 맨 위 한 줄씩)
+3. 소스의 `BAKED_API_ORIGIN` 상수 — 저장소에 커밋된 운영 서버 주소
+   (`admin/index.html` 과 `cms-bridge.js` 맨 위 한 줄씩, 현재 `https://landing-cuberry-admin.onrender.com`)
 4. 빈 값 → 현재 페이지와 같은 서버
 
 `?api=same` 을 붙이면 저장된 값을 지우고 같은 서버 모드로 돌아갑니다.
+
+**로컬 개발 가드** — 2)·3) 은 `localhost`·`127.0.0.1`·`[::1]` 에서 **무시**되고 항상 같은 서버(로컬 DB)를 씁니다.
+운영 주소가 소스에 박힌 채로 `localhost:8080/admin` 을 열면 로컬에서의 편집이 **운영 데이터베이스에 그대로 반영**되기 때문입니다.
+로컬에서 다른 서버를 봐야 하면 주소창에 `?api=https://…` 를 붙이세요(1번은 가드 대상이 아닙니다).
+가드가 켜져 있으면 로그인 화면의 **API 서버 주소** 카드에 `로컬 개발 모드` 안내가 뜹니다.
+
+또한 이 Node 서버가 `/admin` 과 `/cms-bridge.js` 를 **직접 서빙할 때는 서버가 그 값을 비워서** 보냅니다.
+로컬·미리보기 도메인·Render 주소에서 연 화면은 어떤 호스트이든 항상 자기 서버를 쓰고,
+파일 자체는 고치지 않으므로 GitHub Pages 에 올라간 사본에는 운영 주소가 그대로 남습니다.
 
 인증은 쿠키가 아니라 **Bearer 토큰**(`sessionStorage`)으로 하므로, 사파리 등의 서드파티 쿠키 차단과 무관하게 동작합니다.
 원격 모드에서는 어드민이 주소를 바꾸지 않습니다(Pages에는 `/admin/portfolio` 같은 파일이 없어 새로고침 시 404이기 때문).
@@ -145,34 +169,38 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 
 ### 로그인이 안 될 때 점검 순서
 
-0. **`어드민 API 서버 없음` (404/405) 안내가 떴다면** — 지금 열어둔 주소가 GitHub Pages 같은 정적 호스트입니다.
-   로그인 화면의 **API 서버 주소** 카드에 Node 서버 주소를 넣고 저장하세요. (위 "원격 API 모드" 참고)
+0. **`어드민 API 서버 없음` (404/405) 안내가 떴다면** — 지금 열어둔 주소가 정적 호스트인데 API 서버 주소가 비어 있습니다.
+   저장소의 `BAKED_API_ORIGIN` 이 비어 있는지, 또는 이 브라우저의 localStorage 에 잘못된 주소가 저장됐는지(`?api=same` 으로 초기화) 확인하세요.
+   로그인 화면의 **API 서버 주소** 카드에 Node 서버 주소를 넣고 저장해도 됩니다. (위 "원격 API 모드" 참고)
 1. 서버 로그 확인 — 기동 시 `Login: 초기 비밀번호 cuberry2026 (아직 변경되지 않음)` 처럼 현재 상태를 알려 줍니다.
 2. 로그인 실패 로그 — `로그인 실패 (IP) 3/10 - 비밀번호 12자, 본문 키: [password]` 형식으로 남습니다.
    - `비밀번호 0자` 로 찍히면 요청 본문이 서버까지 전달되지 않은 것입니다(프록시 문제).
    - `[cors] 거부된 Origin: …` 이 찍히면 `ADMIN_ALLOWED_ORIGINS` 에 그 주소를 추가하세요.
+     (GitHub Pages 주소는 기본 허용 목록에 있으므로 이 로그에 찍힐 수 없습니다. 찍힌다면 다른 주소로 열어둔 것입니다.)
 3. 비밀번호를 5분 안에 10회 틀리면 잠시 잠깁니다. 응답의 `retryAfter`(초)만큼 기다리면 다시 시도할 수 있습니다.
 4. 브라우저에서 직접 확인: `GET /api/health`, `GET /api/auth/status` (로그인 화면 안내 문구에 사용), `GET /api/config` (허용된 Origin 목록과 공개 주소).
+   `allowedOrigins` 가 `[]` 이면 그 서버는 아직 이 변경 이전 코드입니다 — 재배포하세요.
 5. 원격 API 모드에서 `…서버에 연결하지 못했습니다` 가 뜨면 — 서버가 잠들어 있거나(무료 플랜 콜드 스타트), 주소가 잘못됐거나, CORS가 거부된 것입니다. DevTools Console의 CORS 오류 문구로 구분할 수 있습니다.
 
 ## 테스트
 
 ```bash
-npm test        # 의존성 없음 · 35건
-npm run test:dom  # jsdom 필요 · 45건 (서버가 켜져 있어야 함)
+npm test           # 의존성 없음 · 96건 (client-origin 40 + static-paths 15 + server-wiring 41)
+npm run test:dom   # jsdom 필요 · 76건 (서버가 켜져 있어야 함)
 ```
 
 | 파일 | 무엇을 검증하나 |
 | --- | --- |
-| `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath` |
+| `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩·서버 기본값·`render.yaml`·`render.free.yaml` **다섯 곳에 적힌 주소가 서로 어긋나면 실패**한다 |
+| `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** 켠 서버에서 Pages Origin 의 사전요청이 204 로 통과하고 목록에 없는 Origin 은 403, Pages Origin 으로 로그인까지 성공 ② 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워져 오고 디스크 파일에는 남아 있는지 ③ `ADMIN_ALLOWED_ORIGINS` 가 기본 목록을 대체하지 않고 추가하는지, `*` 는 전부 허용하는지 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
-| `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 A(Pages + 원격 API)·B(Node 서버 한 곳)·C(허용 목록에 없는 Origin 차단) |
+| `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 
 `test/dom-flow.mjs` 는 서버가 켜져 있어야 합니다:
 
 ```bash
-ADMIN_ALLOWED_ORIGINS=https://hanahchafilmaker.github.io npm start   # 다른 터미널
-npm i -D jsdom && npm run test:dom
+npm start                              # 다른 터미널. 환경변수 없이 켜도 된다
+npm i -D jsdom && npm run test:dom     # Pages 주소는 서버 기본 허용 목록에 있으므로 그것까지 함께 검증된다
 ```
 
 `TEST_API_ORIGIN`, `TEST_ADMIN_PASSWORD` 환경변수로 대상 서버와 비밀번호를 바꿀 수 있습니다.
