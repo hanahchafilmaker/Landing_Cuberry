@@ -182,7 +182,7 @@
       ["inquiries", "Inquiries", "문의"],
       ["settings", "Settings", "설정"],
     ];
-    const state = { user: null, content: null, summary: null, query: "", inquiryFilter: "all", editor: null, busy: false, loginError: null, loadError: null, serverError: null };
+    const state = { user: null, content: null, summary: null, query: "", inquiryFilter: "all", editor: null, busy: false, loginError: null, loadError: null, serverError: null, serverStatus: null };
     const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
     const tokenKey = "cuberry-admin-token";
     const INITIAL_PASSWORD = "cuberry2026";
@@ -311,6 +311,9 @@
     }
 
     function loginHint() {
+      if ([404, 405].includes(state.serverStatus)) {
+        return `<div class="alert"><strong>어드민 API 서버 없음</strong>현재 주소에서 로그인 API를 찾을 수 없습니다. GitHub Pages 같은 정적 호스팅에서는 로그인할 수 없으니, Node 서버를 배포한 주소의 <code>/admin</code>으로 접속해 주세요.</div>`;
+      }
       if (state.serverError) {
         return `<div class="alert"><strong>서버 연결 실패</strong>${esc(state.serverError)}<br>서버가 실행 중인지 확인해 주세요. (터미널에서 <code>npm start</code>)</div>`;
       }
@@ -558,6 +561,10 @@
           }
           render();
         } catch (error) {
+          if ([404, 405].includes(error.status)) {
+            state.serverStatus = error.status;
+            state.serverError = error.message;
+          }
           state.loginError = error.status === 401 && typeof error.data?.attemptsLeft === "number" && error.data.attemptsLeft > 0
             ? `${error.message} (남은 시도 ${error.data.attemptsLeft}회)`
             : error.message;
@@ -754,8 +761,10 @@
       try {
         authStatus = await api("/api/auth/status");
         state.serverError = null;
+        state.serverStatus = null;
       } catch (error) {
         state.serverError = error.message;
+        state.serverStatus = error.status;
       }
       const hadToken = Boolean(store.get(tokenKey));
       try {
