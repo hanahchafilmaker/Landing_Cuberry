@@ -1,10 +1,11 @@
 {
+  "exportedAt": "2026-09-27T05:09:19.580Z",
   "settings": {
     "brandName": "CUBERRY",
     "heroEyebrow": "Creative video studio / Seoul · Korea",
     "heroTitle": "MAKE IT MOVE.",
     "heroSubtitle": "브랜드의 메시지를 가장 효과적인 방법으로. 큐브베리는 기획·촬영·편집·모션그래픽과 XCONDA AI 플랫폼까지, 영상의 처음과 끝을 함께 만드는 제작 스튜디오입니다.",
-    "contactEmail": "f9.flownine@gmail.com",
+    "contactEmail": "CEO@cubeberry.ai",
     "contactPhone": "070-8095-2302"
   },
   "services": [
@@ -40,36 +41,6 @@
       "sortOrder": 3,
       "isPublished": true,
       "landingSlot": "service-3"
-    }
-  ],
-  "faqs": [
-    {
-      "question": "실사 촬영 없이도 완성도 있는 영상이 가능한가요?",
-      "answer": "가능합니다. 기획·콘티·이미지 및 영상 생성·컷 편집·후보정·사운드까지 전체 공정으로 진행하며, 실제 제품은 필요에 따라 별도 합성합니다.",
-      "sortOrder": 1,
-      "isPublished": true,
-      "landingSlot": "faq-1"
-    },
-    {
-      "question": "AI 영상에서 인물과 공간이 계속 바뀌지 않나요?",
-      "answer": "큐브베리는 XCONDA의 Turn, FlexBoard, Blocking Board를 활용해 공간·캐릭터·동선을 제작 단계에서 관리합니다.",
-      "sortOrder": 2,
-      "isPublished": true,
-      "landingSlot": "faq-2"
-    },
-    {
-      "question": "어떤 자료를 준비하면 상담이 빨라지나요?",
-      "answer": "영상 목적과 업로드 채널, 참고 영상 1~2개, 로고·제품 사진·컬러 가이드, 원하는 비율과 희망 납기일을 준비해주시면 좋습니다.",
-      "sortOrder": 3,
-      "isPublished": true,
-      "landingSlot": "faq-3"
-    },
-    {
-      "question": "상업적 이용과 NDA가 가능한가요?",
-      "answer": "기업회원·세금계산서 발행·NDA 체결이 가능하며, 최종 제작물은 협의된 범위에서 상업적으로 이용할 수 있습니다.",
-      "sortOrder": 4,
-      "isPublished": true,
-      "landingSlot": "faq-4"
     }
   ],
   "portfolio": [
@@ -524,6 +495,36 @@
       "landingSlot": "work-22"
     }
   ],
+  "faqs": [
+    {
+      "question": "실사 촬영 없이도 완성도 있는 영상이 가능한가요?",
+      "answer": "가능합니다. 기획·콘티·이미지 및 영상 생성·컷 편집·후보정·사운드까지 전체 공정으로 진행하며, 실제 제품은 필요에 따라 별도 합성합니다.",
+      "sortOrder": 1,
+      "isPublished": true,
+      "landingSlot": "faq-1"
+    },
+    {
+      "question": "AI 영상에서 인물과 공간이 계속 바뀌지 않나요?",
+      "answer": "큐브베리는 XCONDA의 Turn, FlexBoard, Blocking Board를 활용해 공간·캐릭터·동선을 제작 단계에서 관리합니다.",
+      "sortOrder": 2,
+      "isPublished": true,
+      "landingSlot": "faq-2"
+    },
+    {
+      "question": "어떤 자료를 준비하면 상담이 빨라지나요?",
+      "answer": "영상 목적과 업로드 채널, 참고 영상 1~2개, 로고·제품 사진·컬러 가이드, 원하는 비율과 희망 납기일을 준비해주시면 좋습니다.",
+      "sortOrder": 3,
+      "isPublished": true,
+      "landingSlot": "faq-3"
+    },
+    {
+      "question": "상업적 이용과 NDA가 가능한가요?",
+      "answer": "기업회원·세금계산서 발행·NDA 체결이 가능하며, 최종 제작물은 협의된 범위에서 상업적으로 이용할 수 있습니다.",
+      "sortOrder": 4,
+      "isPublished": true,
+      "landingSlot": "faq-4"
+    }
+  ],
   "team": [
     {
       "name": "조민희 PD",
@@ -565,5 +566,6 @@
       "isPublished": true,
       "landingSlot": "team-5"
     }
-  ]
+  ],
+  "inquiries": []
 }
