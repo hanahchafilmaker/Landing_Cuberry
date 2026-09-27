@@ -780,6 +780,9 @@ function serveFile(req, res, filePath) {
 // 로컬에서의 편집이 운영 서버에 그대로 반영되는 사고가 나지 않는다.
 // (파일 자체는 고치지 않으므로 Pages 에 올라간 사본에는 운영 주소가 그대로 남는다.)
 const BAKED_ORIGIN_PATTERN = /(const BAKED_API_ORIGIN = )"[^"]*"(;)/g;
+// admin-v2 단일 HTML 에 구워 둔 <meta name="cuberry-api-origin"> 도 같은 규칙으로 비운다
+// (번들 최소화로 JS 상수가 바뀔 수 있어 HTML 메타태그에 둔 값이다).
+const BAKED_ORIGIN_META_PATTERN = /(name="cuberry-api-origin" content=")[^"]*(")/g;
 
 function serveClientFile(req, res, filePath) {
   if (!existsSync(filePath) || !statSync(filePath).isFile()) {
@@ -787,7 +790,12 @@ function serveClientFile(req, res, filePath) {
     res.end("Not found");
     return;
   }
-  const body = Buffer.from(readFileSync(filePath, "utf8").replace(BAKED_ORIGIN_PATTERN, '$1""$2'), "utf8");
+  const body = Buffer.from(
+    readFileSync(filePath, "utf8")
+      .replace(BAKED_ORIGIN_PATTERN, '$1""$2')
+      .replace(BAKED_ORIGIN_META_PATTERN, "$1$2"),
+    "utf8",
+  );
   res.writeHead(200, {
     "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
     "Content-Length": body.length,
@@ -998,8 +1006,13 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      // 굽혀둔 BAKED_API_ORIGIN 을 비워서 보낸다(같은 서버에 API 가 있으므로).
+      // 굽혀둔 BAKED_API_ORIGIN 을 비워서 본다(같은 서버에 API 가 있으므로).
       serveClientFile(req, res, path.join(ROOT, "admin", "index.html"));
+      return;
+    }
+    if (url.pathname === "/admin-v2" || url.pathname.startsWith("/admin-v2/")) {
+      // 새 어드민(admin-v2 단일 파일). 굽혀둔 BAKED_API_ORIGIN 을 비워서 본다(같은 서버에 API 가 있으므로).
+      serveClientFile(req, res, path.join(ROOT, "admin-v2", "index.html"));
       return;
     }
     if (url.pathname === "/cms-bridge.js") {
