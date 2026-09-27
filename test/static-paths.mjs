@@ -138,9 +138,20 @@ try {
 
   console.log("\n[5] 원격 API 모드가 화면에 심어져 있는지");
   expect("cms-bridge.js 가 window.CuberryApi 를 공개", /window\.CuberryApi\s*=/.test(readFileSync(path.join(ROOT, "cms-bridge.js"), "utf8")), true);
-  expect("문의 폼이 CuberryApi.url 사용", /CuberryApi\.url\('\/api\/partnership'\)/.test(landing), true);
+  expect("문의 폼이 CuberryApi.url 사용", /CuberryApi\.url\(\s*["'`]\/api\/partnership["'`]\s*\)/.test(landing), true);
   expect("어드민에 API 서버 주소 카드", admin.includes('id="api-box"') && admin.includes('id="save-api-origin"'), true);
   expect("어드민에 내보내기 버튼", admin.includes('id="export-seed"'), true);
+
+  console.log("\n[6] React 번들이 문자열로 참조하는 로컬 자산(images/…, portfolio_thumbs/…)도 서브경로에서 해결되는지");
+  const bundleAssets = [...new Set([...landing.matchAll(/["'`]((?:images|portfolio_thumbs|team_portraits)\/[A-Za-z0-9_.-]+\.(?:jpe?g|png|webp|svg))["'`]/g)].map((m) => m[1]))];
+  const missingAssets = [];
+  for (const asset of bundleAssets) {
+    if ((await head(`${BASE}/${asset}`)).status !== 200) missingAssets.push(asset);
+  }
+  console.log(`    번들 자산 참조 ${bundleAssets.length}건`);
+  expect("번들 자산 참조가 있다", bundleAssets.length > 0, true);
+  expect("번들 자산 깨진 참조", missingAssets, []);
+  expect("번들에 루트 절대경로 /images/ 참조 없음", /["'`]\/images\//.test(landing), false);
 
   console.log(`\n결과: ${checks - failures}/${checks} 통과`);
   if (failures) process.exitCode = 1;

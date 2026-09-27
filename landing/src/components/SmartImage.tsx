@@ -8,6 +8,8 @@ interface SmartImageProps {
   imgClassName?: string;
   /** 원격 이미지 로드 실패 시 사용할 로컬 폴백 이미지 */
   fallbackSrc?: string;
+  /** 어드민 "사진 위치"처럼 object-position 을 지정할 때 */
+  objectPosition?: string;
 }
 
 /** 이미지 로드에 실패하면 폴백 이미지 → 그라디언트 플레이스홀더 순으로 대체합니다. */
@@ -17,10 +19,14 @@ export function SmartImage({
   className,
   imgClassName,
   fallbackSrc,
+  objectPosition,
 }: SmartImageProps) {
-  const [useFallback, setUseFallback] = useState(false);
+  // 어드민에서 주소를 바꾸면 src 가 달라지므로, "실패한 주소"를 기억해 새 주소는 다시 시도한다.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [failedFallback, setFailedFallback] = useState<string | null>(null);
+  const useFallback = Boolean(src) && failedSrc === src;
 
-  const activeSrc = useFallback ? fallbackSrc : src;
+  const activeSrc = !src || useFallback ? (fallbackSrc && failedFallback !== fallbackSrc ? fallbackSrc : undefined) : src;
 
   if (!activeSrc) {
     return (
@@ -50,8 +56,10 @@ export function SmartImage({
       src={activeSrc}
       alt={alt}
       loading="lazy"
+      style={objectPosition ? { objectPosition } : undefined}
       onError={() => {
-        if (!useFallback) setUseFallback(true);
+        if (activeSrc === src) setFailedSrc(src ?? null);
+        else setFailedFallback(activeSrc ?? null);
       }}
       className={cn("object-cover", imgClassName, className)}
     />

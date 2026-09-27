@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/utils/cn";
-import { navLinks, settings } from "@/data/content";
+import { navLinks } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 import { useScrolled } from "@/hooks/useReveal";
 
 function CubeMark({ className }: { className?: string }) {
@@ -29,6 +30,7 @@ function CubeMark({ className }: { className?: string }) {
 }
 
 export function Nav() {
+  const { settings } = useContent();
   const scrolled = useScrolled(32);
   const [open, setOpen] = useState(false);
 

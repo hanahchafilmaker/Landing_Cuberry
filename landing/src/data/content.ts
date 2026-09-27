@@ -145,7 +145,21 @@ export const labChips = [
   },
 ];
 
-export const services = [
+export type Accent = "lime" | "amber" | "violet";
+
+export type Service = {
+  slug: string;
+  name: string;
+  tier: string;
+  price: string;
+  duration: string;
+  desc: string;
+  features: string[];
+  accent: Accent;
+  badge: string | null;
+};
+
+export const services: Service[] = [
   {
     slug: "standard",
     name: "숏폼 AI 광고",
@@ -284,6 +298,7 @@ export type Work = {
   thumbnailUrl: string;
   tags: string[];
   fallbackUrl?: string;
+  videoUrl?: string;
 };
 
 export const works: Work[] = [
@@ -293,9 +308,9 @@ export const works: Work[] = [
     year: "2025",
     description:
       "미래 스마트시티를 배경으로 현대건설의 기술력과 성장 비전을 담았습니다. 실사 촬영과 CG를 활용해 인류의 미래를 하이테크하고 세련된 비주얼로 구현했습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-13.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-13.jpg",
     tags: ["CG", "COLOR CORRECTION", "CAMERA DIRECTION"],
-    fallbackUrl: "/images/work-smartcity.jpg",
+    fallbackUrl: "images/work-smartcity.jpg",
   },
   {
     title: "유네코 기업 홍보 영상",
@@ -303,7 +318,7 @@ export const works: Work[] = [
     year: "2026",
     description:
       "철강 부산물 슬래그를 SAT 특허기술로 재활용한 친환경 소재 PS Ball의 가치와 기술력을 담았습니다. 실사 촬영과 생성형 AI를 결합한 기업 홍보 영상입니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-14.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-14.jpg",
     tags: ["PLANNING", "AI GENERATION", "ART DIRECTION", "EDITING"],
   },
   {
@@ -312,7 +327,7 @@ export const works: Work[] = [
     year: "2026",
     description:
       "EV 모터용 희토류 영구자석 소재의 정제·금속화·자성화 공정을 모션그래픽으로 시각화해 고효율·고출력·내열성의 가치를 전달했습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-15.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-15.jpg",
     tags: ["PLANNING", "ART DIRECTION", "EDITING", "MOTION"],
   },
   {
@@ -321,7 +336,7 @@ export const works: Work[] = [
     year: "2026",
     description:
       "주얼리 브랜드 비치오네의 공식 브랜드 필름입니다. 생성형 AI로 브랜드의 감성과 메시지를 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-16.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-16.jpg",
     tags: ["PLANNING", "AI GENERATION", "ART DIRECTION", "EDITING"],
   },
   {
@@ -330,7 +345,7 @@ export const works: Work[] = [
     year: "2026",
     description:
       "1929년 독일 뢰네에서 시작된 하이엔드 주방가구 브랜드 지메틱의 히스토리를 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-17.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-17.jpg",
     tags: ["PLANNING", "AI GENERATION", "SHOOTING", "EDITING"],
   },
   {
@@ -339,7 +354,7 @@ export const works: Work[] = [
     year: "2024",
     description:
       "직장인의 스트레스 상황을 코믹하게 그리고 릴렉스 샷으로 해소되는 과정을 위트 있게 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-18.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-18.jpg",
     tags: ["PLANNING", "DIRECTING", "PRODUCTION"],
   },
   {
@@ -348,7 +363,7 @@ export const works: Work[] = [
     year: "2026",
     description:
       "25년간 타투이스트와 의사를 겸업해온 조명신 대표원장의 철학과 진료 현장을 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-19.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-19.jpg",
     tags: ["PLANNING", "ART DIRECTION", "SHOOTING", "EDITING"],
   },
   {
@@ -357,7 +372,7 @@ export const works: Work[] = [
     year: "2024",
     description:
       "전투기 엔진 독자개발부터 소재 국산화, 글로벌 방산수출까지 이어지는 항공엔진 비전을 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-20.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-20.jpg",
     tags: ["EDITING", "MOTION"],
   },
   {
@@ -366,7 +381,7 @@ export const works: Work[] = [
     year: "2024",
     description:
       "북미 최대 친환경 상용차 전시회 ACT EXPO에서 현대차 수소전기트럭의 기술적 강점을 담았습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-21.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-21.jpg",
     tags: ["EDITING", "MOTION"],
   },
   {
@@ -375,7 +390,7 @@ export const works: Work[] = [
     year: "2025",
     description:
       "기업 홍보영상과 광고에 작업한 모션그래픽 장면을 한 편의 쇼릴로 구성했습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-22.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-22.jpg",
     tags: ["PLANNING", "ART DIRECTION", "EDITING", "MOTION"],
   },
   {
@@ -384,7 +399,7 @@ export const works: Work[] = [
     year: "2025",
     description:
       "13명의 다양한 분야 작가들과 협업해 고잉 세븐틴 로고를 로고 플레이 콘셉트로 제작했습니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-23.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-23.jpg",
     tags: ["PLANNING", "ART DIRECTION", "EDITING", "MOTION"],
   },
   {
@@ -392,12 +407,22 @@ export const works: Work[] = [
     category: "CORPORATE VIDEO",
     year: "2024",
     description: "CJ대한통운이 새롭게 추진하는 4가지 대표 신사업을 소개합니다.",
-    thumbnailUrl: "https://hanahchafilmaker.github.io/portfolio_thumbs/flow-24.jpg",
+    thumbnailUrl: "portfolio_thumbs/flow-24.jpg",
     tags: ["ART DIRECTION", "EDITING", "MOTION"],
   },
 ];
 
-export const team = [
+export type TeamMember = {
+  name: string;
+  role: string;
+  org: string;
+  career: string[];
+  image: string;
+  /** 사진 세로 기준점(0~100%, 어드민의 사진 위치 값) */
+  photoPosition?: number;
+};
+
+export const team: TeamMember[] = [
   {
     name: "조민희 PD",
     role: "PRODUCER / DIRECTOR",
@@ -409,7 +434,7 @@ export const team = [
       "공연·팬미팅·커머스 라이브 연출·송출",
       "드라마·영화 DIT / ICA 수료",
     ],
-    image: "https://hanahchafilmaker.github.io/team_portraits/jominhee-pd.jpg",
+    image: "team_portraits/jominhee-pd.jpg",
   },
   {
     name: "박인회",
@@ -421,7 +446,7 @@ export const team = [
       "캐롯·다이슨 브랜드 협업",
       "대기업 계열 비딩 프로젝트 다수",
     ],
-    image: "https://hanahchafilmaker.github.io/team_portraits/park-inhoe-motion.jpg",
+    image: "team_portraits/park-inhoe-motion.jpg",
   },
   {
     name: "박찬혁 감독",
@@ -431,7 +456,7 @@ export const team = [
       "영상 연출 및 콘텐츠 디렉팅",
       "브랜드·광고·콘텐츠 프로젝트 협업",
     ],
-    image: "https://hanahchafilmaker.github.io/team_portraits/park-chanhyuk-director.jpg",
+    image: "team_portraits/park-chanhyuk-director.jpg",
   },
   {
     name: "이진서",
@@ -488,7 +513,9 @@ export const b2bItems = [
   { num: "04", title: "NDA·세금계산서·전담 PM", desc: "안전한 계약" },
 ];
 
-export const faqs = [
+export type Faq = { q: string; a: string };
+
+export const faqs: Faq[] = [
   {
     q: "실사 촬영 없이도 완성도 있는 영상이 가능한가요?",
     a: "가능합니다. 기획·콘티·이미지 및 영상 생성·컷 편집·후보정·사운드까지 전체 공정으로 진행하며, 실제 제품은 필요에 따라 별도 합성합니다.",

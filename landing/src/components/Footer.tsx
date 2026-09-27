@@ -1,6 +1,8 @@
-import { navLinks, settings } from "@/data/content";
+import { navLinks } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 
 export function Footer() {
+  const { settings } = useContent();
   return (
     <footer className="border-t border-white/10 bg-ink-2">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
@@ -61,7 +63,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={`tel:${settings.phone.replace(/-/g, "")}`}
+                  href={`tel:${settings.phone.replace(/[^\d+]/g, "")}`}
                   className="transition-colors hover:text-paper"
                 >
                   {settings.phone}

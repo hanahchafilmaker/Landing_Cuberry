@@ -1,13 +1,31 @@
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
-import { team } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 
 function initials(name: string) {
   return name.trim().slice(0, 2);
 }
 
+/** 이력 한 줄. 어드민에서 "[텍스트](https://...)" 로 적은 줄은 링크로 보여준다. */
+function CareerLine({ line }: { line: string }) {
+  const link = line.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+  if (!link) return <>{line}</>;
+  return (
+    <a
+      href={link[2]}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-neon underline decoration-brand-light/40 underline-offset-4 transition-colors hover:text-paper"
+    >
+      {link[1]}
+    </a>
+  );
+}
+
 export function Team() {
+  const { team } = useContent();
+  if (team.length === 0) return null;
   return (
     <section id="team" className="relative py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -26,13 +44,14 @@ export function Team() {
 
         <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {team.map((member, i) => (
-            <Reveal key={member.name} delay={(i % 3) + 1}>
+            <Reveal key={member.key} delay={(i % 3) + 1}>
               <article className="card card-glow group h-full overflow-hidden rounded-3xl">
                 <div className="relative h-60 overflow-hidden">
                   {member.image ? (
                     <SmartImage
                       src={member.image}
-                      alt={member.name}
+                      alt={`${member.name} 프로필`}
+                      objectPosition={`center ${member.photoPosition ?? 0}%`}
                       className="h-full w-full"
                       imgClassName="grayscale-[0.35] transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
                     />
@@ -51,17 +70,21 @@ export function Team() {
                     <h3 className="mt-1 font-display text-xl font-extrabold tracking-tight text-paper">
                       {member.name}
                     </h3>
-                    <div className="text-[12px] text-faint">{member.org}</div>
+                    {member.org && (
+                      <div className="text-[12px] text-faint">{member.org}</div>
+                    )}
                   </div>
                 </div>
-                <ul className="space-y-2 p-6">
-                  {member.career.map((c) => (
+                <ul className="space-y-2 p-6" hidden={member.career.length === 0}>
+                  {member.career.map((c, j) => (
                     <li
-                      key={c}
+                      key={`${j}-${c}`}
                       className="flex gap-2.5 text-[13px] leading-relaxed text-mute"
                     >
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand-light" />
-                      {c}
+                      <span className="min-w-0 break-words">
+                        <CareerLine line={c} />
+                      </span>
                     </li>
                   ))}
                 </ul>

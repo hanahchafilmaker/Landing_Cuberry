@@ -1016,7 +1016,7 @@ const server = createServer(async (req, res) => {
       serveFile(req, res, file);
       return;
     }
-    if (url.pathname.startsWith("/portfolio_thumbs/") || url.pathname.startsWith("/team_portraits/")) {
+    if (url.pathname.startsWith("/portfolio_thumbs/") || url.pathname.startsWith("/team_portraits/") || url.pathname.startsWith("/images/")) {
       const file = safeFile(url.pathname, ROOT);
       if (!file) {
         res.writeHead(403);

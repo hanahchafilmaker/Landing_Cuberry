@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Reveal } from "./Reveal";
-import { services, settings, stats } from "@/data/content";
+import { stats } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 
 function CountUp({
   value,
@@ -51,7 +52,25 @@ function CountUp({
   );
 }
 
+/** "MAKE IT MOVE." → "MAKE IT" / "MOVE."(그라디언트). 어드민에서 바꾼 제목도 같은 규칙으로 렌더한다. */
+function HeroTitle({ text }: { text: string }) {
+  const words = text.trim().split(/\s+/);
+  const last = words.pop() ?? "";
+  return (
+    <>
+      {words.length > 0 && (
+        <>
+          {words.join(" ")}
+          <br />
+        </>
+      )}
+      <span className="text-gradient">{last}</span>
+    </>
+  );
+}
+
 export function Hero() {
+  const { settings, services } = useContent();
   return (
     <section
       id="top"
@@ -77,10 +96,8 @@ export function Hero() {
           </Reveal>
 
           <Reveal delay={1}>
-            <h1 className="mt-6 font-display text-[clamp(46px,8.2vw,104px)] font-extrabold leading-[0.92] tracking-[-0.045em] text-paper">
-              MAKE IT
-              <br />
-              <span className="text-gradient">MOVE.</span>
+            <h1 className="mt-6 font-display text-[clamp(46px,8.2vw,104px)] font-extrabold leading-[0.92] tracking-[-0.045em] break-words text-paper">
+              <HeroTitle text={settings.heroTitle} />
             </h1>
           </Reveal>
 
@@ -121,7 +138,7 @@ export function Hero() {
             <div className="mt-10 flex flex-wrap gap-3">
               {services.map((s) => (
                 <a
-                  key={s.slug}
+                  key={s.key}
                   href="#pricing"
                   className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 transition-all duration-300 hover:border-brand-light/50 hover:bg-brand/5"
                 >
@@ -153,7 +170,7 @@ export function Hero() {
             <div className="absolute -inset-4 rounded-[28px] bg-gradient-to-tr from-brand/30 via-fuchsia-600/15 to-transparent blur-2xl" />
             <div className="relative overflow-hidden rounded-[24px] border border-white/10">
               <img
-                src="/images/hero-studio.jpg"
+                src="images/hero-studio.jpg"
                 alt="큐브베리 영상 제작 스튜디오"
                 className="h-[340px] w-full object-cover sm:h-[440px] lg:h-[520px]"
               />

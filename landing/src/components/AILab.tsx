@@ -89,7 +89,7 @@ export function AILab() {
 
             <div className="relative mt-8 overflow-hidden rounded-3xl border border-white/10">
               <img
-                src="/images/lab-storyboard.jpg"
+                src="images/lab-storyboard.jpg"
                 alt="홀로그램 스토리보드 앞에서 연출하는 감독"
                 className="h-64 w-full object-cover sm:h-72"
               />

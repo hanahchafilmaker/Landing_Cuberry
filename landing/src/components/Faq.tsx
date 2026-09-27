@@ -2,10 +2,12 @@ import { useState } from "react";
 import { cn } from "@/utils/cn";
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
-import { faqs } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 
 export function Faq() {
+  const { faqs } = useContent();
   const [open, setOpen] = useState<number | null>(0);
+  if (faqs.length === 0) return null;
 
   return (
     <section id="faq" className="relative py-24 sm:py-32">
@@ -43,9 +45,10 @@ export function Faq() {
               {faqs.map((faq, i) => {
                 const isOpen = open === i;
                 return (
-                  <div key={faq.q} className="bg-white/[0.02]">
+                  <div key={faq.key} className="bg-white/[0.02]" data-faq-open={isOpen ? "true" : "false"}>
                     <button
                       type="button"
+                      aria-expanded={isOpen}
                       onClick={() => setOpen(isOpen ? null : i)}
                       className="flex w-full items-center gap-4 px-6 py-5 text-left transition-colors hover:bg-white/[0.03] sm:px-8"
                     >
@@ -82,7 +85,7 @@ export function Faq() {
                           : "grid-rows-[0fr] opacity-0",
                       )}
                     >
-                      <div className="overflow-hidden">
+                      <div className="overflow-hidden" aria-hidden={!isOpen}>
                         <p className="px-6 pb-6 pl-[calc(1.5rem+2.2rem)] text-[14px] leading-relaxed text-mute sm:px-8">
                           {faq.a}
                         </p>

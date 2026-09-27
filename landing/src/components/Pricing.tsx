@@ -1,6 +1,6 @@
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
-import { services } from "@/data/content";
+import { useContent } from "@/cms/ContentContext";
 
 const accentRing: Record<string, string> = {
   lime: "from-lime/60 to-lime/10",
@@ -21,6 +21,9 @@ const accentBadge: Record<string, string> = {
 };
 
 export function Pricing() {
+  const { services } = useContent();
+  // 어드민에서 상품을 모두 비공개로 돌리면 섹션을 숨긴다.
+  if (services.length === 0) return null;
   return (
     <section id="pricing" className="relative py-24 sm:py-32">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-brand/8 to-transparent" />
@@ -36,11 +39,15 @@ export function Pricing() {
           desc="기획부터 컷 편집, 후보정, 사운드까지 광고 영상의 전체 공정을 설계합니다. 목적과 컷 수에 맞는 구성으로 바로 상담하세요."
         />
 
-        <div className="mt-16 grid items-stretch gap-6 lg:grid-cols-3">
+        <div
+          className={`mt-16 grid items-stretch gap-6 ${
+            services.length === 1 ? "mx-auto max-w-md" : services.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"
+          }`}
+        >
           {services.map((s, i) => {
             const featured = s.badge === "MOST CHOSEN";
             return (
-              <Reveal key={s.slug} delay={i + 1} className="h-full">
+              <Reveal key={s.key} delay={(i % 3) + 1} className="h-full">
                 <article
                   className={`card relative flex h-full flex-col rounded-3xl p-8 ${
                     featured
@@ -64,7 +71,7 @@ export function Pricing() {
                         accentText[s.accent]
                       }`}
                     >
-                      {s.tier} / 0{i + 1}
+                      {s.tier} / {String(i + 1).padStart(2, "0")}
                     </span>
                     <span
                       className={`rounded-full border px-3 py-1 font-mono text-[10px] ${
@@ -82,9 +89,11 @@ export function Pricing() {
                       {s.price}
                     </span>
                   </div>
-                  <p className="mt-4 text-[13.5px] leading-relaxed text-mute">
-                    {s.desc}
-                  </p>
+                  {s.desc && (
+                    <p className="mt-4 text-[13.5px] leading-relaxed text-mute">
+                      {s.desc}
+                    </p>
+                  )}
                   <ul className="mt-7 flex-1 space-y-3">
                     {s.features.map((f) => (
                       <li
