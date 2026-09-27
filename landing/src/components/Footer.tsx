@@ -1,5 +1,6 @@
 import { navLinks } from "@/data/content";
 import { useContent } from "@/cms/ContentContext";
+import { Logo } from "@/components/Logo";
 
 export function Footer() {
   const { settings } = useContent();
@@ -8,21 +9,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <div className="flex items-center gap-2.5">
-              <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-                <path
-                  d="M16 2.5 29 9.2v13.6L16 29.5 3 22.8V9.2L16 2.5z"
-                  fill="#8b5cf6"
-                  opacity="0.9"
-                />
-                <path d="M16 2.5 29 9.2 16 15.9 3 9.2 16 2.5z" fill="#c4b5fd" opacity="0.85" />
-                <path d="M16 15.9 29 9.2v13.6L16 29.5V15.9z" fill="#6d28d9" opacity="0.55" />
-                <path d="M16 15.9 3 9.2v13.6L16 29.5V15.9z" fill="#4c1d95" opacity="0.55" />
-              </svg>
-              <span className="font-display text-lg font-extrabold tracking-[0.14em] text-paper">
-                {settings.brand}
-              </span>
-            </div>
+            <Logo className="text-[22px]" />
             <p className="mt-5 max-w-sm text-[13.5px] leading-relaxed text-mute">
               기업 홍보영상, 브랜드 필름, AI 광고, 모션그래픽을 기획부터 납품까지.
               큐브베리는 영상의 처음과 끝을 함께 만드는 크리에이티브 영상
