@@ -1,10 +1,12 @@
 # Cuberry Landing
 
-큐브베리 랜딩 페이지(`index.html`)와 자체 어드민 콘솔(`/admin`)을 한 개의 Node 서버로 서비스합니다.
+큐브베리 랜딩 페이지(`index.html`)와 두 어드민 콘솔을 한 개의 Node 서버로 서비스합니다.
 
 https://landing-cuberry-admin.onrender.com/
 
-https://landing-cuberry-admin.onrender.com/admin
+https://landing-cuberry-admin.onrender.com/admin-v2  ← 새 어드민 (권장)
+
+https://landing-cuberry-admin.onrender.com/admin     ← 레거시 어드민
 
 
 ## 실행
@@ -17,10 +19,14 @@ npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택
 npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
 npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (43건)
 npm run build          # landing/ 소스 → 루트 index.html (아래 "랜딩 디자인 소스" 참고)
+npm run build:admin    # admin-v2/app 소스 → admin-v2/index.html (새 어드민 한 파일)
+npm run test:admin     # 새 어드민 로그인 → Team 수정 저장 종단 테스트 (jsdom, 서버 필요)
+npm run sync:seed      # 운영 서버의 공개 콘텐츠를 server/seed.json 으로 당겨옴
 ```
 
 - 랜딩: `/`
-- 어드민: `/admin` (포트폴리오, 상품, FAQ, 팀 프로필, 상담 문의, 사이트 문구, 비밀번호 관리)
+- 새 어드민: `/admin-v2` (포트폴리오·상품·FAQ·**팀 프로필(사진 업로드 포함)**·상담 문의·사이트 문구·비밀번호·백업)
+- 레거시 어드민: `/admin` (같은 기능) — 둘은 같은 API·같은 세션(`cuberry-admin-token`)을 공유하므로 어느 쪽에서 저장해야 다른 쪽과 랜딩에도 같이 반영됩니다
 - 데이터: `data/cuberry.sqlite` (SQLite, 최초 실행 시 `server/seed.json` 으로 자동 시드) — `DATA_DIR` 환경변수로 다른 폴더를 지정할 수 있습니다(테스트가 사용)
 - 업로드 이미지: `data/uploads/`
 
@@ -40,7 +46,7 @@ GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행
 
 | 조각 | 주소 |
 | --- | --- |
-| Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` |
+| Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` 과 `admin-v2/index.html` 의 `<meta name="cuberry-api-origin">` (서버는 자기 주소로 볼 때 이 값을 비워서 본다) |
 | GitHub Pages (화면) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — `server/index.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` |
 
 ### A. Node 서버 배포 (Render Blueprint)
@@ -120,12 +126,15 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 무료 인스턴스는 재배포·재시작마다 `data/` 가 사라져 `server/seed.json` 으로 다시 시작합니다.
 그래서 **현재 콘텐츠를 seed.json으로 되돌려 커밋**해 두면 복구 작업 없이 항상 최신 상태로 켜집니다.
 
-1. 어드민 → **Settings → Backup → "콘텐츠 JSON 내보내기"** (`GET /api/admin/export`, 관리자 로그인 필요)
+1. 새 어드민 `/admin-v2` → **Settings → Backup** or 레거시 `/admin` 저장 바 → **"콘텐츠 JSON 내려받기 / 내보내기"** (둘 다 `GET /api/admin/export`, 로그인 필요)
 2. 내려받은 파일을 `server/seed.json` 으로 덮어쓰고 커밋·푸시
 3. 재배포되면 서버가 그 파일로 다시 시드합니다
 
 내보내는 JSON은 `seed.json` 과 필드 이름이 완전히 같고, `inquiries`(상담 문의)와 `exportedAt` 만 추가로 담깁니다.
 시드 로더는 이 두 키를 읽지 않으므로 그대로 `seed.json` 에 넣어도 안전합니다.
+
+공개 콘텐츠만 가져와도 되면(비공개 초안·문의 제외) `npm run sync:seed` 한 줄로 운영 서버의 내용을
+`server/seed.json` 에 바로 기록합니다. 로그인이 필요 없어 자잘한 배포 후 정리에 편합니다.
 
 > 무료 인스턴스는 **업로드 이미지**(`data/uploads/`)도 잃습니다. 무료 구성에서는 이미지 URL을
 > Google Drive 썸네일이나 CDN 같은 외부 절대주소로 넣는 편이 안전합니다.

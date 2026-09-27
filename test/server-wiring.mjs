@@ -200,6 +200,20 @@ await withServer({ label: "서빙" }, async ({ origin }) => {
     expect(`${route} 캐시 금지`, response.headers.get("cache-control"), "no-store");
   }
 
+  // 새 어드민(admin-v2 단일 파일)도 같은 규칙: <meta name="cuberry-api-origin"> 값을 비운다.
+  const diskAdminV2 = readFileSync(path.join(ROOT, "admin-v2", "index.html"), "utf8");
+  const metaOnDisk = /name="cuberry-api-origin" content="([^"]*)"/;
+  expect("저장소의 admin-v2 에는 운영 주소가 커밋되어 있음", metaOnDisk.exec(diskAdminV2)?.[1], "https://landing-cuberry-admin.onrender.com");
+  for (const route of ["/admin-v2", "/admin-v2/team"]) {
+    const response = await fetch(`${origin}${route}`);
+    const body = await response.text();
+    expect(`${route} → 200`, response.status, 200);
+    expect(`${route} Content-Type`, response.headers.get("content-type")?.startsWith("text/html"), true);
+    expect(`${route} 굽힌 주소가 비워짐`, metaOnDisk.exec(body)?.[1], "");
+    expect(`${route} 나머지 화면은 그대로(길이 차이 = 주소 길이만큼)`, diskAdminV2.length - body.length, "https://landing-cuberry-admin.onrender.com".length);
+    expect(`${route} 캐시 금지`, response.headers.get("cache-control"), "no-store");
+  }
+
   // 랜딩(index.html)은 10MB 라 변환하지 않고 그대로 흘려보낸다. 굽힌 상수가 없으니 손댈 것도 없다.
   const landing = await fetch(`${origin}/`, { method: "HEAD" });
   expect("랜딩 HEAD → 200", landing.status, 200);

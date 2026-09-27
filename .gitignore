@@ -9,5 +9,6 @@ admin-import/node_modules/
 
 # Build artifacts
 landing/dist/
+admin-v2/dist/
 new-design/
 *.backup
