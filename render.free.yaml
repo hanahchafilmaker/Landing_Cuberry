@@ -24,7 +24,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
-        value: 22.22.0
+        value: 22.22.2
       - key: COOKIE_SECURE
         value: "1"
       - key: ADMIN_PASSWORD
