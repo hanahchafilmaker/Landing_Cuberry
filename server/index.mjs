@@ -39,6 +39,12 @@ const PUBLIC_ORIGIN = String(process.env.PUBLIC_ORIGIN || process.env.RENDER_EXT
 const INITIAL_PASSWORD = "cuberry2026"; // 화면에 안내되는 기본 초기 비밀번호
 const DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || INITIAL_PASSWORD;
 const SESSION_MS = 1000 * 60 * 60 * 24 * 14;
+// Settings → Backup의 "GitHub에 백업 및 배포" 버튼에서 사용합니다.
+// 토큰은 저장소 Contents 쓰기 권한만 가진 fine-grained token을 Render 환경변수에 넣습니다.
+const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || "").trim();
+const GITHUB_REPOSITORY = String(process.env.GITHUB_REPOSITORY || "hanahchafilmaker/Landing_Cuberry").trim();
+const GITHUB_BRANCH = String(process.env.GITHUB_BRANCH || "main").trim();
+const GITHUB_SEED_PATH = "server/seed.json";
 const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
@@ -406,6 +412,49 @@ function exportSeed() {
     team: content.team.map((item) => omit(item, ["id", "updatedAt"])),
     // 문의로 들어온 상담 기록. seed 로더는 이 키를 읽지 않지만 백업에 함께 담아둔다.
     inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt"])),
+  };
+}
+
+async function backupSeedToGitHub() {
+  if (!GITHUB_TOKEN) throw Object.assign(new Error("GitHub 백업이 설정되지 않았습니다. Render에 GITHUB_TOKEN을 등록해 주세요."), { status: 503 });
+  if (!/^[^/]+\/[^/]+$/.test(GITHUB_REPOSITORY)) throw Object.assign(new Error("GITHUB_REPOSITORY 설정이 올바르지 않습니다."), { status: 503 });
+
+  const apiPath = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/${GITHUB_SEED_PATH}`;
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "cuberry-admin-backup",
+  };
+  const currentResponse = await fetch(`${apiPath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, { headers });
+  if (!currentResponse.ok) {
+    const detail = await currentResponse.json().catch(() => ({}));
+    throw Object.assign(new Error(`GitHub 파일 조회 실패: ${detail.message || currentResponse.status}`), { status: 502 });
+  }
+  const current = await currentResponse.json();
+  const seed = exportSeed();
+  const putResponse = await fetch(apiPath, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: `content: admin backup ${seed.exportedAt.slice(0, 19).replace("T", " ")} UTC`,
+      content: Buffer.from(`${JSON.stringify(seed, null, 2)}\n`, "utf8").toString("base64"),
+      sha: current.sha,
+      branch: GITHUB_BRANCH,
+    }),
+  });
+  if (!putResponse.ok) {
+    const detail = await putResponse.json().catch(() => ({}));
+    throw Object.assign(new Error(`GitHub 백업 실패: ${detail.message || putResponse.status}`), { status: 502 });
+  }
+  const result = await putResponse.json();
+  return {
+    ok: true,
+    repository: GITHUB_REPOSITORY,
+    branch: GITHUB_BRANCH,
+    commitUrl: result.commit?.html_url || "",
+    commitSha: result.commit?.sha || "",
+    message: "GitHub 백업을 완료했습니다. Render 자동 배포가 곧 시작됩니다.",
   };
 }
 
@@ -915,6 +964,11 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
   if (req.method === "GET" && pathname === "/api/admin/content") return send(res, 200, adminContent());
   if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
+  if (req.method === "POST" && pathname === "/api/admin/github-backup") {
+    const result = await backupSeedToGitHub();
+    console.log(`GitHub 백업 완료: ${result.repository}@${result.branch} ${result.commitSha.slice(0, 7)}`);
+    return send(res, 200, result);
+  }
   if (req.method === "PUT" && pathname === "/api/admin/settings") {
     const body = await readBody(req);
     const stamp = nowIso();
