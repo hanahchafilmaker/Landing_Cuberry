@@ -4,12 +4,31 @@
   "type": "module",
   "scripts": {
     "start": "node --experimental-sqlite server/index.mjs",
+    "dev:landing": "vite --config landing/vite.config.ts",
+    "build": "vite build --config landing/vite.config.ts",
+    "build:landing": "vite build --config landing/vite.config.ts",
+    "typecheck": "tsc -p landing/tsconfig.json",
     "test": "node test/client-origin.mjs && node test/static-paths.mjs && node test/server-wiring.mjs",
     "test:origin": "node test/client-origin.mjs",
     "test:paths": "node test/static-paths.mjs",
     "test:server": "node test/server-wiring.mjs",
     "test:dom": "node test/dom-flow.mjs",
     "test:cms": "node test/landing-cms.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.17",
+    "@types/node": "22.19.17",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "clsx": "2.1.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tailwind-merge": "3.4.0",
+    "tailwindcss": "4.1.17",
+    "typescript": "5.9.3",
+    "vite": "7.3.2",
+    "vite-plugin-singlefile": "2.3.0"
   },
   "engines": {
     "node": ">=22.5.0 <23"

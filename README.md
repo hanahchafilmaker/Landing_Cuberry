@@ -12,10 +12,11 @@ https://landing-cuberry-admin.onrender.com/admin
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 115건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 119건)
 npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택)
 npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
-npm run test:cms       # React 랜딩에 관리자 저장값 반영·포커스 갱신 테스트 (34건)
+npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (43건)
+npm run build          # landing/ 소스 → 루트 index.html (아래 "랜딩 디자인 소스" 참고)
 ```
 
 - 랜딩: `/`
@@ -140,20 +141,44 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 - `admin/index.html`: `/admin` 고정 경로 대신 현재 경로에서 `admin` 위치를 찾아 동작 (`adminBase`, `siteRoot`, `pageFromPath`)
 - 업로드 이미지처럼 `/` 로 시작하는 콘텐츠 주소는 원격 서버 주소를 붙여 표시 (`assetUrl`)
 
-> **⚠ 랜딩을 다시 빌드해 올릴 때** — 현재 `index.html` 은 React + Tailwind 빌드 산출물입니다.
-> 빌드 결과물에는 아래 두 가지가 기본적으로 들어 있지 않으므로, 새 빌드를 복사해 올 때마다 **반드시 다시 넣어 주세요.**
-> `npm test`(`test/static-paths.mjs`·`test/client-origin.mjs`)가 빠져 있는지 검사합니다.
->
-> 1. `<head>` 의 `<script src="cms-bridge.js" defer></script>` — **루트 절대경로(`/cms-bridge.js`)로 쓰면 Pages 에서 404**
-> 2. B2B 문의 폼의 호출을 `fetch(window.CuberryApi&&window.CuberryApi.url?window.CuberryApi.url('/api/partnership'):'/api/partnership', …)` 로
->
-> 빌드 소스(`new-design/`, Git 에 들어 있지 않음)에서 고치는 편이 دائم적입니다.
->
-> 새 React 랜딩에는 예전 어드민 콘텐츠 연동 훅(`data-cms="…"`, `#cms-extra-works` 등)이 없습니다.
-> `cms-bridge.js`가 React 렌더 완료를 기다린 뒤 히어로·상품·포트폴리오·팀·FAQ·연락처 섹션을
-> CMS 전용 복제본으로 전환하므로, 현재는 **어드민 저장값이 새 디자인에도 반영됩니다.**
-> 어드민 탭에서 저장한 뒤 이미 열어 둔 랜딩 탭으로 돌아오면 `focus` 시 공개 API를 다시 읽어 자동 갱신합니다.
-> 새 빌드의 섹션 ID/DOM 구조를 바꾸면 `npm run test:cms`로 이 어댑터가 계속 동작하는지 확인하세요.
+## 랜딩 디자인 소스 (`landing/`) 와 빌드
+
+2026-09-27 새 디자인부터 랜딩의 **소스가 저장소에 들어 있습니다.** 루트 `index.html` 은 이 소스를 빌드한 단일 파일 산출물입니다.
+
+```
+landing/
+  index.html          # Vite 입력. <html data-cms-native>, <script src="cms-bridge.js" defer> 포함
+  src/                # React 19 + Tailwind CSS 4 컴포넌트 (Hero, Portfolio, Team, Pricing, Faq, Contact …)
+    data/content.ts   # 기본 문구·콘텐츠 (API 에 연결되지 않았을 때의 기본값)
+    cms/              # 어드민 콘텐츠 → 화면 뷰 모델 변환 + 구독(ContentProvider)
+  vite.config.ts      # 빌드 결과를 landing/dist/ 에 만든 뒤 루트 index.html 로 복사
+images/               # 랜딩 이미지 (상대경로 images/… 로 참조 → Pages 서브경로에서도 동작)
+```
+
+```bash
+npm install            # 빌드 도구(devDependencies). 서버 실행에는 필요 없음
+npm run build          # landing/ → 루트 index.html 갱신 (결과물을 커밋하세요)
+npm start & npm run dev:landing   # 디자인 수정용 개발 서버 (5173). /api·이미지는 8080 서버로 프록시
+npm run typecheck      # TypeScript 검사
+```
+
+**어드민 연동 방식** — 랜딩 React 앱이 관리자 콘텐츠를 **직접 렌더**합니다.
+`cms-bridge.js` 는 API 서버 주소를 정하고 `/api/public/content` 를 읽어 `window.CuberryContent` 에 저장한 뒤
+`cuberry:content` 이벤트만 보냅니다(`<html data-cms-native>` 일 때). DOM 을 복제·수정하던 예전 어댑터는 제거했습니다.
+
+| 어드민 | 랜딩 반영 위치 |
+| --- | --- |
+| 사이트 문구 | 내비 브랜드명, 히어로 eyebrow·제목(마지막 단어 강조)·설명, 연락처(문의 섹션·푸터) |
+| 상품 | 히어로 상품 칩 + AI 광고 가격 카드 (slug 가 standard/deluxe/premium 이면 디자인의 상세 구성 목록 사용) |
+| 포트폴리오 | Portfolio 섹션 — `source=drive` 는 DRIVE FILM 탭, 나머지는 WORKS 탭 |
+| 팀 프로필 | Team 섹션 — 역할은 `역할 · 소속` 으로 나눠 표시, 이력의 `[텍스트](https://…)` 는 링크, 사진 위치 반영 |
+| FAQ | FAQ 아코디언 |
+| 상담 문의 | 랜딩 문의 폼 → `POST /api/partnership` (회사/이름·이메일 필수) |
+
+상품·포트폴리오·팀·FAQ 를 모두 비공개로 돌리면 해당 섹션이 숨겨집니다.
+어드민 탭에서 저장한 뒤 이미 열어 둔 랜딩 탭으로 돌아오면 `focus` 시 공개 API 를 다시 읽어 자동 갱신합니다.
+`npm test` 는 빌드 산출물에 `cms-bridge.js`(상대경로)·`data-cms-native`·`CuberryApi.url('/api/partnership')` 배선이 있는지 검사하고,
+`npm run test:cms` 는 실제 번들을 jsdom 에서 돌려 관리자 값 반영을 확인합니다.
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 
@@ -207,9 +232,9 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 115건 (client-origin 43 + static-paths 15 + server-wiring 57)
+npm test           # 의존성 없음 · 119건 (client-origin 44 + static-paths 18 + server-wiring 57)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
-npm run test:cms   # jsdom 필요 · 34건 (서버 없이 React 랜딩 + mock API)
+npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock API)
 ```
 
 | 파일 | 무엇을 검증하나 |

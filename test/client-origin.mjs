@@ -290,7 +290,9 @@ const blueprintOrigins = (file) => {
 const landingSource = readFileSync(path.join(ROOT, "index.html"), "utf8");
 expect("랜딩이 cms-bridge.js 를 상대경로로 로드", /<script[^>]+src="cms-bridge\.js"[^>]*>/.test(landingSource), true);
 expect("랜딩에 루트 절대경로 /api/… fetch 없음", (landingSource.match(/fetch\("\/api\//g) || []).length, 0);
-expect("랜딩 문의 폼이 CuberryApi.url 사용", landingSource.includes("CuberryApi.url('/api/partnership')"), true);
+// 빌드 도구가 따옴표를 바꿀 수 있으므로(' → ") 둘 다 허용한다.
+expect("랜딩 문의 폼이 CuberryApi.url 사용", /CuberryApi\.url\(\s*["'`]\/api\/partnership["'`]\s*\)/.test(landingSource), true);
+expect("랜딩이 CMS 네이티브 모드(<html data-cms-native>)", /<html[^>]*\sdata-cms-native/.test(landingSource), true);
 
 const adminBaked = bakedOf(adminSource, "admin/index.html");
 const bridgeBaked = bakedOf(bridgeSource, "cms-bridge.js");

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko" data-cms-native="1">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="큐브베리(CUBERRY)는 기업 홍보영상, 브랜드 필름, AI 광고, 모션그래픽을 기획부터 납품까지 제작하는 크리에이티브 영상 스튜디오입니다. XCONDA AI 플랫폼과 28년의 필름메이킹 전문성으로 브랜드의 메시지를 움직이게 만듭니다."
+    />
+    <title>CUBERRY · 큐브베리 | AI 영상 제작 · 기업 홍보영상 · 브랜드 필름 스튜디오</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Cuberry API 브리지. 운영 Node 서버 주소를 정해 window.CuberryApi 를 심고,
+         /api/public/content 를 읽어 "cuberry:content" 이벤트로 React 랜딩에 넘긴다.
+         data-cms-native 가 붙은 이 랜딩은 브리지가 DOM 을 직접 고치지 않고 React 가 렌더한다.
+         상대경로라 GitHub Pages 서브경로(/Landing_Cuberry/)에서도 그대로 해결된다.
+         ⚠ 빌드 산출물(루트 index.html)에서 이 줄이 빠지면 관리자 저장값이 반영되지 않습니다. -->
+    <script src="cms-bridge.js" defer></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

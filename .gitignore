@@ -8,5 +8,6 @@ admin-import/dist/
 admin-import/node_modules/
 
 # Build artifacts
+landing/dist/
 new-design/
 *.backup
