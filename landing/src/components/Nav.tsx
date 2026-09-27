@@ -1,36 +1,10 @@
 import { useState } from "react";
 import { cn } from "@/utils/cn";
 import { navLinks } from "@/data/content";
-import { useContent } from "@/cms/ContentContext";
 import { useScrolled } from "@/hooks/useReveal";
-
-function CubeMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <defs>
-        <linearGradient id="cubeGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M16 2.5 29 9.2v13.6L16 29.5 3 22.8V9.2L16 2.5z"
-        fill="url(#cubeGrad)"
-        opacity="0.9"
-      />
-      <path
-        d="M16 2.5 29 9.2 16 15.9 3 9.2 16 2.5z"
-        fill="#c4b5fd"
-        opacity="0.85"
-      />
-      <path d="M16 15.9 29 9.2v13.6L16 29.5V15.9z" fill="#6d28d9" opacity="0.55" />
-      <path d="M16 15.9 3 9.2v13.6L16 29.5V15.9z" fill="#4c1d95" opacity="0.55" />
-    </svg>
-  );
-}
+import { Logo } from "@/components/Logo";
 
 export function Nav() {
-  const { settings } = useContent();
   const scrolled = useScrolled(32);
   const [open, setOpen] = useState(false);
 
@@ -42,14 +16,8 @@ export function Nav() {
       )}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 sm:px-8">
-        <a href="#top" className="group flex items-center gap-2.5">
-          <CubeMark className="h-8 w-8 transition-transform duration-500 group-hover:rotate-[12deg]" />
-          <span className="font-display text-lg font-extrabold tracking-[0.14em] text-paper">
-            {settings.brand}
-          </span>
-          <span className="hidden font-mono text-[10px] tracking-[0.3em] text-faint sm:block">
-            STUDIO
-          </span>
+        <a href="#top" className="group flex items-center">
+          <Logo className="text-[22px] transition-transform duration-500 group-hover:scale-[1.04] sm:text-2xl" />
         </a>
 
         <nav className="hidden items-center gap-1 lg:flex">
