@@ -126,9 +126,11 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 무료 인스턴스는 재배포·재시작마다 `data/` 가 사라져 `server/seed.json` 으로 다시 시작합니다.
 그래서 **현재 콘텐츠를 seed.json으로 되돌려 커밋**해 두면 복구 작업 없이 항상 최신 상태로 켜집니다.
 
-1. 새 어드민 `/admin-v2` → **Settings → Backup** or 레거시 `/admin` 저장 바 → **"콘텐츠 JSON 내려받기 / 내보내기"** (둘 다 `GET /api/admin/export`, 로그인 필요)
-2. 내려받은 파일을 `server/seed.json` 으로 덮어쓰고 커밋·푸시
-3. 재배포되면 서버가 그 파일로 다시 시드합니다
+1. Render 환경변수에 `GITHUB_TOKEN`(해당 저장소의 Contents: Read and write 권한), `GITHUB_REPOSITORY=hanahchafilmaker/Landing_Cuberry`, `GITHUB_BRANCH=main`을 등록합니다.
+2. 새 어드민 `/admin-v2` → **Settings → Backup → "GitHub에 백업 및 배포"**를 누릅니다.
+3. 서버가 현재 콘텐츠를 `server/seed.json`으로 커밋하며, Render 자동 배포가 켜져 있으면 새 커밋을 감지해 재배포합니다.
+
+토큰을 설정하지 않은 경우에는 기존처럼 **"JSON 내려받기"** 후 `server/seed.json`을 직접 교체·커밋할 수 있습니다.
 
 내보내는 JSON은 `seed.json` 과 필드 이름이 완전히 같고, `inquiries`(상담 문의)와 `exportedAt` 만 추가로 담깁니다.
 시드 로더는 이 두 키를 읽지 않으므로 그대로 `seed.json` 에 넣어도 안전합니다.

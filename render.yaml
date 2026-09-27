@@ -16,6 +16,13 @@ services:
         value: "1"
       - key: ADMIN_PASSWORD
         sync: false
+      # 선택: 어드민의 "GitHub에 백업 및 배포" 버튼용.
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPOSITORY
+        value: hanahchafilmaker/Landing_Cuberry
+      - key: GITHUB_BRANCH
+        value: main
       # GitHub Pages 에 올려둔 랜딩/어드민 화면이 이 서버의 API 를 직접 호출할 수 있게 허용할 Origin.
       # 여러 개는 쉼표로 구분합니다. 예) "https://hanahchafilmaker.github.io,https://cuberry.com"
       # 모든 사이트를 허용하려면 "*" (토큰 인증만 사용하므로 쿠키는 무시됩니다).

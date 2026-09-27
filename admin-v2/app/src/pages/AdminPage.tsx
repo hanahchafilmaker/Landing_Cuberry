@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { apiOrigin, assetUrl, get, siteRoot } from "@/lib/api";
-import { ArrowUpRight, Check, ChevronDown, Download, ExternalLink, Film, KeyRound, Loader2, Mail, Plus, Save, Settings2, Trash2, Users, X } from "lucide-react";
+import { apiOrigin, assetUrl, get, post, siteRoot } from "@/lib/api";
+import { ArrowUpRight, Check, ChevronDown, Download, ExternalLink, Film, Github, KeyRound, Loader2, Mail, Plus, Save, Settings2, Trash2, Users, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
@@ -271,6 +271,21 @@ function PasswordCard() {
 
 function BackupCard() {
   const [busy, setBusy] = useState(false);
+  const [githubBusy, setGithubBusy] = useState(false);
+  const backupToGitHub = async () => {
+    setGithubBusy(true);
+    try {
+      const result = await post<{ message?: string; commitUrl?: string }>("/api/admin/github-backup", {});
+      toast.success(result.message || "GitHub 백업 및 배포를 시작했습니다.", {
+        action: result.commitUrl ? { label: "커밋 보기", onClick: () => window.open(result.commitUrl, "_blank", "noopener,noreferrer") } : undefined,
+        duration: 8000,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "GitHub 백업에 실패했습니다.");
+    } finally {
+      setGithubBusy(false);
+    }
+  };
   const download = async () => {
     setBusy(true);
     try {
@@ -298,11 +313,15 @@ function BackupCard() {
           현재 콘텐츠를 내려받기해 저장소의 seed.json 으로 커밋해 두면, 서버가 다시 켜질 때도 같은 내용으로 시작합니다.
         </p>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button" onClick={download} disabled={busy} className="bg-[#161616] font-mono text-xs uppercase tracking-[0.1em] text-white hover:bg-orange-600">
-            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}콘텐츠 JSON 내려받기
+          <Button type="button" onClick={backupToGitHub} disabled={githubBusy || busy} className="bg-orange-600 font-mono text-xs uppercase tracking-[0.1em] text-white hover:bg-orange-700">
+            {githubBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}GitHub에 백업 및 배포
+          </Button>
+          <Button type="button" variant="outline" onClick={download} disabled={busy || githubBusy} className="font-mono text-xs uppercase tracking-[0.1em]">
+            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}JSON 내려받기
           </Button>
           {apiOrigin && <span className="font-mono text-[11px] text-[#929087]">API server: {apiOrigin}</span>}
         </div>
+        <p className="text-xs leading-5 text-[#929087]">버튼을 누르면 현재 콘텐츠를 GitHub의 <code>server/seed.json</code>에 커밋합니다. 연결된 Render 서비스의 자동 배포가 켜져 있으면 곧바로 재배포됩니다. 업로드 이미지는 포함되지 않습니다.</p>
       </CardContent>
     </Card>
   );
