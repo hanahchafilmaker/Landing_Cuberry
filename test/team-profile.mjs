@@ -29,11 +29,23 @@ old.exec('DELETE FROM team');
 assert.equal(migrateTeamProfile(old, seed), 'already-applied');
 assert.equal(old.prepare('SELECT COUNT(*) AS n FROM team').get().n, 0);
 old.close();
-const pdf12 = dbWith(seed.filter(p => p.name !== '유세아' && p.name !== '성나연').map((p, i) => ({ ...p, sortOrder: i + 1 })));
+const pdf12 = dbWith(seed.filter(p => p.name !== '유세아' && p.name !== '성나연').map((p, i) => ({
+  ...p,
+  photoUrl: p.photoUrl.replace(/\.webp$/, '.png'),
+  sortOrder: i + 1,
+})));
 pdf12.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('team_profile_2026', 'upgraded');
 assert.equal(migrateTeamProfile(pdf12, seed), 'upgraded');
 assert.equal(pdf12.prepare('SELECT COUNT(*) AS n FROM team').get().n, 14);
 pdf12.close();
+const previousRosterPhotos = dbWith(seed.map(p => ({ ...p, photoUrl: p.photoUrl.replace(/\.webp$/, '.png') })));
+previousRosterPhotos.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('team_profile_2026', 'current');
+assert.equal(migrateTeamProfile(previousRosterPhotos, seed), 'upgraded');
+assert.deepEqual(
+  previousRosterPhotos.prepare('SELECT photo_url AS photoUrl FROM team ORDER BY sort_order, id').all().map(row => row.photoUrl),
+  seed.map(p => p.photoUrl),
+);
+previousRosterPhotos.close();
 const customized = dbWith(previous.map((p,i) => i === 0 ? {...p,bio:'CMS edit'} : p));
 assert.equal(migrateTeamProfile(customized, seed), 'customized-preserved');
 assert.equal(customized.prepare('SELECT bio FROM team WHERE id=1').get().bio, 'CMS edit');
@@ -41,4 +53,4 @@ customized.close();
 const fresh = dbWith(seed);
 assert.equal(migrateTeamProfile(fresh, seed), 'current');
 fresh.close();
-console.log('Team profile: 14 profiles, fallback/seed consistency, migration (4->14 and 12->14) and CMS edit protection passed.');
+console.log('Team profile: 14 profiles, seed consistency, 4->14/12->14 migration, 14-profile WebP refresh and CMS edit protection passed.');

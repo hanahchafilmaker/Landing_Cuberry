@@ -538,7 +538,7 @@ export const team: TeamMember[] = [
       "AI 미디어 융합기술 공모전 우수상(과기정통부·RAPA, 단체) · 경기도지사 표창",
       "AI 영상 관련 특허 발명자"
     ],
-    "image": "team_portraits/lee-jinseo.png",
+    "image": "team_portraits/lee-jinseo.webp",
     "photoPosition": 0
   },
   {
@@ -577,7 +577,7 @@ export const team: TeamMember[] = [
       "웹툰 〈기묘한 가게의 해결사들〉 · 한중 합작 숏폼 드라마 〈황제의 요리사〉 집필",
       "구미호 세계관 시즌 구성·캐릭터 서사 및 AI 제작용 스토리 바이블 설계"
     ],
-    "image": "team_portraits/noh-eunjoo.png",
+    "image": "team_portraits/noh-eunjoo.webp",
     "photoPosition": 0
   },
   {
@@ -603,7 +603,7 @@ export const team: TeamMember[] = [
       "통일부 〈To be One〉 · 법무부 학교폭력 예방 캠페인 연출",
       "두바이 AI 영화제(AIFF) 출품작 AI 제작 총괄"
     ],
-    "image": "team_portraits/park-chanhyuk.png",
+    "image": "team_portraits/park-chanhyuk.webp",
     "photoPosition": 0
   },
   {
@@ -617,7 +617,7 @@ export const team: TeamMember[] = [
       "공연·팬미팅·커머스 라이브 연출·송출",
       "드라마·영화 DIT / ICA 수료"
     ],
-    "image": "team_portraits/cho-minhee.png",
+    "image": "team_portraits/cho-minhee.webp",
     "photoPosition": 0
   },
   {
@@ -630,7 +630,7 @@ export const team: TeamMember[] = [
       "국방부 한국전쟁 70주년 영상 수상 · 인천소방본부 공모전 대상",
       "과기정통부·KISA 수상 · 한국공간디자인협회 특별상"
     ],
-    "image": "team_portraits/choi-jonghyun.png",
+    "image": "team_portraits/choi-jonghyun.webp",
     "photoPosition": 0
   },
   {
@@ -642,7 +642,7 @@ export const team: TeamMember[] = [
       "태국 방콕 Aozora Restaurant · The Loft 광고·홍보영상",
       "태국 AI 숏폼 드라마 제작 · 유튜브 채널 운영"
     ],
-    "image": "team_portraits/hwangbo-minhyuk.png",
+    "image": "team_portraits/hwangbo-minhyuk.webp",
     "photoPosition": 0
   },
   {
@@ -654,7 +654,7 @@ export const team: TeamMember[] = [
       "AI 애니메이션 〈TV동화 행복한 세상〉 · 어린이날 특집 〈구미호〉 제작",
       "박완규 〈수호〉 · 부활 〈To be one〉·〈사랑하고 있다〉·〈이별에서 영원으로〉 뮤직비디오 편집"
     ],
-    "image": "team_portraits/kim-jaehwan.png",
+    "image": "team_portraits/kim-jaehwan.webp",
     "photoPosition": 0
   },
   {
@@ -691,7 +691,7 @@ export const team: TeamMember[] = [
       "네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업",
       "공공기관 홍보 인포그래픽 제작"
     ],
-    "image": "team_portraits/heo-jaegu.png",
+    "image": "team_portraits/heo-jaegu.webp",
     "photoPosition": 0
   },
   {
