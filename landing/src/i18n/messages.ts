@@ -92,10 +92,6 @@ export const en: Record<string, string> = {
   "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0": "100+ AI commercials produced; contract ad production with 5.0-star client reviews",
   "네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업": "Collaborated on 148 Naver Webtoon episodes: 3D layout, flats, shading and retouching",
   "공공기관 홍보 인포그래픽 제작": "Promotional infographics for public institutions",
-  "성나연": "Sung Na-yeon",
-  "AI 생성 PD": "AI generative producer",
-  "큐브베리 스튜디오 및 XCONDA 기반 AI 이미지·비디오 생성 워크플로우 설계·연출": "Designs and directs AI image and video generation workflows powered by CubeBerry Studio and XCONDA",
-  "AI 드라마·시리즈·브랜드 필름 프로젝트 비주얼 생성 및 컷 단위 에셋 품질 관리": "Visual generation and cut-level asset quality management across AI drama, series and brand film projects",
   // ── 브랜드 · 내비게이션 · 공통 ───────────────────────────────
   "주식회사 큐브베리": "CUBEBERRY Inc.",
   "㈜큐브베리": "CUBEBERRY Inc.",

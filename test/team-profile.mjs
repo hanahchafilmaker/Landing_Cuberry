@@ -5,8 +5,8 @@ import { team } from '../landing/src/data/content.ts';
 import { migrateTeamProfile } from '../server/migrations/team-profile-2026.mjs';
 const seed = JSON.parse(readFileSync(new URL('../server/seed.json', import.meta.url))).team;
 const previous = JSON.parse(readFileSync(new URL('../server/migrations/team-before-profile-2026.json', import.meta.url)));
-assert.equal(seed.length, 14);
-assert.equal(new Set(seed.map(p => p.name)).size, 14);
+assert.equal(seed.length, 13);
+assert.equal(new Set(seed.map(p => p.name)).size, 13);
 for (const [i, p] of seed.entries()) {
   assert.equal(p.name, team[i].name);
   assert.equal(p.bio, team[i].career.join('\n'));
@@ -24,7 +24,7 @@ function dbWith(people) {
 }
 const old = dbWith(previous);
 assert.equal(migrateTeamProfile(old, seed), 'upgraded');
-assert.equal(old.prepare('SELECT COUNT(*) AS n FROM team').get().n, 14);
+assert.equal(old.prepare('SELECT COUNT(*) AS n FROM team').get().n, 13);
 old.exec('DELETE FROM team');
 assert.equal(migrateTeamProfile(old, seed), 'already-applied');
 assert.equal(old.prepare('SELECT COUNT(*) AS n FROM team').get().n, 0);
@@ -36,7 +36,7 @@ const pdf12 = dbWith(seed.filter(p => p.name !== '유세아' && p.name !== '성�
 })));
 pdf12.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('team_profile_2026', 'upgraded');
 assert.equal(migrateTeamProfile(pdf12, seed), 'upgraded');
-assert.equal(pdf12.prepare('SELECT COUNT(*) AS n FROM team').get().n, 14);
+assert.equal(pdf12.prepare('SELECT COUNT(*) AS n FROM team').get().n, 13);
 pdf12.close();
 const previousRosterPhotos = dbWith(seed.map(p => ({ ...p, photoUrl: p.photoUrl.replace(/\.webp$/, '.png') })));
 previousRosterPhotos.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('team_profile_2026', 'current');
@@ -53,4 +53,4 @@ customized.close();
 const fresh = dbWith(seed);
 assert.equal(migrateTeamProfile(fresh, seed), 'current');
 fresh.close();
-console.log('Team profile: 14 profiles, seed consistency, 4->14/12->14 migration, 14-profile WebP refresh and CMS edit protection passed.');
+console.log('Team profile: 13 profiles, seed consistency, 4->13/12->13 migration, 13-profile WebP refresh and CMS edit protection passed.');
