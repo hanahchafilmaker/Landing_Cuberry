@@ -1,0 +1,85 @@
+name: fetch-flexboard-design
+
+# 공유된 Google Drive 디자인 파일(단일 파일 번들 .html)을 받아서
+# index.html / pages / assets 로 풀어드린 뒤 design-incoming/ 에 커밋한다.
+# (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서, Actions 러너가 대신 받아온다.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_id:
+        description: "Google Drive file id"
+        required: true
+        default: "1WgNHKhi7nIX0b7wWVyJSdMsXXxUo0qxo"
+      out_dir:
+        description: "대상 폴더"
+        required: true
+        default: "design-incoming"
+  push:
+    branches:
+      - arena/a4684449-landing-cuberry
+    paths:
+      - .github/workflows/fetch-flexboard-design.yml
+      - scripts/unpack_bundle.py
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Download bundle from Drive and unpack
+        env:
+          FILE_ID: ${{ inputs.file_id || '1WgNHKhi7nIX0b7wWVyJSdMsXXxUo0qxo' }}
+          OUT_DIR: ${{ inputs.out_dir || 'design-incoming' }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dl
+          ok=0
+          for url in \
+            "https://drive.usercontent.google.com/download?id=${FILE_ID}&export=download&confirm=t" \
+            "https://drive.google.com/uc?export=download&id=${FILE_ID}&confirm=t" ; do
+            echo "trying $url"
+            if curl -sSL --fail --retry 3 --retry-all-errors -A "Mozilla/5.0" -o /tmp/dl/bundle.html "$url"; then
+              if head -c 4000 /tmp/dl/bundle.html | grep -q "__bundler\|DOCTYPE"; then
+                ok=1; break
+              fi
+            fi
+            echo "size: $(stat -c %s /tmp/dl/bundle.html 2>/dev/null || echo 0)"
+          done
+          if [ "$ok" != "1" ]; then
+            echo "download failed" >&2; exit 1
+          fi
+          ls -la /tmp/dl
+          python3 - << 'PY'
+          import hashlib, pathlib
+          p = pathlib.Path("/tmp/dl/bundle.html")
+          d = p.read_bytes()
+          print("bytes", len(d), "sha256", hashlib.sha256(d).hexdigest())
+          PY
+          rm -rf "$OUT_DIR"
+          python3 scripts/unpack_bundle.py /tmp/dl/bundle.html "$OUT_DIR"
+          echo "=== tree ==="
+          find "$OUT_DIR" -maxdepth 2 -type f -printf "%10s %p\n" | sort -k2 | head -60
+          du -sh "$OUT_DIR"
+
+      - name: Commit unpacked design
+        run: |
+          set -euo pipefail
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          OUT_DIR="${{ inputs.out_dir || 'design-incoming' }}"
+          git add -f "$OUT_DIR"
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Import shared Drive design bundle (unpacked) into $OUT_DIR"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
