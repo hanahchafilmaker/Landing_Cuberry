@@ -14,9 +14,29 @@ Two additional members from **cubeberry_flexboard_design_v2.html** (`#studio` CR
 - Directors & PDs: Sung Na-yeon (`sung-nayeon.png`)
 
 Biographies are summarized/translated from those pages in `landing/src/data/content.ts`,
-`landing/src/i18n/messages.ts` and `server/seed.json`. Original portrait resolution is
-approximately 190–250 pixels wide. Higher-resolution originals can replace them later.
+`landing/src/i18n/messages.ts` and `server/seed.json`. The initial PDF extractions were
+mostly 190–250 pixels wide; the Drive refresh below replaces eight active profile images.
 The source PDF itself is not published in the repository.
+
+### 2026-10-12 Drive headshot refresh
+
+Eight profiles were refreshed from the shared Drive folder
+(`1D7Ok0ct0cCClbadNp5Vep094FTq1NtQx`) and encoded as optimized WebP files (quality 90,
+maximum 1600 px on the long edge):
+
+- `kim-jaehwan.webp` ← `김재환.png`
+- `noh-eunjoo.webp` ← `노은주작가.jpg`
+- `park-chanhyuk.webp` ← `박찬혁.png`
+- `lee-jinseo.webp` ← `이진서대표님.jpeg`
+- `cho-minhee.webp` ← `조민희PD.png`
+- `choi-jonghyun.webp` ← `최종현.png`
+- `heo-jaegu.webp` ← `허재구.png`
+- `hwangbo-minhyuk.webp` ← `황보민혁.jpeg`
+
+The active image paths are synchronized in `landing/src/data/content.ts`,
+`server/seed.json` and the generated root `index.html`. Legacy CMS aliases
+`jominhee-pd.jpg` and `park-chanhyuk-director.jpg` were also refreshed so old records
+for those same profiles show the new photos. The original PDF-derived PNGs remain intact.
 
 ### 2026-10-12 고해상도 교체 (IR_큐브베리_2026.pptx)
 
