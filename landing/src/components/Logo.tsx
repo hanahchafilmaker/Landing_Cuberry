@@ -5,23 +5,18 @@ interface LogoProps {
   brand?: string;
 }
 
-/** Detailed CB crystal mark paired with the CMS-controlled wordmark. */
-export function Logo({ className, brand = "CUBERRY" }: LogoProps) {
+/** E안은 이미지 심볼 없이 자간을 넓힌 워드마크만 쓴다 (images/cuberry-mark.webp 는 히어로·파비콘용으로 유지). */
+export function Logo({ className, brand = "CUBEBERRY" }: LogoProps) {
   return (
     <span
       role="img"
       aria-label={brand}
-      className={cn("inline-flex select-none items-center gap-[0.44em] whitespace-nowrap", className)}
+      className={cn("inline-flex select-none items-center whitespace-nowrap leading-none", className)}
     >
-      <img
-        src="images/cuberry-mark.webp"
-        alt=""
+      <span
         aria-hidden="true"
-        width="479"
-        height="520"
-        className="h-[1.72em] w-auto object-contain drop-shadow-[0_5px_12px_rgba(0,0,0,0.34)]"
-      />
-      <span aria-hidden="true" className="font-editorial border-y border-brand-light/35 py-[0.16em] text-[0.64em] font-semibold leading-none tracking-[0.08em] text-paper">
+        className="text-[1em] font-bold tracking-[0.1em] text-paper"
+      >
         {brand}
       </span>
     </span>

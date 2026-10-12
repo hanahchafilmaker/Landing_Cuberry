@@ -1,12 +1,18 @@
 // ─────────────────────────────────────────────────────────────
-// 큐브베리(CUBERRY) 스튜디오 랜딩 콘텐츠
-// 실제 운영 콘텐츠(hero·서비스·포트폴리오·팀·FAQ)를 기반으로 구성
+// 큐브베리(CUBEBERRY) 랜딩 콘텐츠 기본값
+// 2026-10-12 공유 디자인 "FLEXBOARD Design v2 · E · 회사소개 · 기록(동작)" 기준으로
+// 히어로·숫자요약·섹터·연혁·특허·대표·문의 문구를 그 파일에서 그대로 옮겼습니다.
+// (어드민 /api/public/content 값이 오면 히어로·상품·작품·팀·FAQ는 그 값이 우선합니다)
 // ─────────────────────────────────────────────────────────────
 
 export const settings = {
-  brand: "CUBERRY",
+  brand: "CUBEBERRY",
   brandKo: "큐브베리",
-  eyebrow: "AI Content Company / Broadcasting Experts",
+  legalName: "주식회사 큐브베리",
+  ceo: "이진서",
+  bizNo: "480-88-03079",
+  since: "2023.08",
+  eyebrow: "REC · CUBEBERRY · SINCE 2023.08",
   heroTitle: "Imagine Speaks, AI Completes.",
   heroSubtitle:
     "방송 전문가들이 이끄는 AI 콘텐츠 기업입니다. 우리가 직접 쓰는 도구를 만들고, 그 도구로 지상파에 방영되는 작품을 만듭니다.",
@@ -15,126 +21,198 @@ export const settings = {
   phone: "070-8095-2302",
 };
 
-export const stats = [
-  { value: 3, suffix: " 건", label: "KIPO 특허 등록 · 출원 1건 별도" },
-  { value: 3, suffix: " 편", label: "KBS 지상파 방영작" },
-  { value: 4, suffix: " 편", label: "KOCCA 콘텐츠랩 AI 웹드라마" },
-  { value: 6, suffix: " 곳", label: "해외 업무협약 · 2026" },
-];
-
 export const navLinks = [
-  { label: "Why", href: "#why" },
-  { label: "Services", href: "#services" },
-  { label: "AI Lab", href: "#lab" },
-  { label: "Works", href: "#works" },
-  { label: "Team", href: "#team" },
-  { label: "FAQ", href: "#faq" },
+  { label: "회사소개", href: "#top" },
+  { label: "스튜디오", href: "#works" },
+  { label: "엑스콘다", href: "#lab" },
+  { label: "문의", href: "#contact" },
 ];
 
-export const marqueeItems = [
-  "BROADCASTING",
-  "AI FILM",
-  "XCONDA",
-  "ORIGINAL IP",
-  "LONG-FORM AI",
-  "KBS PRODUCTION",
-  "FLEXBOARD",
-  "TURN",
-  "WEBDRAMA",
-  "DOCUMENTARY",
+/** 히어로 오른쪽 3×2 스틸 격자 (디자인 E안의 6편) */
+export const heroStills = [
+  { src: "images/still-koreanwar.jpg", alt: "〈한국전쟁 이동외상센터〉 스틸" },
+  { src: "images/still-coldsite.jpg", alt: "〈콜드사이트〉 스틸" },
+  { src: "images/still-tvfairytale.jpg", alt: "〈TV동화 행복한 세상〉 리메이크 스틸" },
+  { src: "images/still-divisionzero.jpg", alt: "〈디비전 제로〉 스틸" },
+  { src: "images/still-el-land.jpg", alt: "〈이상한 나라의 이엘〉 스틸" },
+  { src: "images/still-toypalm.jpg", alt: "〈토이팜〉 스틸" },
 ];
 
-export const whyItems = [
+/** 숫자 요약 — 값·라벨·근거(각주)를 함께 둔다 */
+export const stats = [
+  {
+    value: 3,
+    suffix: " 건",
+    label: "특허 등록 · 출원 1건 별도",
+    note: "KIPO 특허증 기준",
+  },
+  {
+    value: 3,
+    suffix: " 편",
+    label: "KBS 지상파 방영작",
+    note: "2026 공사창립 대기획 〈성물〉 · 2025 6.25 특집, 어린이날 특집",
+  },
+  {
+    value: 4,
+    suffix: " 편",
+    label: "KOCCA 콘텐츠랩 AI 웹드라마",
+    note: "2026 · 현역 감독 4팀",
+  },
+  {
+    value: 6,
+    suffix: " 곳",
+    label: "해외 업무협약 · 2026",
+    note: "싱가포르 2 · 홍콩 1 · 중국 3",
+  },
+];
+
+/** TWO SECTORS — 만드는 팀과, 만드는 도구 */
+export const sectors = [
   {
     num: "01",
-    key: "BROADCASTING",
-    title: "방송 — 지상파 검증 서사",
-    desc: "KBS 출신 PD와 지상파 전 채널 집필 작가진, 현업 드라마 감독이 기획과 서사를 맡습니다.",
-    tags: ["KBS PD", "지상파 작가진", "드라마 감독", "서사 기획"],
+    kicker: "STUDIO",
+    title: "큐브베리 스튜디오",
+    desc: "기획부터 유통까지, 방영 가능한 완성도로 한 팀이 끝까지 만듭니다.",
+    cta: "작품과 팀 보기 →",
+    href: "#works",
+    image: "images/sector-studio.jpg",
   },
   {
     num: "02",
-    key: "TECH · XCONDA",
-    title: "기술 · XCONDA — 롱폼 AI 플랫폼",
-    desc: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼을 직접 개발하고 운영합니다.",
-    tags: ["TURN", "FLEXBOARD", "BLOCKING BOARD", "롱폼 AI"],
-  },
-  {
-    num: "03",
-    key: "STUDIO",
-    title: "제작 스튜디오 — 원스톱 책임 제작",
-    desc: "기획부터 스토리, 생성, 편집, 후반, 유통까지 한 팀이 끝까지 책임집니다.",
-    tags: ["기획", "스토리", "생성", "편집", "후반", "유통"],
-  },
-  {
-    num: "04",
-    key: "ORIGINAL IP",
-    title: "오리지널 IP — 시즌제 세계관",
-    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
-    tags: ["전설의 고향", "토이팜", "시즌제", "다국어"],
+    kicker: "PLATFORM",
+    title: "XCONDA",
+    desc: "컷이 바뀌어도 공간과 인물이 무너지지 않는 롱폼 AI 영상 플랫폼.",
+    cta: "플랫폼 보기 →",
+    href: "#lab",
+    image: "images/sector-xconda.jpg",
   },
 ];
 
-export const strengths = [
-  {
-    num: "01",
-    key: "BROADCAST EXPERTISE",
-    title: "지상파 검증 방송 전문성",
-    desc: "KBS 출신 PD, 지상파 전 채널 집필 작가진, 현업 드라마 감독이 기획과 서사를 책임집니다.",
-  },
-  {
-    num: "02",
-    key: "PROPRIETARY PLATFORM",
-    title: "자체 개발 XCONDA 플랫폼",
-    desc: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼을 직접 개발하고 운영합니다.",
-  },
-  {
-    num: "03",
-    key: "END-TO-END",
-    title: "기획부터 유통까지 원스톱",
-    desc: "기획·스토리·생성·편집·후반·유통까지 한 팀이 끝까지 책임집니다.",
-  },
-  {
-    num: "04",
-    key: "ORIGINAL IP",
-    title: "자체 IP · 시즌제 확장",
-    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
-  },
-];
-
+/** WHAT WE DO */
 export const whatWeDo = [
   {
     num: "01",
-    key: "BROADCASTING",
-    title: "방송 콘텐츠",
-    desc: "KBS 출신 PD와 현업 감독이 기획부터 연출까지, 지상파에 방영되는 완성도의 콘텐츠를 만듭니다.",
-    tags: ["KBS", "다큐멘터리", "웹드라마", "애니메이션"],
-    icon: "building" as const,
+    title: "방송",
+    desc: "KBS 출신 PD와 지상파 전 채널 집필 작가진, 현업 드라마 감독이 기획과 서사를 맡습니다.",
   },
   {
     num: "02",
-    key: "AI FILM",
-    title: "AI 필름 · 롱폼",
-    desc: "XCONDA 플랫폼으로 컷이 바뀌어도 공간과 인물이 유지되는 장편 AI 영상을 제작합니다.",
-    tags: ["XCONDA", "LONG-FORM", "AI GENERATION"],
-    icon: "play" as const,
+    title: "AI 기술 · XCONDA",
+    desc: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼을 직접 개발하고 운영합니다.",
   },
   {
     num: "03",
-    key: "ORIGINAL IP",
-    title: "오리지널 IP",
-    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
-    tags: ["SEASON", "GLOBAL", "IP DEVELOPMENT"],
-    icon: "motion" as const,
+    title: "제작 스튜디오",
+    desc: "기획부터 스토리, 생성, 편집, 후반, 유통까지 한 팀이 끝까지 책임집니다.",
   },
   {
     num: "04",
-    key: "AI ADVERTISING",
-    title: "AI 광고 · 숏폼",
-    desc: "AI 생성과 실사 촬영을 결합해 SNS·유튜브 문법에 맞는 짧은 광고 콘텐츠를 제작합니다.",
-    tags: ["AI AD", "SHORT-FORM", "SNS"],
-    icon: "spark" as const,
+    title: "오리지널 IP",
+    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
   },
+];
+
+/** FOUNDER & CEO */
+export const founder = {
+  image: "images/ceo-leejinseo.webp",
+  name: "이진서",
+  nameEn: "Lee Jin-seo",
+  quote: "“방송 현장에서 28년간 지켜온 단 하나의 원칙은 결과물에 대한 무한 책임입니다.”",
+  cite: "이진서 · 큐브베리 대표이사",
+  bio: "前 KBS 드라마 PD(1995~2023). 큐브베리를 설립해 XCONDA AI 제작 파이프라인을 설계하고 콘텐츠 제작을 총괄합니다. 〈전설의 고향: 구미호〉를 연출했습니다.",
+  facts: [
+    { k: "협회", v: "한국AI콘텐츠크리에이터협회 부회장" },
+    {
+      k: "수상",
+      v: "AI 미디어 융합기술 공모전 우수상(과기정통부·RAPA, 단체) · 경기도지사 표창",
+    },
+    { k: "특허", v: "등록 특허 발명자" },
+  ],
+};
+
+/** HISTORY · 연혁 — 어드민 없이도 갱신되도록 파일에 두고, 최신 항목이 첫 줄(금색 점)이 됩니다. */
+export type HistoryItem = { date: string; text: string };
+
+export const history: HistoryItem[] = [
+  { date: "2026.09", text: "ACE Fair 2026에서 홍콩·중국 기업 4곳과 업무협약 체결" },
+  {
+    date: "2026.08",
+    text: "특허 등록 · 물리 시뮬레이션 데이터 역산 기반 생성형 AI 콘텐츠 다중 검증·자동 보정 시스템",
+  },
+  {
+    date: "2026.08",
+    text: "싱가포르 Lights & Shadows, Codomo와 업무협약(MOU) 2건 체결 · Codomo 자체 IP 〈Potato Pirates〉 롱폼 애니메이션 제작 협력",
+  },
+  {
+    date: "2026.07",
+    text: "영화진흥위원회 지원사업 장편 AI 애니메이션 〈씨앗전쟁〉 선정 · 주관 용역사로 제작 참여",
+  },
+  { date: "2026.05", text: "XCONDA 베타 서비스 출시" },
+  { date: "2026.03", text: "KBS 공사창립 대기획 4부작 다큐멘터리 〈성물〉 AI 파트 제작·방영" },
+  { date: "2026.03", text: "XCONDA MVP 출시" },
+  { date: "2026.03", text: "한국콘텐츠진흥원 뉴미디어 신기술 콘텐츠랩 운영기관 선정" },
+  { date: "2026.02", text: "특허 출원 · 온톨로지 제약 기반 시퀀스형 콘텐츠 생성 기법" },
+  { date: "2025.06", text: "KBS 6.25 특집 다큐 〈한국전쟁 이동외상센터〉 AI 파트 제작·방영" },
+  { date: "2025.05", text: "AI 애니메이션 〈전설의 고향-구미호〉 KBS1 어린이날 특집 방영" },
+  { date: "2024.11", text: "벤처기업 인증" },
+  { date: "2023.08", text: "주식회사 큐브베리 설립" },
+];
+
+/** PATENTS · 기술 · 특허 */
+export type Patent = { state: "등록" | "출원"; date: string; title: string; no: string };
+
+export const patents: Patent[] = [
+  {
+    state: "등록",
+    date: "2026.08.06",
+    title: "물리 시뮬레이션 데이터의 역산을 이용한 생성형 인공지능 콘텐츠의 다중 검증 및 자동 보정 시스템",
+    no: "제10-3002930호",
+  },
+  {
+    state: "출원",
+    date: "2026.02.12",
+    title: "온톨로지 제약 기반 위반 검증 및 상태 전이 전파를 이용한 시퀀스형 콘텐츠 생성 기법",
+    no: "10-2026-0028285",
+  },
+  { state: "등록", date: "2025.01.06", title: "인공지능 기반 커플 매칭 시스템", no: "제10-2752198호" },
+  {
+    state: "등록",
+    date: "2017.06.29",
+    title: "2D 영상 내 3D 요소 추출·삽입 기반 미디어 콘텐츠 제작 방법 및 시스템",
+    no: "제10-1754524호",
+  },
+];
+
+/** OFFICES */
+export const offices = [
+  { kicker: "본사 · 광주", address: "전남광주특별시 충장로 69-12, 2층" },
+  { kicker: "지사 · 부천", address: "경기도 부천시 부천로198번길 18, 춘의테크노파크II" },
+];
+
+/** 푸터 메뉴 (E안: 회사소개 / 스튜디오 / 엑스콘다) */
+export const footerGroups = [
+  {
+    title: "회사소개",
+    href: "#top",
+    lines: ["개요 · 리더십 · 연혁", "기술·특허 · 뉴스"],
+  },
+  {
+    title: "스튜디오",
+    href: "#works",
+    lines: ["포트폴리오 · 제작 프로세스", "오리지널 IP · 팀 · 제작 대행"],
+  },
+  {
+    title: "엑스콘다",
+    href: "#lab",
+    lines: ["TURN · 블로킹보드 · FLEXBOARD", "요금제 · 파트너 · 가이드"],
+  },
+];
+
+export const b2bItems = [
+  { num: "01", title: "월간 콘텐츠 운영", desc: "4~8편" },
+  { num: "02", title: "브랜드 IP·웹드라마 개발", desc: "시리즈 기획·제작" },
+  { num: "03", title: "기업 홍보·전시·세일즈 콘텐츠", desc: "맞춤 제작" },
+  { num: "04", title: "NDA·세금계산서·전담 PM", desc: "안전한 계약" },
 ];
 
 export const labChips = [
@@ -513,13 +591,6 @@ export const processSteps = [
     title: "납품 · 최적화",
     desc: "최종 파일을 납품하고 플랫폼별 최적 포맷을 함께 제공합니다.",
   },
-];
-
-export const b2bItems = [
-  { num: "01", title: "월간 콘텐츠 운영", desc: "4~8편" },
-  { num: "02", title: "브랜드 IP·웹드라마 개발", desc: "시리즈 기획·제작" },
-  { num: "03", title: "기업 홍보·전시·세일즈 콘텐츠", desc: "맞춤 제작" },
-  { num: "04", title: "NDA·세금계산서·전담 PM", desc: "안전한 계약" },
 ];
 
 export type Faq = { q: string; a: string };
