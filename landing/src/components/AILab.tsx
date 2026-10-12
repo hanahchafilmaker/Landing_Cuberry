@@ -1,6 +1,7 @@
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { labChips } from "@/data/content";
+import { T, useI18n } from "@/i18n/LanguageContext";
 
 const cutLabels = [
   "OPENING",
@@ -40,19 +41,15 @@ function StoryboardGrid() {
  * 글자 크기·구분선만 디자인 값에 맞추고, 구성(비교 → 보드)은 유지한다.
  */
 export function AILab() {
+  const { t } = useI18n();
+
   return (
     <section id="lab" className="section">
       <div className="shell">
         <SectionHeading
           label="02 · PLATFORM · XCONDA"
-          title={
-            <>
-              AI를 단순 생성 버튼으로
-              <br />
-              쓰지 않습니다
-            </>
-          }
-          desc="기획·공간·캐릭터·동선·편집을 하나의 제작 흐름으로 연결해, 결과를 예측하고 수정할 수 있게 설계합니다. XCONDA는 큐브베리의 올인원 AI 영상 제작 플랫폼으로, 14개 이상의 AI 모델을 하나의 흐름으로 연결합니다."
+          title={<T text={"AI를 단순 생성 버튼으로\n쓰지 않습니다"} />}
+          desc={t("기획·공간·캐릭터·동선·편집을 하나의 제작 흐름으로 연결해, 결과를 예측하고 수정할 수 있게 설계합니다. XCONDA는 큐브베리의 올인원 AI 영상 제작 플랫폼으로, 14개 이상의 AI 모델을 하나의 흐름으로 연결합니다.")}
         />
 
         <div className="mt-14 grid items-start gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-12">
@@ -84,7 +81,7 @@ export function AILab() {
             <div className="relative mt-5 overflow-hidden rounded-[4px] border border-line">
               <img
                 src="images/lab-storyboard.jpg"
-                alt="홀로그램 스토리보드 앞에서 연출하는 감독"
+                alt={t("홀로그램 스토리보드 앞에서 연출하는 감독")}
                 loading="lazy"
                 decoding="async"
                 className="h-60 w-full object-cover sm:h-72"
@@ -101,7 +98,7 @@ export function AILab() {
                   XCONDA / STORYBOARD 01 → 09 CUTS
                 </div>
                 <div className="mt-1 text-sm font-medium text-paper">
-                  시나리오와 참고 이미지를 9컷 보드로 구조화하고, 필요한 컷만 선택해 다시 생성합니다.
+                  {t("시나리오와 참고 이미지를 9컷 보드로 구조화하고, 필요한 컷만 선택해 다시 생성합니다.")}
                 </div>
               </div>
             </div>
@@ -126,8 +123,9 @@ export function AILab() {
                 <StoryboardGrid />
               </div>
               <p className="mt-5 text-[13px] leading-relaxed text-mute">
-                전체를 버리지 않고 연출 의도를 유지합니다. 각 컷의 앵글·무드·타이밍을 설정하고,
-                원하는 프레임을 그대로 구현합니다.
+                {t(
+                  "전체를 버리지 않고 연출 의도를 유지합니다. 각 컷의 앵글·무드·타이밍을 설정하고, 원하는 프레임을 그대로 구현합니다.",
+                )}
               </p>
             </div>
           </Reveal>

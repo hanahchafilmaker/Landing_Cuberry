@@ -14,10 +14,11 @@ https://landing-cuberry-admin.onrender.com/admin     ← 레거시 어드민
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 119건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 + 한영 사전 135건)
 npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택)
 npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
 npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (43건)
+npm run test:i18n      # 한영 자동 번역 (51건 — 자동 감지·KO/EN 토글·CMS 값 번역)
 npm run build          # landing/ 소스 → 루트 index.html (아래 "랜딩 디자인 소스" 참고)
 npm run build:admin    # admin-v2/app 소스 → admin-v2/index.html (새 어드민 한 파일)
 npm run test:admin     # 새 어드민 로그인 → Team 수정 저장 종단 테스트 (jsdom, 서버 필요)
@@ -182,6 +183,7 @@ landing/
   src/                # React 19 + Tailwind CSS 4 컴포넌트 (Hero, Portfolio, Team, Pricing, Faq, Contact …)
     data/content.ts   # 기본 문구·콘텐츠 (API 에 연결되지 않았을 때의 기본값)
     cms/              # 어드민 콘텐츠 → 화면 뷰 모델 변환 + 구독(ContentProvider)
+    i18n/             # 한영 자동 번역 (사전·규칙·언어 감지·LanguageProvider, 아래 "한영 자동 번역" 참고)
   vite.config.ts      # 빌드 결과를 landing/dist/ 에 만든 뒤 루트 index.html 로 복사
 images/               # 랜딩 이미지 (상대경로 images/… 로 참조 → Pages 서브경로에서도 동작)
 ```
@@ -210,6 +212,53 @@ npm run typecheck      # TypeScript 검사
 어드민 탭에서 저장한 뒤 이미 열어 둔 랜딩 탭으로 돌아오면 `focus` 시 공개 API 를 다시 읽어 자동 갱신합니다.
 `npm test` 는 빌드 산출물에 `cms-bridge.js`(상대경로)·`data-cms-native`·`CuberryApi.url('/api/partnership')` 배선이 있는지 검사하고,
 `npm run test:cms` 는 실제 번들을 jsdom 에서 돌려 관리자 값 반영을 확인합니다.
+
+## 한영 자동 번역 (KO · EN)
+
+랜딩은 **한국어와 영어를 자동으로 전환**합니다. 번역 API 키도, 네트워크 호출도 필요 없습니다 —
+번역문은 `landing/src/i18n/messages.ts` 사전에 들어 있고, 화면의 한국어 문구가 이 사전을 거쳐 영어로 바뀝니다.
+
+**언어가 정해지는 순서**
+
+| 순서 | 기준 | 예 |
+| --- | --- | --- |
+| 1 | 주소의 `?lang=` | `https://…/?lang=en` — 영어 화면 링크를 그대로 공유 |
+| 2 | 방문자가 고른 값 | 헤더의 **KO / EN** 버튼 → `localStorage("cuberry:lang")` 에 저장 |
+| 3 | 브라우저 언어 | 영어권 브라우저로 처음 오면 영어 화면 (`navigator.languages`) |
+| 4 | 기본값 | 한국어 |
+
+- 방문자가 직접 고른 언어는 자동 감지보다 우선하고 다음 방문에도 유지됩니다.
+- 전환하면 `<html lang>`·`<title>`·`<meta name="description">` 까지 함께 바뀌고, 주소에 `?lang=` 이 붙습니다(새로고침 없음).
+- 푸터의 국문 브랜드 표기(`큐브베리`)처럼 **일부러 한국어로 남기는 문구**는 사전의 `koOnly` 에 있습니다.
+
+**어드민에서 저장한 값도 번역됩니다**
+
+- 상품·포트폴리오·팀·FAQ·히어로 문구는 방문자에게 그대로 보이는 관리자 입력값이라, 사전에 같은 한국어가 있으면 영어 화면에서도 영어로 나옵니다.
+- 금액·길이·특허번호처럼 숫자가 섞인 값은 **규칙으로 자동 변환**합니다 — `29만원~` → `from ₩290,000`, `15초 · 최대 5컷` → `15s · up to 5 cuts`, `제10-3002930호` → `No. 10-3002930`.
+- 사전에도 규칙에도 없는 새 문구는 **한국어 원문 그대로** 나옵니다(글자가 사라지는 일이 없습니다). 영어 문장을 붙이려면 사전에 한 줄만 더하면 됩니다.
+
+**새 문구를 추가할 때**
+
+```ts
+// landing/src/i18n/messages.ts
+"새로 만든 섹션 제목": "The new section title",
+```
+
+```bash
+npm test                # 빠진 번역이 있으면 여기서 바로 실패합니다 (사전 커버리지 검사)
+npm run test:i18n       # 실제 브라우저 동작(자동 감지·토글·CMS 번역)을 jsdom 으로 확인
+npm run build:landing   # 루트 index.html 갱신 (결과물을 커밋)
+```
+
+| 파일 | 역할 |
+| --- | --- |
+| `landing/src/i18n/messages.ts` | ko → en 사전 · 숫자 변환 규칙 · 언어별 제목/설명 · `koOnly`(번역하지 않는 문구) |
+| `landing/src/i18n/translate.ts` | 순수 변환 로직 — `translate()` · 자동 감지(`resolveLanguage`) · 저장값/주소 처리 |
+| `landing/src/i18n/LanguageContext.tsx` | `LanguageProvider` · `useI18n()` · `<T>`(줄바꿈 문구) · 문서 언어·제목 반영 |
+| `landing/src/components/LangToggle.tsx` | 헤더와 모바일 메뉴의 KO / EN 버튼 |
+
+검색엔진에는 빌드할 때 `hreflang`(`ko` · `en` · `x-default`) 링크가 함께 들어갑니다
+(`landing/vite.config.ts` 의 `injectLanguageAlternates` — HTML 에 직접 쓰면 Vite 가 번들 대상으로 오해해 빌드가 깨집니다).
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 
@@ -263,9 +312,10 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 119건 (client-origin 44 + static-paths 18 + server-wiring 57)
+npm test           # 의존성 없음 · 135건 (client-origin 44 + static-paths 18 + server-wiring 68 + i18n-coverage 5)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock API)
+npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS 값 번역)
 ```
 
 | 파일 | 무엇을 검증하나 |
@@ -274,6 +324,8 @@ npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock AP
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
+| `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |
+| `test/landing-i18n.mjs` | 실제 번들을 jsdom 에서 돌려 ①한국어 브라우저→한국어, ②영어 브라우저→자동 영어(화면·`alt`·`aria-label`·`placeholder` 에 한국어가 한 글자도 남지 않는지 전수 확인), ③KO/EN 토글이 화면·`<html lang>`·제목·`?lang=`·저장값을 함께 바꾸는지, ④`?lang=` > 저장값 > 브라우저 언어 우선순위, ⑤어드민 저장값(사전 등록분은 번역·미등록분은 원문 유지)까지 확인한다 |
 | `test/landing-cms.mjs` | 새 React 단일 HTML을 실제로 마운트하고 mock 공개 API를 연결한다. API 응답이 React보다 먼저 와도 기다렸다가 히어로·상품·드라이브/일반 포트폴리오·팀·FAQ·연락처를 모두 관리자 값으로 바꾸는지, 원본 React 섹션은 숨기는지, FAQ 상호작용과 탭 `focus` 자동 갱신까지 확인한다. |
 
 `test/dom-flow.mjs` 는 서버가 켜져 있어야 합니다:

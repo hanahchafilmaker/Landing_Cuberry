@@ -1,16 +1,19 @@
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { sectors } from "@/data/content";
+import { useI18n } from "@/i18n/LanguageContext";
 
 /**
  * TWO SECTORS — 만드는 팀(스튜디오)과 만드는 도구(XCONDA).
  * E안은 배경 스틸 위에 그라디언트를 깔아 글자를 얹는 큰 카드 두 장이다.
  */
 export function Sectors() {
+  const { t } = useI18n();
+
   return (
     <section id="sectors" className="section">
       <div className="shell flex flex-col gap-8">
-        <SectionHeading label="TWO SECTORS" title="만드는 팀과, 만드는 도구" />
+        <SectionHeading label="TWO SECTORS" title={t("만드는 팀과, 만드는 도구")} />
 
         <div className="grid gap-5 md:grid-cols-2">
           {sectors.map((sector, i) => (
@@ -39,10 +42,10 @@ export function Sectors() {
                     {sector.num} · {sector.kicker}
                   </span>
                   <span className="text-[28px] font-bold leading-tight tracking-[-0.02em]">
-                    {sector.title}
+                    {t(sector.title)}
                   </span>
-                  <span className="text-[15px] leading-relaxed text-body">{sector.desc}</span>
-                  <span className="mt-1 text-sm font-medium text-brand">{sector.cta}</span>
+                  <span className="text-[15px] leading-relaxed text-body">{t(sector.desc)}</span>
+                  <span className="mt-1 text-sm font-medium text-brand">{t(sector.cta)}</span>
                 </span>
               </a>
             </Reveal>

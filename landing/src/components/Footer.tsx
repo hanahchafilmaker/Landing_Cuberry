@@ -1,6 +1,7 @@
 import { footerGroups, settings as defaults } from "@/data/content";
 import { useContent } from "@/cms/ContentContext";
 import { Logo } from "@/components/Logo";
+import { useI18n } from "@/i18n/LanguageContext";
 
 /**
  * 푸터 — E안은 4개 열(회사 정보 · 회사소개 · 스튜디오 · 엑스콘다)이고
@@ -8,6 +9,7 @@ import { Logo } from "@/components/Logo";
  */
 export function Footer() {
   const { settings } = useContent();
+  const { t } = useI18n();
   const telHref = `tel:${settings.phone.replace(/[^\d+]/g, "")}`;
 
   return (
@@ -16,9 +18,9 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <Logo brand={settings.brand} className="text-[15px]" />
           <span>
-            {defaults.legalName} · 대표 {defaults.ceo}
+            {t("{legal} · 대표 {ceo}", { legal: t(defaults.legalName), ceo: t(defaults.ceo) })}
           </span>
-          <span>사업자등록번호 {defaults.bizNo}</span>
+          <span>{t("사업자등록번호 {bizNo}", { bizNo: defaults.bizNo })}</span>
           <span className="flex flex-wrap gap-x-2">
             <a
               href={`mailto:${settings.email}`}
@@ -39,10 +41,10 @@ export function Footer() {
         {footerGroups.map((group) => (
           <div key={group.title} className="flex flex-col gap-2">
             <a href={group.href} className="text-paper no-underline transition-colors hover:text-brand">
-              {group.title}
+              {t(group.title)}
             </a>
             {group.lines.map((line) => (
-              <span key={line}>{line}</span>
+              <span key={line}>{t(line)}</span>
             ))}
           </div>
         ))}
@@ -50,7 +52,10 @@ export function Footer() {
 
       <div className="shell flex flex-col items-start justify-between gap-3 border-t border-line py-6 font-mono text-[11px] text-faint sm:flex-row sm:items-center">
         <span>
-          © 2026 {settings.brand} · {settings.brandKo} — Imagine Speaks, AI Completes.
+          {t("© 2026 {brand} · {brandKo} — Imagine Speaks, AI Completes.", {
+            brand: settings.brand,
+            brandKo: t(settings.brandKo),
+          })}
         </span>
         <span>SEOUL · GWANGJU · BUCHEON</span>
       </div>

@@ -2,15 +2,25 @@ import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
+import { T, useI18n } from "@/i18n/LanguageContext";
 
+/**
+ * 사진이 없는 팀원 카드에 넣는 이니셜.
+ * 국문 이름은 지금까지처럼 앞 두 글자, 영문 이름은 단어 첫 글자를 모은다.
+ */
 function initials(name: string) {
-  return name.trim().slice(0, 2);
+  const trimmed = name.trim();
+  if (/[\uAC00-\uD7A3]/.test(trimmed)) return trimmed.slice(0, 2);
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return trimmed.slice(0, 2).toUpperCase();
 }
 
 /** 이력 한 줄. 어드민에서 "[텍스트](https://...)" 로 적은 줄은 링크로 보여준다. */
 function CareerLine({ line }: { line: string }) {
+  const { t } = useI18n();
   const link = line.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
-  if (!link) return <>{line}</>;
+  if (!link) return <>{t(line)}</>;
   return (
     <a
       href={link[2]}
@@ -18,7 +28,7 @@ function CareerLine({ line }: { line: string }) {
       rel="noopener noreferrer"
       className="text-brand underline decoration-brand/40 underline-offset-4 transition-colors hover:text-paper"
     >
-      {link[1]}
+      {t(link[1])}
     </a>
   );
 }
@@ -29,6 +39,7 @@ function CareerLine({ line }: { line: string }) {
  */
 export function Team() {
   const { team } = useContent();
+  const { t } = useI18n();
   if (team.length === 0) return null;
 
   return (
@@ -36,14 +47,8 @@ export function Team() {
       <div className="shell">
         <SectionHeading
           label="TEAM PROFILE"
-          title={
-            <>
-              PD의 기획력과 모션그래퍼의
-              <br />
-              크리에이티브가 만나는 팀
-            </>
-          }
-          desc="프로젝트 성격과 규모에 따라 PD·감독·모션·AI·후반 제작 인력을 최적 구성합니다. 방송·감독 이력은 프로젝트 제안 및 계약 범위에 맞춰 상세히 안내드립니다."
+          title={<T text={"PD의 기획력과 모션그래퍼의\n크리에이티브가 만나는 팀"} />}
+          desc={t("프로젝트 성격과 규모에 따라 PD·감독·모션·AI·후반 제작 인력을 최적 구성합니다. 방송·감독 이력은 프로젝트 제안 및 계약 범위에 맞춰 상세히 안내드립니다.")}
         />
 
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -54,7 +59,7 @@ export function Team() {
                   {member.image ? (
                     <SmartImage
                       src={member.image}
-                      alt={`${member.name} 프로필`}
+                      alt={t("{name} 프로필", { name: t(member.name) })}
                       objectPosition={`center ${member.photoPosition ?? 0}%`}
                       className="h-full w-full"
                       imgClassName="transition-transform duration-700 group-hover:scale-[1.02]"
@@ -62,7 +67,7 @@ export function Team() {
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-ink-3">
                       <span className="text-4xl font-bold tracking-[-0.02em] text-line-4">
-                        {initials(member.name)}
+                        {initials(t(member.name))}
                       </span>
                     </div>
                   )}
@@ -70,13 +75,13 @@ export function Team() {
 
                 <div className="flex flex-1 flex-col gap-1 p-5">
                   <div className="font-mono text-[10px] tracking-[0.18em] text-brand">
-                    {member.role}
+                    {t(member.role)}
                   </div>
                   <h3 className="m-0 text-lg font-semibold tracking-[-0.01em] text-paper">
-                    {member.name}
+                    {t(member.name)}
                   </h3>
                   {member.org && (
-                    <div className="text-[12px] leading-relaxed text-faint">{member.org}</div>
+                    <div className="text-[12px] leading-relaxed text-faint">{t(member.org)}</div>
                   )}
                 </div>
 
@@ -109,14 +114,15 @@ export function Team() {
                 CUSTOM TEAM
               </div>
               <p className="m-0 text-[15px] leading-relaxed text-body">
-                프로젝트별로 PD·감독·모션·AI·후반 인력을 다시 짜서 구성합니다.
-                편성 일정과 예산 구간을 알려주시면 바로 견적으로 답합니다.
+                {t(
+                  "프로젝트별로 PD·감독·모션·AI·후반 인력을 다시 짜서 구성합니다. 편성 일정과 예산 구간을 알려주시면 바로 견적으로 답합니다.",
+                )}
               </p>
               <a
                 href="#contact"
                 className="self-start rounded-[3px] border border-brand px-4 py-2.5 text-sm font-medium text-brand transition-colors duration-200 hover:bg-brand hover:text-[#140f00]"
               >
-                팀 구성 상담받기 →
+                {t("팀 구성 상담받기 →")}
               </a>
             </div>
           </Reveal>
