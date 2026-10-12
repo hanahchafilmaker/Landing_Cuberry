@@ -693,17 +693,6 @@ export const team: TeamMember[] = [
     ],
     "image": "team_portraits/heo-jaegu.webp",
     "photoPosition": 0
-  },
-  {
-    "name": "성나연",
-    "role": "AI GENERATIVE PD",
-    "org": "AI 생성 PD",
-    "career": [
-      "큐브베리 스튜디오 및 XCONDA 기반 AI 이미지·비디오 생성 워크플로우 설계·연출",
-      "AI 드라마·시리즈·브랜드 필름 프로젝트 비주얼 생성 및 컷 단위 에셋 품질 관리"
-    ],
-    "image": "team_portraits/sung-nayeon.png",
-    "photoPosition": 0
   }
 ];
 
