@@ -5,6 +5,7 @@ import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
 import type { PortfolioCard } from "@/cms/map";
+import { T, useI18n } from "@/i18n/LanguageContext";
 
 type Tab = "ALL" | "DRIVE FILM" | "WORKS";
 
@@ -14,6 +15,7 @@ type Tab = "ALL" | "DRIVE FILM" | "WORKS";
  */
 export function Portfolio() {
   const { films, works } = useContent();
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("ALL");
 
   const tabs = useMemo<Tab[]>(
@@ -35,31 +37,25 @@ export function Portfolio() {
       <div className="shell">
         <SectionHeading
           label="PORTFOLIO · STUDIO"
-          title={
-            <>
-              결과물로 증명하는
-              <br />
-              제작 역량
-            </>
-          }
-          desc="기업 홍보영상부터 브랜드 필름, 광고, 모션그래픽과 AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요."
+          title={<T text={"결과물로 증명하는\n제작 역량"} />}
+          desc={t("기업 홍보영상부터 브랜드 필름, 광고, 모션그래픽과 AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.")}
         />
 
         <Reveal delay={1}>
           <div className="mt-9 flex flex-wrap items-center gap-1.5">
-            {tabs.map((t) => (
+            {tabs.map((tab) => (
               <button
-                key={t}
+                key={tab}
                 type="button"
-                onClick={() => setTab(t)}
+                onClick={() => setTab(tab)}
                 className={cn(
                   "min-h-9 cursor-pointer rounded-full px-4 py-1.5 font-mono text-[11px] tracking-[0.12em] transition-colors duration-200",
-                  activeTab === t
+                  activeTab === tab
                     ? "border border-paper bg-paper font-medium text-ink"
                     : "border border-line-2 text-body hover:border-line-4 hover:text-paper",
                 )}
               >
-                {t}
+                {t(tab)}
               </button>
             ))}
             <span className="ml-auto font-mono text-[11px] text-faint">
@@ -75,7 +71,7 @@ export function Portfolio() {
                 <div className="relative bg-void">
                   <SmartImage
                     src={card.thumbnailUrl}
-                    alt={card.title}
+                    alt={t(card.title)}
                     fallbackSrc={card.fallbackUrl}
                     className="aspect-video w-full"
                     imgClassName="transition-transform duration-700 group-hover:scale-[1.03]"
@@ -88,7 +84,7 @@ export function Portfolio() {
                     }}
                   />
                   <span className="absolute left-3 top-3 rounded-[3px] bg-void/80 px-2 py-1 font-mono text-[9px] tracking-[0.16em] text-brand">
-                    {card.category}
+                    {t(card.category)}
                   </span>
                   <span className="absolute right-3 top-3 font-mono text-[10px] text-body">
                     {card.year}
@@ -119,7 +115,9 @@ export function Portfolio() {
                         href={card.videoUrl}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label={`${card.title} ${card.playable ? "영상 보기" : "새 창에서 보기"}`}
+                        aria-label={t(card.playable ? "{title} 영상 보기" : "{title} 새 창에서 보기", {
+                          title: t(card.title),
+                        })}
                         className="absolute inset-0"
                       />
                     </>
@@ -127,19 +125,19 @@ export function Portfolio() {
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-5">
                   <h3 className="m-0 text-base font-semibold leading-snug tracking-[-0.01em] text-paper">
-                    {card.title}
+                    {t(card.title)}
                   </h3>
                   <p className="m-0 flex-1 text-[13px] leading-relaxed text-mute">
-                    {card.description}
+                    {t(card.description)}
                   </p>
                   {card.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {card.tags.map((t) => (
+                      {card.tags.map((tag) => (
                         <span
-                          key={t}
+                          key={tag}
                           className="rounded-[2px] border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-faint"
                         >
-                          {t}
+                          {t(tag).toUpperCase()}
                         </span>
                       ))}
                     </div>

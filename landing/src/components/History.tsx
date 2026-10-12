@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/utils/cn";
 import { history } from "@/data/content";
+import { useI18n } from "@/i18n/LanguageContext";
 
 /**
  * HISTORY · 기록 — 연도 칩으로 필터링하는 타임라인.
  * 최신 항목(첫 줄)만 gold 점·gold 날짜로 강조한다 (디자인 E안의 동작 그대로).
  */
 export function History() {
+  const { t } = useI18n();
   const [year, setYear] = useState("all");
 
   const years = useMemo(
@@ -23,13 +25,13 @@ export function History() {
       <div className="shell flex flex-wrap items-start gap-x-12 gap-y-8">
         <div className="flex min-w-[240px] flex-1 flex-col gap-4">
           <div className="flex flex-col gap-2.5">
-            <span className="eyebrow">HISTORY · 기록</span>
+            <span className="eyebrow">{t("HISTORY · 기록")}</span>
             <h2 className="m-0 text-[clamp(26px,3.2vw,34px)] font-bold tracking-[-0.02em] text-paper">
-              연혁
+              {t("연혁")}
             </h2>
           </div>
 
-          <div role="group" aria-label="연도 선택" className="flex flex-wrap gap-1.5">
+          <div role="group" aria-label={t("연도 선택")} className="flex flex-wrap gap-1.5">
             {years.map((value) => {
               const on = year === value;
               return (
@@ -45,13 +47,13 @@ export function History() {
                       : "border border-line-2 text-body hover:border-line-4 hover:text-paper",
                   )}
                 >
-                  {value === "all" ? "전체" : value}
+                  {value === "all" ? t("전체") : value}
                 </button>
               );
             })}
           </div>
 
-          <span className="font-mono text-[11px] text-faint">{shown.length}건 표시 중</span>
+          <span className="font-mono text-[11px] text-faint">{t("{count}건 표시 중", { count: shown.length })}</span>
         </div>
 
         <ol className="m-0 flex min-w-0 list-none flex-col gap-7 border-l border-line-2 py-0 pl-7 sm:flex-[999_1_560px]">
@@ -74,7 +76,7 @@ export function History() {
               >
                 {item.date}
               </span>
-              <span className="text-base leading-relaxed text-paper">{item.text}</span>
+              <span className="text-base leading-relaxed text-paper">{t(item.text)}</span>
             </li>
           ))}
         </ol>

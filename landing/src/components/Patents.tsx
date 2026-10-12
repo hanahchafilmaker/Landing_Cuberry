@@ -2,13 +2,16 @@ import { cn } from "@/utils/cn";
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { patents } from "@/data/content";
+import { useI18n } from "@/i18n/LanguageContext";
 
 /** PATENTS — 등록은 gold 상단 선, 출원은 회색 선으로 구분한다. */
 export function Patents() {
+  const { t } = useI18n();
+
   return (
     <section id="patents" className="section">
       <div className="shell flex flex-col gap-7">
-        <SectionHeading label="PATENTS" title="기술 · 특허" />
+        <SectionHeading label="PATENTS" title={t("기술 · 특허")} />
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
           {patents.map((patent, i) => (
@@ -21,14 +24,14 @@ export function Patents() {
               >
                 <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
                   <span className={patent.state === "등록" ? "text-brand" : "text-body"}>
-                    {patent.state}
+                    {t(patent.state)}
                   </span>
                   <span className="text-faint">{patent.date}</span>
                 </div>
                 <span className="text-[15px] font-semibold leading-[1.5] text-paper">
-                  {patent.title}
+                  {t(patent.title)}
                 </span>
-                <span className="mt-auto font-mono text-xs text-mute">{patent.no}</span>
+                <span className="mt-auto font-mono text-xs text-mute">{t(patent.no)}</span>
               </article>
             </Reveal>
           ))}

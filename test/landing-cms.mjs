@@ -85,6 +85,11 @@ const dom = new JSDOM("<!doctype html><html lang=\"ko\" data-cms-native=\"1\"><h
   pretendToBeVisual: true,
   virtualConsole,
   beforeParse(window) {
+    // 이 테스트는 "관리자 저장값이 랜딩에 반영되는지"만 본다 — 한국어 화면으로 고정한다.
+    // (jsdom 기본값은 en-US 라서, 그대로 두면 한영 자동 번역이 먼저 동작한다.
+    //  언어 전환 자체는 test/landing-i18n.mjs 가 검증한다)
+    Object.defineProperty(window.navigator, "language", { value: "ko-KR", configurable: true });
+    Object.defineProperty(window.navigator, "languages", { value: ["ko-KR", "ko"], configurable: true });
     window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
     window.scrollTo = () => {};
     window.open = () => null;

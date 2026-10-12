@@ -1,4 +1,5 @@
 import { useReveal } from "./hooks/useReveal";
+import { useI18n } from "./i18n/LanguageContext";
 import { Nav } from "./components/Nav";
 import { Hero } from "./components/Hero";
 import { Stats } from "./components/Stats";
@@ -22,11 +23,12 @@ import { Footer } from "./components/Footer";
  */
 export default function App() {
   useReveal();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen bg-ink">
       <a href="#main-content" className="skip-link">
-        본문으로 바로가기
+        {t("본문으로 바로가기")}
       </a>
       <Nav />
       <main id="main-content">
