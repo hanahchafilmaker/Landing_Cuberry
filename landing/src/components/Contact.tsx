@@ -47,13 +47,13 @@ export function Contact() {
               11 / START A PROJECT
             </div>
             <h2 className="mt-5 font-display text-[clamp(34px,5vw,60px)] font-extrabold leading-[1.05] tracking-[-0.03em] text-paper">
-              영상의 목적을
+              IR · 취재 ·
               <br />
-              알려주세요
+              제휴 문의
             </h2>
             <p className="mt-6 max-w-md text-[15px] leading-relaxed text-mute">
+              문의 내용에 맞는 창구로 바로 연결됩니다.
               영상의 목적, 업로드 채널, 참고 레퍼런스, 희망 납기일을 알려주세요.
-              자료가 모두 준비되지 않아도 괜찮습니다.
             </p>
 
             <div className="mt-10 space-y-4">

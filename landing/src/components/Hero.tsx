@@ -121,20 +121,20 @@ function BrandObject() {
               height="409"
               className="w-[152px] object-contain opacity-90 brightness-125 sm:w-[190px]"
             />
-            <div className="mt-1 font-mono text-[7px] tracking-[0.16em] text-faint sm:text-[8px]">FILM · MOTION · ARTIFICIAL INTELLIGENCE</div>
+            <div className="mt-1 font-mono text-[7px] tracking-[0.16em] text-faint sm:text-[8px]">BROADCASTING · AI CONTENT · ORIGINAL IP</div>
           </div>
           <div className="hidden items-center gap-2 font-mono text-[9px] tracking-[0.12em] text-brand-light sm:flex">
             <span className="h-px w-7 bg-brand-light/50" />
-            MAKE IT MOVE
+            IMAGINE SPEAKS
           </div>
         </div>
       </div>
 
       <div className="absolute -left-3 top-[46%] z-20 hidden -translate-y-1/2 rounded-full border border-brand-light/20 bg-ink/75 px-3 py-2 font-mono text-[8px] tracking-[0.14em] text-mute backdrop-blur-md sm:block lg:-left-7">
-        28Y / EXPERIENCE
+        XCONDA / AI PLATFORM
       </div>
       <div className="absolute -right-3 top-[35%] z-20 hidden rounded-full border border-brand-light/20 bg-ink/75 px-3 py-2 font-mono text-[8px] tracking-[0.14em] text-mute backdrop-blur-md sm:block lg:-right-7">
-        ONE TEAM / ONE FLOW
+        BROADCAST / IP STUDIO
       </div>
     </div>
   );
@@ -196,7 +196,7 @@ export function Hero() {
               <div className="mt-9 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/8 pt-5 font-mono text-[9px] uppercase tracking-[0.13em] text-faint sm:text-[10px]">
                 <span>KBS production validated</span>
                 <span className="h-1 w-1 rounded-full bg-brand-light/60" />
-                <span>Planning to delivery</span>
+                <span>XCONDA AI Platform</span>
                 <span className="h-1 w-1 rounded-full bg-brand-light/60" />
                 <span>{settings.heroNote}</span>
               </div>

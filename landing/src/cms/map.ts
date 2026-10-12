@@ -134,6 +134,7 @@ export function mapCmsContent(data: CmsContent | null | undefined): SiteContent 
     eyebrow: s.heroEyebrow?.trim() || base.settings.eyebrow,
     heroTitle: s.heroTitle?.trim() || base.settings.heroTitle,
     heroSubtitle: s.heroSubtitle?.trim() || base.settings.heroSubtitle,
+    heroNote: s.heroNote?.trim() || base.settings.heroNote,
     email: s.contactEmail?.trim() || base.settings.email,
     phone: s.contactPhone?.trim() || base.settings.phone,
   };
