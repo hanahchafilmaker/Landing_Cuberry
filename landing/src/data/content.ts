@@ -6,20 +6,20 @@
 export const settings = {
   brand: "CUBERRY",
   brandKo: "큐브베리",
-  eyebrow: "Creative video studio / Seoul · Korea",
-  heroTitle: "MAKE IT MOVE.",
+  eyebrow: "AI Content Company / Broadcasting Experts",
+  heroTitle: "Imagine Speaks, AI Completes.",
   heroSubtitle:
-    "브랜드의 메시지를 가장 효과적인 방법으로. 큐브베리는 기획·촬영·편집·모션그래픽과 XCONDA AI 플랫폼까지, 영상의 처음과 끝을 함께 만드는 제작 스튜디오입니다.",
-  heroNote: "목적과 컷 수에 맞는 구성으로 바로 상담하세요.",
-  email: "f9.flownine@gmail.com",
+    "방송 전문가들이 이끄는 AI 콘텐츠 기업입니다. 우리가 직접 쓰는 도구를 만들고, 그 도구로 지상파에 방영되는 작품을 만듭니다.",
+  heroNote: "IR · 취재 · 제휴 문의",
+  email: "ceo@cubeberry.ai",
   phone: "070-8095-2302",
 };
 
 export const stats = [
-  { value: 28, suffix: "년+", label: "필름메이킹 전문성" },
-  { value: 21, suffix: "+", label: "제작 포트폴리오" },
-  { value: 14, suffix: "+", label: "AI 모델 연동" },
-  { value: 20, suffix: "년+", label: "현장 합산 경험" },
+  { value: 3, suffix: " 건", label: "KIPO 특허 등록 · 출원 1건 별도" },
+  { value: 3, suffix: " 편", label: "KBS 지상파 방영작" },
+  { value: 4, suffix: " 편", label: "KOCCA 콘텐츠랩 AI 웹드라마" },
+  { value: 6, suffix: " 곳", label: "해외 업무협약 · 2026" },
 ];
 
 export const navLinks = [
@@ -32,14 +32,14 @@ export const navLinks = [
 ];
 
 export const marqueeItems = [
+  "BROADCASTING",
   "AI FILM",
-  "BRAND FILM",
-  "TV CF",
-  "CORPORATE VIDEO",
-  "MOTION GRAPHICS",
-  "XCONDA STORYBOARD",
-  "SHORT-FORM AD",
-  "AI ADVERTISING",
+  "XCONDA",
+  "ORIGINAL IP",
+  "LONG-FORM AI",
+  "KBS PRODUCTION",
+  "FLEXBOARD",
+  "TURN",
   "WEBDRAMA",
   "DOCUMENTARY",
 ];
@@ -47,85 +47,92 @@ export const marqueeItems = [
 export const whyItems = [
   {
     num: "01",
-    key: "EXPERIENCE",
-    title: "현장에서 검증된 제작 경험",
-    desc: "브랜드, 기업, 방송, 광고와 콘텐츠까지 다양한 현장에서 쌓아온 제작 경험과 KBS 방송 제작 검증. 28년 이상의 필름메이킹 전문성과 PD의 기획력, 모션그래퍼의 크리에이티브가 만납니다.",
-    tags: ["KBS 방송 제작", "TVCF", "브랜드 필름", "AI 콘텐츠"],
+    key: "BROADCASTING",
+    title: "방송 — 지상파 검증 서사",
+    desc: "KBS 출신 PD와 지상파 전 채널 집필 작가진, 현업 드라마 감독이 기획과 서사를 맡습니다.",
+    tags: ["KBS PD", "지상파 작가진", "드라마 감독", "서사 기획"],
   },
   {
     num: "02",
-    key: "ONE-STOP",
-    title: "한 팀이 끝까지 직접 진행",
-    desc: "기획·촬영·편집·모션그래픽·납품의 핵심 과정을 한 팀이 직접 진행합니다. 기획자와 제작자가 직접 소통해 빠른 의사결정과 정확한 피드백 반영이 가능합니다.",
-    tags: ["기획", "촬영", "편집", "모션그래픽", "납품"],
+    key: "TECH · XCONDA",
+    title: "기술 · XCONDA — 롱폼 AI 플랫폼",
+    desc: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼을 직접 개발하고 운영합니다.",
+    tags: ["TURN", "FLEXBOARD", "BLOCKING BOARD", "롱폼 AI"],
   },
   {
     num: "03",
-    key: "ASSET",
-    title: "오래 쓰이는 브랜드 자산",
-    desc: "단기간 소비되고 사라지는 영상이 아니라 여러 채널과 목적에 확장되는 브랜드 자산을 설계합니다. 실제 방송 제작에서 검증된 XCONDA와 원스톱 제작 시스템으로 브랜드가 오래 기억되는 영상을 만듭니다.",
-    tags: ["16:9", "9:16", "1:1", "멀티 채널"],
+    key: "STUDIO",
+    title: "제작 스튜디오 — 원스톱 책임 제작",
+    desc: "기획부터 스토리, 생성, 편집, 후반, 유통까지 한 팀이 끝까지 책임집니다.",
+    tags: ["기획", "스토리", "생성", "편집", "후반", "유통"],
+  },
+  {
+    num: "04",
+    key: "ORIGINAL IP",
+    title: "오리지널 IP — 시즌제 세계관",
+    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
+    tags: ["전설의 고향", "토이팜", "시즌제", "다국어"],
   },
 ];
 
 export const strengths = [
   {
     num: "01",
-    key: "CREATIVE DUO",
-    title: "PD + 모션그래퍼 듀오",
-    desc: "기획·연출을 담당하는 PD와 영상 디자인을 담당하는 모션그래퍼가 핵심 과정을 내부에서 직접 진행합니다.",
+    key: "BROADCAST EXPERTISE",
+    title: "지상파 검증 방송 전문성",
+    desc: "KBS 출신 PD, 지상파 전 채널 집필 작가진, 현업 드라마 감독이 기획과 서사를 책임집니다.",
   },
   {
     num: "02",
-    key: "TEAM EXPERTISE",
-    title: "합산 20년+ 현장 경험",
-    desc: "기업·브랜드·공공기관·전시·문화 등 다양한 분야에서 합산 20년 이상의 현장 경험을 바탕으로 프로젝트를 진행합니다.",
+    key: "PROPRIETARY PLATFORM",
+    title: "자체 개발 XCONDA 플랫폼",
+    desc: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼을 직접 개발하고 운영합니다.",
   },
   {
     num: "03",
-    key: "DIRECT COMMUNICATION",
-    title: "기획자와의 직접 소통",
-    desc: "기획자와 제작자가 직접 소통해 빠른 의사결정과 정확한 피드백 반영이 가능합니다.",
+    key: "END-TO-END",
+    title: "기획부터 유통까지 원스톱",
+    desc: "기획·스토리·생성·편집·후반·유통까지 한 팀이 끝까지 책임집니다.",
   },
   {
     num: "04",
-    key: "INTEGRATED PRODUCTION",
-    title: "통합 제작 프로세스",
-    desc: "기획 → 촬영 → 편집 → 모션그래픽 → 납품의 핵심 프로세스를 내부 팀이 주도합니다.",
+    key: "ORIGINAL IP",
+    title: "자체 IP · 시즌제 확장",
+    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
   },
 ];
 
 export const whatWeDo = [
   {
     num: "01",
-    key: "CORPORATE",
-    title: "기업 홍보 영상",
-    desc: "기업의 가치와 기술, 제품과 서비스를 명확하게 전달하는 전문 영상.",
-    tags: ["TVCF", "BRAND FILM", "PR"],
+    key: "BROADCASTING",
+    title: "방송 콘텐츠",
+    desc: "KBS 출신 PD와 현업 감독이 기획부터 연출까지, 지상파에 방영되는 완성도의 콘텐츠를 만듭니다.",
+    tags: ["KBS", "다큐멘터리", "웹드라마", "애니메이션"],
     icon: "building" as const,
   },
   {
     num: "02",
-    key: "ADVERTISING",
-    title: "광고 · 숏폼",
-    desc: "SNS와 유튜브의 문법에 맞춰 짧지만 강한 메시지로 반응을 이끌어냅니다.",
-    tags: ["YOUTUBE", "REELS", "SHORTS"],
+    key: "AI FILM",
+    title: "AI 필름 · 롱폼",
+    desc: "XCONDA 플랫폼으로 컷이 바뀌어도 공간과 인물이 유지되는 장편 AI 영상을 제작합니다.",
+    tags: ["XCONDA", "LONG-FORM", "AI GENERATION"],
     icon: "play" as const,
   },
   {
     num: "03",
-    key: "MOTION",
-    title: "모션그래픽",
-    desc: "데이터 시각화, 제품 연출, 로고 애니메이션과 타이틀에 생동감을 더합니다.",
-    tags: ["2D", "3D", "TITLE", "CG"],
+    key: "ORIGINAL IP",
+    title: "오리지널 IP",
+    desc: "〈전설의 고향〉 REBOOT, 〈토이팜〉 등 자체 세계관을 시즌제와 다국어로 확장합니다.",
+    tags: ["SEASON", "GLOBAL", "IP DEVELOPMENT"],
     icon: "motion" as const,
   },
   {
     num: "04",
-    key: "AI CONTENTS",
-    title: "AI 콘텐츠",
-    desc: "14개 이상의 AI 모델과 일관성 중심의 제작 공정으로 실사 촬영만으로 어려운 장면과 장편 시퀀스를 구현합니다.",
-    tags: ["AI FILM", "AI AD", "EXPERIMENT"],
+    key: "AI ADVERTISING",
+    title: "AI 광고 · 숏폼",
+    desc: "AI 생성과 실사 촬영을 결합해 SNS·유튜브 문법에 맞는 짧은 광고 콘텐츠를 제작합니다.",
+    tags: ["AI AD", "SHORT-FORM", "SNS"],
     icon: "spark" as const,
   },
 ];
@@ -460,13 +467,15 @@ export const team: TeamMember[] = [
   },
   {
     name: "이진서",
-    role: "CEO",
-    org: "㈜큐브베리",
+    role: "FOUNDER & CEO",
+    org: "Lee Jin-seo · ㈜큐브베리 대표이사",
     career: [
-      "큐브베리 대표 / 전 KBS 드라마 PD",
-      "AI드라마크리에이터협회 이사",
+      "前 KBS 드라마 PD(1995~2023)",
+      "큐브베리 설립 · XCONDA AI 제작 파이프라인 설계",
       "〈전설의 고향: 구미호〉 연출",
-      "AI 웹드라마·장편 AI 애니메이션 제작 파이프라인",
+      "한국AI콘텐츠크리에이터협회 부회장",
+      "미디어 융합기술 공모전 우수상(과기정통부·RAPA, 단체) · 경기도지사 표창",
+      "등록 특허 발명자",
     ],
     image: "",
   },
@@ -517,12 +526,12 @@ export type Faq = { q: string; a: string };
 
 export const faqs: Faq[] = [
   {
-    q: "실사 촬영 없이도 완성도 있는 영상이 가능한가요?",
-    a: "가능합니다. 기획·콘티·이미지 및 영상 생성·컷 편집·후보정·사운드까지 전체 공정으로 진행하며, 실제 제품은 필요에 따라 별도 합성합니다.",
+    q: "큐브베리는 어떤 기업인가요?",
+    a: "방송 전문가들이 이끄는 AI 콘텐츠 기업입니다. KBS 출신 PD와 현업 감독이 기획·서사를 맡고, 자체 개발한 XCONDA AI 플랫폼으로 지상파에 방영되는 작품을 만듭니다.",
   },
   {
-    q: "AI 영상에서 인물과 공간이 계속 바뀌지 않나요?",
-    a: "큐브베리는 XCONDA의 Turn, FlexBoard, Blocking Board를 활용해 공간·캐릭터·동선을 제작 단계에서 관리합니다.",
+    q: "XCONDA는 어떤 플랫폼인가요?",
+    a: "컷이 바뀌어도 공간과 인물이 유지되는 롱폼 AI 영상 플랫폼입니다. TURN·FLEXBOARD·BLOCKING BOARD로 공간·캐릭터·동선을 제작 단계에서 관리합니다.",
   },
   {
     q: "어떤 자료를 준비하면 상담이 빨라지나요?",

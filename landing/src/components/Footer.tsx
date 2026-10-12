@@ -7,13 +7,13 @@ export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-ink-2">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
-        <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Logo brand={settings.brand} className="text-[24px]" />
             <p className="mt-5 max-w-sm text-[13.5px] leading-relaxed text-mute">
-              기업 홍보영상, 브랜드 필름, AI 광고, 모션그래픽을 기획부터 납품까지.
-              큐브베리는 영상의 처음과 끝을 함께 만드는 크리에이티브 영상
-              스튜디오입니다.
+              방송 전문가들이 이끄는 AI 콘텐츠 기업.
+              큐브베리는 기획부터 유통까지, 방영 가능한 완성도로
+              한 팀이 끝까지 만드는 크리에이티브 스튜디오입니다.
             </p>
           </div>
 
@@ -32,6 +32,22 @@ export function Footer() {
                   </a>
                 </li>
               ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className="font-mono text-[10px] tracking-[0.2em] text-faint">
+              OFFICES
+            </div>
+            <ul className="mt-5 space-y-3 text-[14px] text-mute">
+              <li>
+                <span className="font-mono text-[10px] tracking-[0.12em] text-brand-light">본사 · 광주</span>
+                <br />전남광주광역시 충장로 69-12, 2층
+              </li>
+              <li>
+                <span className="font-mono text-[10px] tracking-[0.12em] text-brand-light">지사 · 부천</span>
+                <br />경기도 부천시 부천로198번길 18, 춘의테크노파크II
+              </li>
             </ul>
           </div>
 
@@ -56,17 +72,17 @@ export function Footer() {
                   {settings.phone}
                 </a>
               </li>
-              <li>서울 마포구 만리재로 14</li>
+
             </ul>
           </div>
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/8 pt-8 sm:flex-row">
           <p className="font-mono text-[11px] text-faint">
-            © 2026 {settings.brand} STUDIO. All rights reserved.
+            © 2026 {settings.brand}. 주식회사 큐브베리 · 대표 이진서 · 사업자등록번호 480-88-03079
           </p>
           <p className="font-mono text-[11px] text-faint">
-            Creative video studio / Seoul · Korea
+            AI Content Company / Broadcasting Experts
           </p>
         </div>
       </div>
