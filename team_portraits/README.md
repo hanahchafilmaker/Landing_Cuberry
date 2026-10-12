@@ -1,13 +1,17 @@
-# Company Profile 2026 portraits
+# Company Profile 2026 & FLEXBOARD Design v2 portraits
 
-The 12 PNG portraits were extracted without generation or retouching from the
-user-provided **CubeBerry_Company_Profile_2026_EN.pdf**, pages 6–9:
-https://drive.google.com/file/d/1YCm72x-cRX-IW9atvB9KESl_CumUcC2P/view
+The 12 photograph PNG portraits were extracted from the user-provided
+**CubeBerry_Company_Profile_2026_EN.pdf** (pages 6–9, Drive ID `1YCm72x-cRX-IW9atvB9KESl_CumUcC2P`):
 
-- Page 6: Lee Jin-seo
-- Page 7: Son Soo-yeong, Cho Kyu-won, Noh Eun-joo
-- Page 8: Park Chan-hyuk, Cho Min-hee, Choi Jong-hyun, Hwangbo Min-hyuk
-- Page 9: Kim Jae-hwan, Bae Ye-eun, Cha Ha-na, Heo Jae-gu
+- Page 6: Lee Jin-seo (`lee-jinseo.png`)
+- Page 7: Son Soo-yeong (`son-sooyeong.png`), Cho Kyu-won (`cho-kyuwon.png`), Noh Eun-joo (`noh-eunjoo.png`)
+- Page 8: Park Chan-hyuk (`park-chanhyuk.png`), Cho Min-hee (`cho-minhee.png`), Choi Jong-hyun (`choi-jonghyun.png`), Hwangbo Min-hyuk (`hwangbo-minhyuk.png`)
+- Page 9: Kim Jae-hwan (`kim-jaehwan.png`), Bae Ye-eun (`bae-yeeun.png`), Cha Ha-na (`cha-hana.png`), Heo Jae-gu (`heo-jaegu.png`)
+
+Two additional members from **cubeberry_flexboard_design_v2.html** (`#studio` CREDITS, Drive ID `1DzhpOF4RZuUXhjL4tAGRuwxoQlF2u20q`) complete the 14-person roster with dark studio silhouette placeholders until portrait photos are uploaded via `/admin-v2/team`:
+
+- Writers: Yoo Se-ah (`yoo-seah.png`)
+- Directors & PDs: Sung Na-yeon (`sung-nayeon.png`)
 
 Biographies are summarized/translated from those pages in `landing/src/data/content.ts`,
 `landing/src/i18n/messages.ts` and `server/seed.json`. Original portrait resolution is

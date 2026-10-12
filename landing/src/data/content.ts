@@ -507,7 +507,7 @@ export type TeamMember = {
   photoPosition?: number;
 };
 
-// Source: CubeBerry Company Profile 2026 (EN), pages 6–9.
+// Source: CubeBerry Company Profile 2026 (EN), pages 6–9 & FLEXBOARD Design v2 (#studio CREDITS, 14 members).
 export const team: TeamMember[] = [
   {
     "name": "이진서",
@@ -560,6 +560,18 @@ export const team: TeamMember[] = [
       "구미호 세계관 시즌 구성·캐릭터 서사 및 AI 제작용 스토리 바이블 설계"
     ],
     "image": "team_portraits/noh-eunjoo.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "유세아",
+    "role": "BROADCAST WRITER",
+    "org": "방송 작가 · 예능·교양",
+    "career": [
+      "MBC 〈나 혼자 산다〉 · 〈라디오스타〉 집필",
+      "MBC every1 〈주간아이돌〉 · 〈비디오스타〉 집필",
+      "지상파·케이블 주요 예능·토크·교양 프로그램 구성 및 스토리텔링"
+    ],
+    "image": "team_portraits/yoo-seah.png",
     "photoPosition": 0
   },
   {
@@ -662,6 +674,17 @@ export const team: TeamMember[] = [
       "공공기관 홍보 인포그래픽 제작"
     ],
     "image": "team_portraits/heo-jaegu.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "성나연",
+    "role": "AI GENERATIVE PD",
+    "org": "AI 생성 PD",
+    "career": [
+      "큐브베리 스튜디오 및 XCONDA 기반 AI 이미지·비디오 생성 워크플로우 설계·연출",
+      "AI 드라마·시리즈·브랜드 필름 프로젝트 비주얼 생성 및 컷 단위 에셋 품질 관리"
+    ],
+    "image": "team_portraits/sung-nayeon.png",
     "photoPosition": 0
   }
 ];

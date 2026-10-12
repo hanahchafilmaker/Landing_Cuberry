@@ -125,21 +125,38 @@ function portfolioCard(item: CmsPortfolio, drive: boolean): PortfolioCard {
   };
 }
 
+const defaultBioByName = new Map(defaultTeam.map((m) => [m.name, m.career.join("\n")]));
+
+function isStaleSeedTeam(list?: CmsContent["team"]): boolean {
+  if (!Array.isArray(list) || list.length === 0) return false;
+  if (list.length <= 5 && list.some((p) => p.name === "프로젝트 감독·제작진")) return true;
+  if (
+    list.length === 12 &&
+    list.every((p) => defaultBioByName.has(p.name) && String(p.bio || "").trim() === defaultBioByName.get(p.name))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** 어드민 공개 콘텐츠(/api/public/content)를 화면 뷰 모델로 바꾼다. 빠진 부분은 기본값을 유지한다. */
 export function mapCmsContent(data: CmsContent | null | undefined): SiteContent {
   if (!data || typeof data !== "object") return defaultContent;
   const base = defaultContent;
   const s = data.settings || {};
-  const settings: SiteSettings = {
-    ...base.settings,
-    brand: s.brandName?.trim() || base.settings.brand,
-    eyebrow: s.heroEyebrow?.trim() || base.settings.eyebrow,
-    heroTitle: s.heroTitle?.trim() || base.settings.heroTitle,
-    heroSubtitle: s.heroSubtitle?.trim() || base.settings.heroSubtitle,
-    heroNote: s.heroNote?.trim() || base.settings.heroNote,
-    email: s.contactEmail?.trim() || base.settings.email,
-    phone: s.contactPhone?.trim() || base.settings.phone,
-  };
+  const isLegacySeedSettings = s.brandName?.trim() === "CUBERRY" && s.heroTitle?.trim() === "MAKE IT MOVE.";
+  const settings: SiteSettings = isLegacySeedSettings
+    ? { ...base.settings }
+    : {
+        ...base.settings,
+        brand: s.brandName?.trim() || base.settings.brand,
+        eyebrow: s.heroEyebrow?.trim() || base.settings.eyebrow,
+        heroTitle: s.heroTitle?.trim() || base.settings.heroTitle,
+        heroSubtitle: s.heroSubtitle?.trim() || base.settings.heroSubtitle,
+        heroNote: s.heroNote?.trim() || base.settings.heroNote,
+        email: s.contactEmail?.trim() || base.settings.email,
+        phone: s.contactPhone?.trim() || base.settings.phone,
+      };
 
   const services: SiteService[] | undefined = data.services?.map((item, index) => {
     const known = defaultServices.find((d) => d.slug === item.slug);
@@ -166,7 +183,18 @@ export function mapCmsContent(data: CmsContent | null | undefined): SiteContent 
     (drive ? films : works).push(portfolioCard(item, drive));
   });
 
-  const team: SiteTeamMember[] | undefined = data.team?.map((person) => {
+  const rawTeam = isStaleSeedTeam(data.team)
+    ? defaultTeam.map((m, idx) => ({
+        id: idx + 1,
+        name: m.name,
+        role: `${m.role} · ${m.org}`,
+        bio: m.career.join("\n"),
+        photoUrl: `/${m.image.replace(/^\/+/, "")}`,
+        photoPosition: m.photoPosition ?? 0,
+      }))
+    : data.team;
+
+  const team: SiteTeamMember[] | undefined = rawTeam?.map((person) => {
     const [role, ...orgParts] = String(person.role || "").split(" · ");
     return {
       key: `t-${person.id}`,
