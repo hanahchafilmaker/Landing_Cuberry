@@ -1,87 +1,65 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+   FLEXBOARD Design v2 · E안 (회사소개 · 기록) — 2026-10-12 Drive 공유본 기준
+   graphite #0E0E0E · paper #EDEAE2 · gold #F4B400 · hairline #2A2A26
+  본문 Pretendard, 라벨 IBM Plex Mono. 반짝임·그라디언트 없이
+   1px 구분선과 작은 모서리(3~4px)로만 나누는 에디토리얼 스타일.
+   ───────────────────────────────────────────────────────────── */
 @theme {
-  --font-sans: "Noto Sans KR", "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Manrope", "Noto Sans KR", ui-sans-serif, sans-serif;
-  --font-editorial: "Bodoni Moda", "Noto Serif KR", Georgia, serif;
-  --font-mono: "DM Mono", ui-monospace, monospace;
+  --font-sans: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* CUBEBERRY crystal / graphite / rose-gold palette */
-  --color-ink: #070707;
-  --color-ink-2: #0c0b0b;
-  --color-ink-3: #131111;
-  --color-paper: #f4f1ed;
-  --color-mute: #b5ada8;
-  --color-faint: #8a817d;
+  --color-ink: #0e0e0e;
+  --color-ink-2: #0a0a09;
+  --color-ink-3: #161614;
+  --color-void: #050505;
 
-  --color-brand: #ae8277;
-  --color-brand-light: #d8b5aa;
-  --color-brand-dark: #68463f;
-  --color-neon: #f0d8d0;
-  --color-lime: #c8d2c8;
-  --color-amber: #d6ad73;
+  --color-line: #2a2a26;
+  --color-line-2: #3a3934;
+  --color-line-3: #4a4842;
+  --color-line-4: #5a574f;
 
-  --animate-marquee: marquee 34s linear infinite;
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-float-soft: float-soft 8s ease-in-out infinite;
-  --animate-pulse-glow: pulse-glow 4.8s ease-in-out infinite;
-  --animate-spin-slow: spin 32s linear infinite;
-  --animate-orbit: orbit 24s linear infinite;
-  --animate-sheen: sheen 7s ease-in-out infinite;
+  --color-paper: #edeae2;
+  --color-body: #c9c5bb;
+  --color-mute: #a9a59b;
+  --color-faint: #8a867d;
+
+  /* brand = 디자인의 accent gold */
+  --color-brand: #f4b400;
+  --color-brand-light: #ffce3a;
+  --color-brand-dark: #c79400;
+  --color-neon: #f4b400;
+  --color-amber: #f4b400;
+  --color-lime: #9fd6a4;
+  --color-violet: #c9c2d6;
+  --color-rec: #e5484d;
+
+  --radius-card: 4px;
+
+  --animate-blink: blink 1.8s ease-in-out infinite;
+  --animate-rise: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes marquee {
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
   to {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-0.4deg);
-  }
-  50% {
-    transform: translateY(-12px) rotate(0.5deg);
-  }
-}
-
-@keyframes float-soft {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -8px, 0);
-  }
-}
-
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 0.62;
-    transform: scale(1.04);
-  }
-}
-
-@keyframes orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes sheen {
-  0%,
-  18% {
-    transform: translateX(-160%) skewX(-18deg);
-  }
-  50%,
-  100% {
-    transform: translateX(320%) skewX(-18deg);
+    opacity: 1;
+    transform: none;
   }
 }
 
@@ -93,18 +71,19 @@
   }
 
   section[id] {
-    scroll-margin-top: 88px;
+    scroll-margin-top: 76px;
   }
 
   body {
     min-width: 320px;
     margin: 0;
     overflow-x: hidden;
-    background:
-      radial-gradient(circle at 72% -8%, rgba(174, 130, 119, 0.1), transparent 34rem),
-      var(--color-ink);
+    background: var(--color-ink);
     color: var(--color-paper);
     font-family: var(--font-sans);
+    font-weight: 400;
+    line-height: 1.7;
+    word-break: keep-all;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -116,47 +95,47 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  button,
-  a {
+  a,
+  button {
+    color: inherit;
     touch-action: manipulation;
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-brand-light);
-    outline-offset: 4px;
+    outline: 2px solid var(--color-brand);
+    outline-offset: 3px;
   }
 
   ::selection {
     background: var(--color-brand);
-    color: #100d0c;
+    color: #140f00;
   }
 
   ::-webkit-scrollbar {
-    width: 7px;
+    width: 8px;
   }
   ::-webkit-scrollbar-track {
     background: var(--color-ink);
   }
   ::-webkit-scrollbar-thumb {
-    background: #59423d;
+    background: var(--color-line-3);
     border: 2px solid var(--color-ink);
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-brand);
+    background: var(--color-line-4);
   }
 }
 
-/* ── accessibility ─────────────────────────────── */
+/* ── 접근성 · 공용 유틸 ─────────────────────────────────────── */
 .skip-link {
   position: fixed;
   left: 1rem;
   top: 1rem;
   z-index: 100;
   transform: translateY(-180%);
-  border-radius: 999px;
   background: var(--color-paper);
-  padding: 0.7rem 1rem;
+  padding: 0.6rem 0.9rem;
   color: var(--color-ink);
   font-size: 0.82rem;
   font-weight: 700;
@@ -166,13 +145,26 @@
   transform: translateY(0);
 }
 
-/* ── scroll reveal ─────────────────────────────── */
+/* 섹션 구분선 — 디자인은 박스가 아니라 1px 선으로면을 나눈다 */
+.rule-top {
+  border-top: 1px solid var(--color-line);
+}
+
+/* 절 위 eyebrow(IBM Plex Mono, 자간 넓음) */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--color-faint);
+}
+
+/* 스크롤 등장 */
 [data-reveal] {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translateY(18px);
   transition:
-    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 [data-reveal].is-visible {
@@ -180,118 +172,51 @@
   transform: none;
 }
 
-/* ── reusable brand surfaces ───────────────────── */
+/* ── 레이아웃 별명 (E안의 1200px 캐너스 · 1px 구분선 리듬) ── */
+.shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1200px;
+  padding-inline: clamp(16px, 4vw, 40px);
+}
+
+.section {
+  border-top: 1px solid var(--color-line);
+  padding-block: clamp(56px, 8vw, 88px);
+}
+
+/* ── 호환 별명 (이전 마크업·테스트가 이 클래스 이름을 참조한다) ── */
+/* 히어로 강조 단어. E안에서는 그라디언트가 아니라 accent gold 단색이다. */
 .text-gradient {
-  background-image: linear-gradient(105deg, #f2ddd6 0%, #b98d81 43%, #ead4c8 72%, #9b6c62 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.glass {
-  background: rgba(7, 7, 7, 0.78);
-  -webkit-backdrop-filter: blur(22px) saturate(1.15);
-  backdrop-filter: blur(22px) saturate(1.15);
-}
-
-.bg-grid {
-  background-image:
-    linear-gradient(rgba(216, 181, 170, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(216, 181, 170, 0.045) 1px, transparent 1px);
-  background-size: 64px 64px;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 78%, transparent);
-  mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 78%, transparent);
-}
-
-.bg-facets {
-  background-image:
-    linear-gradient(30deg, transparent 46%, rgba(255, 255, 255, 0.035) 47%, rgba(255, 255, 255, 0.035) 48%, transparent 49%),
-    linear-gradient(150deg, transparent 46%, rgba(216, 181, 170, 0.035) 47%, rgba(216, 181, 170, 0.035) 48%, transparent 49%);
-  background-size: 96px 56px;
-}
-
-.noise::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.035;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+  color: var(--color-brand);
 }
 
 .card {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.012) 48%),
-    rgba(15, 13, 13, 0.78);
-  border: 1px solid rgba(216, 181, 170, 0.13);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 18px 60px rgba(0, 0, 0, 0.16);
+  background: var(--color-ink-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
   transition:
-    border-color 0.35s ease,
-    box-shadow 0.35s ease,
-    transform 0.35s ease,
-    background-color 0.35s ease;
+    border-color 0.3s ease,
+    background-color 0.3s ease;
+}
+.card-glow:hover {
+  border-color: var(--color-line-4);
 }
 
-.card-glow:hover {
-  border-color: rgba(216, 181, 170, 0.42);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 18px 54px rgba(71, 43, 38, 0.24);
-  transform: translateY(-4px);
+.glass {
+  background: rgba(14, 14, 14, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .crystal-panel {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 38%),
-    linear-gradient(315deg, rgba(174, 130, 119, 0.08), transparent 42%),
-    rgba(14, 13, 13, 0.74);
-  border: 1px solid rgba(238, 218, 211, 0.16);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(174, 130, 119, 0.06),
-    0 36px 90px rgba(0, 0, 0, 0.36);
-}
-
-.crystal-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(118deg, transparent 0 45%, rgba(255, 255, 255, 0.035) 45.2% 45.6%, transparent 46% 100%);
-}
-
-.btn-glow {
-  box-shadow:
-    0 10px 34px rgba(128, 86, 76, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.36);
-}
-.btn-glow:hover {
-  box-shadow:
-    0 14px 42px rgba(160, 109, 96, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.42);
-}
-
-.hero-ring {
-  border: 1px solid rgba(216, 181, 170, 0.16);
-  box-shadow:
-    inset 0 0 70px rgba(216, 181, 170, 0.035),
-    0 0 90px rgba(116, 73, 65, 0.1);
+  background: var(--color-ink-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
 }
 
 .balance-text {
   text-wrap: balance;
-}
-
-@media (hover: hover) {
-  .marquee-track:hover {
-    animation-play-state: paused;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

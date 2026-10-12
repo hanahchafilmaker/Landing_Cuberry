@@ -32,7 +32,7 @@ export function SmartImage({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gradient-to-br from-brand-dark/50 via-ink-3 to-brand-dark/30",
+          "flex items-center justify-center border border-line bg-void",
           className,
         )}
       >
@@ -41,7 +41,7 @@ export function SmartImage({
           fill="none"
           stroke="currentColor"
           strokeWidth={1.2}
-          className="h-10 w-10 text-brand-light/50"
+          className="h-9 w-9 text-line-4"
           aria-hidden="true"
         >
           <rect x="2" y="4" width="20" height="16" rx="2" />

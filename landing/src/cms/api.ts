@@ -12,6 +12,8 @@ export type CmsSettings = {
   heroEyebrow?: string;
   heroTitle?: string;
   heroSubtitle?: string;
+  /** 히어로 아래 보조 문구(예: IR · 취재 · 제휴 문의) */
+  heroNote?: string;
   contactEmail?: string;
   contactPhone?: string;
 };

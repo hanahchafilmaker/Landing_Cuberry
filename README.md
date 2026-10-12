@@ -156,6 +156,26 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 
 2026-09-27 새 디자인부터 랜딩의 **소스가 저장소에 들어 있습니다.** 루트 `index.html` 은 이 소스를 빌드한 단일 파일 산출물입니다.
 
+### 디자인 기준: FLEXBOARD Design v2 · E안 (2026-10-12)
+
+랜딩은 Drive 로 공유된 `FLEXBOARD Design v2 – E · 회사소개 · 기록 (동작).html`
+(file id `1WgNHKhi7nIX0b7wWVyJSdMsXXxUo0qxo`) 을 기준시로 따라갑니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 색 | 배경 `#0E0E0E` · 본문 `#EDEAE2`/`#C9C5BB`/`#A9A59B`/`#8A867D` · 구분선 `#2A2A26` · 패널 `#161614` · 이미지 액자 `#050505` · accent gold `#F4B400` · REC `#E5484D` |
+| 타이포 | 본문 Pretendard(CDN 가변 폰트), 라벨·숫자 각주 IBM Plex Mono |
+| 형태 | 그림자·글로우 없이 1px 선과 3~4px 모서리, 본문 폭 1200px |
+| 절 순서 | 히어로(6편 스틸 격자) → 숫자 요약 → TWO SECTORS → WHAT WE DO → FOUNDER & CEO → HISTORY(연도 필터) → PATENTS → XCONDA/AI Lab → PORTFOLIO → TEAM → 상품 → PROCESS → FAQ → CONTACT(이메일·전화·사무실 2곳) → 푸터 |
+
+고정 문구(연혁·특허·숫자 근거·대표 소개·사무실·푸터 그룹)는 `landing/src/data/content.ts` 에 있습니다.
+**아래 표의 어드민 입력란은 아직 히어로·상품·포트폴리오·팀·FAQ·연락처 6개 항목뿐이라,
+연혁·특허·숫자는 디자인 파일과 같이 이 TS 값을 고쳐 배포합니다.**
+
+새 디자인 파일이 Drive 에 올라오면 GitHub Actions `fetch-flexboard-design` 을 `workflow_dispatch` 로
+돌려 `design-incoming/` 에 풀어두거나, `design-incoming/` 의 원문을 읽고 `landing/src/` 에 반영하세요.
+(실행 환경에서 drive.google.com 으로 직접 나갈 수 없어 Actions 러너가 대신 내려받습니다.)
+
 ```
 landing/
   index.html          # Vite 입력. <html data-cms-native>, <script src="cms-bridge.js" defer> 포함

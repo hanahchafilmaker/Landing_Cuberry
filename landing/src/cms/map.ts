@@ -15,6 +15,8 @@ import { assetUrl, type CmsContent, type CmsPortfolio } from "./api";
 // 화면이 쓰는 형태(뷰 모델). 기본값은 data/content.ts, 어드민 저장값이 오면 덮어쓴다.
 export type SiteSettings = {
   brand: string;
+  /** 국문 표기(큐브베리) — 영문 브랜드가 어드민에서 바뀌어도 푸터·접근성 라벨에 쓴다 */
+  brandKo: string;
   eyebrow: string;
   heroTitle: string;
   heroSubtitle: string;

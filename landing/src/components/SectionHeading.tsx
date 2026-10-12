@@ -2,7 +2,7 @@ import { cn } from "@/utils/cn";
 import { Reveal } from "./Reveal";
 
 interface SectionHeadingProps {
-  num: string;
+  /** 절 위쪽의 얇은 mono 라벨 (E안: TWO SECTORS · HISTORY · PATENTS …) */
   label: string;
   title: React.ReactNode;
   desc?: string;
@@ -10,8 +10,8 @@ interface SectionHeadingProps {
   className?: string;
 }
 
+/** E안의 제목은 박스가 아니라 "mono 라벨 + 34px 강조 제목" 두 줄로 끝난다. */
 export function SectionHeading({
-  num,
   label,
   title,
   desc,
@@ -19,21 +19,20 @@ export function SectionHeading({
   className,
 }: SectionHeadingProps) {
   return (
-    <Reveal className={cn("max-w-3xl", align === "center" && "mx-auto text-center", className)}>
-      <div
-        className={cn(
-          "mb-5 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.21em] text-brand-light sm:text-[11px]",
-          align === "center" && "justify-center",
-        )}
-      >
-        <span className="rounded-full border border-brand-light/18 bg-brand/8 px-2.5 py-1 text-brand-light/80">{num}</span>
-        <span className="h-px w-9 bg-gradient-to-r from-brand-light/55 to-transparent" />
-        <span>{label}</span>
-      </div>
-      <h2 className="balance-text font-display text-[clamp(31px,4.6vw,56px)] font-semibold leading-[1.12] tracking-[-0.045em] text-paper">
+    <Reveal
+      className={cn(
+        "flex flex-col gap-2.5",
+        align === "center" && "items-center text-center",
+        className,
+      )}
+    >
+      <span className="eyebrow">{label}</span>
+      <h2 className="balance-text text-[clamp(26px,3.2vw,34px)] font-bold leading-[1.3] tracking-[-0.02em] text-paper">
         {title}
       </h2>
-      {desc && <p className="mt-6 max-w-2xl text-[14.5px] leading-[1.85] text-mute sm:text-[16px]">{desc}</p>}
+      {desc && (
+        <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-mute">{desc}</p>
+      )}
     </Reveal>
   );
 }
