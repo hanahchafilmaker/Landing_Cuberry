@@ -50,7 +50,7 @@ function OneStopVisual() {
   const steps = ["기획", "촬영", "편집", "모션그래픽", "납품"];
   return (
     <div className="relative">
-      <div className="absolute -inset-3 rounded-3xl bg-fuchsia-700/10 blur-2xl" />
+      <div className="absolute -inset-3 rounded-3xl bg-brand-dark/16 blur-2xl" />
       <div className="card relative rounded-3xl p-8">
         <div className="font-mono text-[11px] tracking-[0.18em] text-brand-light">
           PRODUCTION PIPELINE
@@ -94,7 +94,7 @@ function AssetVisual() {
         {formats.map((f) => (
           <div key={f.label} className="flex flex-col items-center gap-3">
             <div
-              className={`${f.h} w-20 rounded-xl border border-brand-light/30 bg-gradient-to-br from-brand/25 to-fuchsia-800/20`}
+              className={`${f.h} w-20 rounded-xl border border-brand-light/30 bg-gradient-to-br from-brand/25 to-brand-dark/25`}
             />
             <div className="font-mono text-[11px] text-neon">{f.label}</div>
             <div className="text-[11px] text-faint">{f.name}</div>

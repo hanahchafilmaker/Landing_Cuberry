@@ -17,7 +17,7 @@ export function Strengths() {
                 프로세스에서 나옵니다
               </>
             }
-            desc="2026 플로우나인 소개서의 차별점과 제작 운영 원칙을 웹페이지에 명시했습니다."
+            desc="기획자와 제작자가 직접 소통하고, 검증된 핵심 인력이 처음부터 납품까지 한 흐름으로 완성합니다."
           />
 
           <div className="mt-14 grid gap-x-10 gap-y-12 sm:grid-cols-2">

@@ -56,7 +56,7 @@ export function Team() {
                       imgClassName="grayscale-[0.35] transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-dark/40 via-ink-3 to-fuchsia-900/25">
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand-dark/40 via-ink-3 to-brand-dark/25">
                       <span className="font-display text-4xl font-extrabold text-brand-light/70">
                         {initials(member.name)}
                       </span>

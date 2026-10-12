@@ -19,8 +19,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-ink">
+      <a href="#main-content" className="skip-link">
+        본문으로 바로가기
+      </a>
       <Nav />
-      <main>
+      <main id="main-content">
         <Hero />
         <Marquee />
         <Why />
