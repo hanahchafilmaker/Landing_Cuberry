@@ -1,3 +1,4 @@
+import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -281,6 +282,7 @@ function clampPosition(value) {
 
 seedContent();
 seedTeam();
+console.log("Team profile 2026:", migrateTeamProfile(db, JSON.parse(readFileSync(SEED_PATH, "utf8")).team));
 ensureAdminUser();
 
 function rowSettings(row) {

@@ -10,7 +10,7 @@
     "build:landing": "vite build --config landing/vite.config.ts",
     "build:admin": "vite build --config admin-v2/vite.config.ts",
     "typecheck": "tsc -p landing/tsconfig.json && tsc -p admin-v2/tsconfig.json",
-    "test": "node test/client-origin.mjs && node test/static-paths.mjs && node test/server-wiring.mjs && node test/i18n-coverage.mjs",
+    "test": "node test/client-origin.mjs && node test/static-paths.mjs && node test/server-wiring.mjs && node test/i18n-coverage.mjs && node --experimental-sqlite test/team-profile.mjs",
     "test:origin": "node test/client-origin.mjs",
     "test:paths": "node test/static-paths.mjs",
     "test:server": "node test/server-wiring.mjs",

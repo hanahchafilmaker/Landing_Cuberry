@@ -507,67 +507,163 @@ export type TeamMember = {
   photoPosition?: number;
 };
 
+// Source: CubeBerry Company Profile 2026 (EN), pages 6–9.
 export const team: TeamMember[] = [
   {
-    name: "조민희 PD",
-    role: "PRODUCER / DIRECTOR",
-    org: "SBS 교양국 PD 출신",
-    career: [
+    "name": "이진서",
+    "role": "FOUNDER & CEO",
+    "org": "전 KBS PD · XCONDA 총괄",
+    "career": [
+      "전 KBS 예능·드라마 PD, 큐브베리 설립 및 콘텐츠 제작 총괄",
+      "XCONDA AI 제작 파이프라인 설계 · KBS미디어 AI 드라마 제작 강의",
+      "〈전설의 고향: 구미호〉 연출 · 한국AI콘텐츠크리에이터협회 부회장",
+      "AI 미디어 융합기술 공모전 우수상(과기정통부·RAPA, 단체) · 경기도지사 표창",
+      "AI 영상 관련 특허 발명자"
+    ],
+    "image": "team_portraits/lee-jinseo.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "손수영",
+    "role": "WRITER",
+    "org": "방송·드라마·애니메이션 작가",
+    "career": [
+      "SBS 〈웃찾사〉 · MBC 〈출발! 비디오 여행〉 집필",
+      "제일기획 유튜브 광고 콘텐츠 〈이태원 클라쓰룸〉 · 〈카피카피룸룸〉",
+      "KBS2 〈내 생애 마지막 오디션〉 · EBS 애니메이션 〈안녕! 부부토〉",
+      "KBS·MBC·SBS·EBS 방송 집필 · 드라마·예능·다큐멘터리 스토리텔링"
+    ],
+    "image": "team_portraits/son-sooyeong.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "조규원",
+    "role": "DRAMA & ANIMATION WRITER",
+    "org": "드라마·애니메이션 작가",
+    "career": [
+      "KBS2 〈아이리스〉·〈아이리스 2〉 · MBC 〈이몽〉 집필",
+      "애니메이션 〈마법천자문〉 · 〈올림포스 가디언〉 · 〈장금이의 꿈〉",
+      "〈꼬마 신선 타오〉 · 〈미미와 다다의 미술탐험대〉",
+      "대표 IP 공동 집필 및 스토리 참여 · 드라마·영화·소설 창작"
+    ],
+    "image": "team_portraits/cho-kyuwon.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "노은주",
+    "role": "WRITER",
+    "org": "드라마·애니메이션·웹툰 작가",
+    "career": [
+      "애니메이션 〈전설의 고향: 구미호〉 · 〈해피러스〉 집필",
+      "영화 〈강남 변호사〉 각색 · 드라마 〈무법 변호사〉 집필 참여",
+      "웹툰 〈기묘한 가게의 해결사들〉 · 한중 합작 숏폼 드라마 〈황제의 요리사〉 집필",
+      "구미호 세계관 시즌 구성·캐릭터 서사 및 AI 제작용 스토리 바이블 설계"
+    ],
+    "image": "team_portraits/noh-eunjoo.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "박찬혁 감독",
+    "role": "AI PRODUCTION LEAD",
+    "org": "AI 제작 총괄 · 감독",
+    "career": [
+      "KBS 〈성물〉 · 〈한국전쟁 이동외상센터〉 · 〈전설의 고향〉 AI 애니메이션 연출·제작",
+      "KBS·MBC·SBS 드라마 300회 이상 음악감독 — 〈사랑비〉·〈반올림〉·〈부자의 탄생〉·〈동안미녀〉·〈8월의 신부〉 등",
+      "부활·박완규·애쉬그레이·크리스 레오네 등 뮤직비디오 50편 이상 연출·촬영·편집",
+      "통일부 〈To be One〉 · 법무부 학교폭력 예방 캠페인 연출",
+      "두바이 AI 영화제(AIFF) 출품작 AI 제작 총괄"
+    ],
+    "image": "team_portraits/park-chanhyuk.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "조민희 PD",
+    "role": "AI PRODUCTION OPERATOR",
+    "org": "SBS 교양국 PD 출신",
+    "career": [
       "SBS 〈동물농장〉 PD",
-      "미샤·베스킨라빈스·하이트·코웨이 TVCF",
-      "에버랜드·국립과천과학관 실감콘텐츠 및 미디어아트 기획·연출",
+      "미샤·배스킨라빈스·하이트·코웨이 TVCF",
+      "에버랜드·국립과천과학관 미디어아트 기획·연출",
       "공연·팬미팅·커머스 라이브 연출·송출",
-      "드라마·영화 DIT / ICA 수료",
+      "드라마·영화 DIT / ICA 수료"
     ],
-    image: "team_portraits/jominhee-pd.jpg",
+    "image": "team_portraits/cho-minhee.png",
+    "photoPosition": 0
   },
   {
-    name: "박인회",
-    role: "MOTION GRAPHICS",
-    org: "광고대행사 출신",
-    career: [
-      "르노코리아·MLB·컨버스·BC카드",
-      "CJ대한통운·NC소프트·현대",
-      "캐롯·다이슨 브랜드 협업",
-      "대기업 계열 비딩 프로젝트 다수",
+    "name": "최종현",
+    "role": "AI CONTENT DIRECTOR",
+    "org": "AI 콘텐츠 감독",
+    "career": [
+      "와디즈·네이버 쇼핑라이브 라이브커머스 총괄 PD",
+      "영화 〈택시운전사〉 VFX · 〈공수도〉 캐스팅 디렉터",
+      "국방부 한국전쟁 70주년 영상 수상 · 인천소방본부 공모전 대상",
+      "과기정통부·KISA 수상 · 한국공간디자인협회 특별상"
     ],
-    image: "team_portraits/park-inhoe-motion.jpg",
+    "image": "team_portraits/choi-jonghyun.png",
+    "photoPosition": 0
   },
   {
-    name: "박찬혁 감독",
-    role: "DIRECTOR",
-    org: "FILM / CONTENT",
-    career: [
-      "영상 연출 및 콘텐츠 디렉팅",
-      "브랜드·광고·콘텐츠 프로젝트 협업",
+    "name": "황보민혁",
+    "role": "VIDEO CONTENT PLANNER",
+    "org": "영상 콘텐츠 기획",
+    "career": [
+      "인도 Ballaleshwar Clinic · 독일 Jagolskileon 채널 광고·홍보영상",
+      "태국 방콕 Aozora Restaurant · The Loft 광고·홍보영상",
+      "태국 AI 숏폼 드라마 제작 · 유튜브 채널 운영"
     ],
-    image: "team_portraits/park-chanhyuk-director.jpg",
+    "image": "team_portraits/hwangbo-minhyuk.png",
+    "photoPosition": 0
   },
   {
-    name: "이진서",
-    role: "FOUNDER & CEO",
-    org: "Lee Jin-seo · ㈜큐브베리 대표이사",
-    career: [
-      "前 KBS 드라마 PD(1995~2023)",
-      "큐브베리 설립 · XCONDA AI 제작 파이프라인 설계",
-      "〈전설의 고향: 구미호〉 연출",
-      "한국AI콘텐츠크리에이터협회 부회장",
-      "미디어 융합기술 공모전 우수상(과기정통부·RAPA, 단체) · 경기도지사 표창",
-      "등록 특허 발명자",
+    "name": "김재환",
+    "role": "AI VIDEO ARTIST / PRODUCER",
+    "org": "AI 영상·생성형 미디어 연출",
+    "career": [
+      "KBS 특집 다큐멘터리 〈성물〉 · 〈한국전쟁 이동외상센터〉 AI 영상 제작",
+      "AI 애니메이션 〈TV동화 행복한 세상〉 · 어린이날 특집 〈구미호〉 제작",
+      "박완규 〈수호〉 · 부활 〈To be one〉·〈사랑하고 있다〉·〈이별에서 영원으로〉 뮤직비디오 편집"
     ],
-    image: "",
+    "image": "team_portraits/kim-jaehwan.png",
+    "photoPosition": 0
   },
   {
-    name: "프로젝트 감독·제작진",
-    role: "DIRECTOR / AI / EDIT",
-    org: "PROJECT POOL",
-    career: [
-      "조민지 PD — KBS 〈한국전쟁 이동외상센터〉 연출",
-      "방송·브랜드·기업 프로젝트별 전담 구성",
-      "기획 → 촬영 → 편집 → 모션그래픽 → 납품",
+    "name": "배예은",
+    "role": "FILM EDITOR",
+    "org": "영화·드라마 편집",
+    "career": [
+      "영화 〈추격자〉·〈황해〉·〈거북이 달린다〉·〈기술자들〉 현장 편집",
+      "영화 〈백야행〉·〈화차〉·〈완득이〉·〈오늘의 연애〉 현장 편집",
+      "OCN 〈트랩〉·〈번외수사〉 · JTBC 〈보좌관〉 시즌 1·2 편집",
+      "KBS 〈붉은 단심〉 · SBS 〈국민사형투표〉 편집"
     ],
-    image: "",
+    "image": "team_portraits/bae-yeeun.png",
+    "photoPosition": 0
   },
+  {
+    "name": "차하나",
+    "role": "LIVE CONTENT PD",
+    "org": "라이브·미디어 콘텐츠 PD",
+    "career": [
+      "춘천애니메이션박물관·국립중앙도서관·화성어린이문화센터 등 국공립 전시시설 20곳 이상 미디어 기술 콘텐츠 기획·제작",
+      "반려다움·슬룸·헤드스파7·인스탁스·SK매직·삼성 TV 등 50개 이상 브랜드 라이브커머스 총괄 PD",
+      "채널A 〈지붕 위의 막걸리〉 · JTBC 〈취향존중 리얼라이프 – 취존생활〉 · TV조선 〈코리아헌터〉 PD"
+    ],
+    "image": "team_portraits/cha-hana.png",
+    "photoPosition": 0
+  },
+  {
+    "name": "허재구",
+    "role": "ACCOUNT & CAMPAIGN PD",
+    "org": "광고·캠페인 PD",
+    "career": [
+      "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0",
+      "네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업",
+      "공공기관 홍보 인포그래픽 제작"
+    ],
+    "image": "team_portraits/heo-jaegu.png",
+    "photoPosition": 0
+  }
 ];
 
 export const processSteps = [

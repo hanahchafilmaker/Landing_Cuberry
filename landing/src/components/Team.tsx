@@ -47,8 +47,8 @@ export function Team() {
       <div className="shell">
         <SectionHeading
           label="TEAM PROFILE"
-          title={<T text={"PD의 기획력과 모션그래퍼의\n크리에이티브가 만나는 팀"} />}
-          desc={t("프로젝트 성격과 규모에 따라 PD·감독·모션·AI·후반 제작 인력을 최적 구성합니다. 방송·감독 이력은 프로젝트 제안 및 계약 범위에 맞춰 상세히 안내드립니다.")}
+          title={<T text={"이야기부터 완성까지,\n큐브베리의 제작진"} />}
+          desc={t("방송·드라마·애니메이션 작가부터 AI 제작·편집·라이브 콘텐츠 전문가까지. 큐브베리의 직원과 주요 제작 이력을 소개합니다.")}
         />
 
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
