@@ -25,8 +25,10 @@ export function SmartImage({
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const [failedFallback, setFailedFallback] = useState<string | null>(null);
   const useFallback = Boolean(src) && failedSrc === src;
+  const localMatch = src?.match(/^https?:\/\/[^/]+\/((?:team_portraits|portfolio_thumbs|images)\/[^?#]+)$/i);
+  const resolvedFallback = fallbackSrc || (localMatch ? localMatch[1] : undefined);
 
-  const activeSrc = !src || useFallback ? (fallbackSrc && failedFallback !== fallbackSrc ? fallbackSrc : undefined) : src;
+  const activeSrc = !src || useFallback ? (resolvedFallback && failedFallback !== resolvedFallback ? resolvedFallback : undefined) : src;
 
   if (!activeSrc) {
     return (

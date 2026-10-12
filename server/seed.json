@@ -567,12 +567,22 @@
       "landingSlot": "profile-noh-eunjoo"
     },
     {
+      "name": "유세아",
+      "role": "BROADCAST WRITER · 방송 작가 · 예능·교양",
+      "bio": "MBC 〈나 혼자 산다〉 · 〈라디오스타〉 집필\nMBC every1 〈주간아이돌〉 · 〈비디오스타〉 집필\n지상파·케이블 주요 예능·토크·교양 프로그램 구성 및 스토리텔링",
+      "photoUrl": "/team_portraits/yoo-seah.png",
+      "photoPosition": 0,
+      "sortOrder": 5,
+      "isPublished": true,
+      "landingSlot": "profile-yoo-seah"
+    },
+    {
       "name": "박찬혁 감독",
       "role": "AI PRODUCTION LEAD · AI 제작 총괄 · 감독",
       "bio": "KBS 〈성물〉 · 〈한국전쟁 이동외상센터〉 · 〈전설의 고향〉 AI 애니메이션 연출·제작\nKBS·MBC·SBS 드라마 300회 이상 음악감독 — 〈사랑비〉·〈반올림〉·〈부자의 탄생〉·〈동안미녀〉·〈8월의 신부〉 등\n부활·박완규·애쉬그레이·크리스 레오네 등 뮤직비디오 50편 이상 연출·촬영·편집\n통일부 〈To be One〉 · 법무부 학교폭력 예방 캠페인 연출\n두바이 AI 영화제(AIFF) 출품작 AI 제작 총괄",
       "photoUrl": "/team_portraits/park-chanhyuk.png",
       "photoPosition": 0,
-      "sortOrder": 5,
+      "sortOrder": 6,
       "isPublished": true,
       "landingSlot": "profile-park-chanhyuk"
     },
@@ -582,7 +592,7 @@
       "bio": "SBS 〈동물농장〉 PD\n미샤·배스킨라빈스·하이트·코웨이 TVCF\n에버랜드·국립과천과학관 미디어아트 기획·연출\n공연·팬미팅·커머스 라이브 연출·송출\n드라마·영화 DIT / ICA 수료",
       "photoUrl": "/team_portraits/cho-minhee.png",
       "photoPosition": 0,
-      "sortOrder": 6,
+      "sortOrder": 7,
       "isPublished": true,
       "landingSlot": "profile-cho-minhee"
     },
@@ -592,7 +602,7 @@
       "bio": "와디즈·네이버 쇼핑라이브 라이브커머스 총괄 PD\n영화 〈택시운전사〉 VFX · 〈공수도〉 캐스팅 디렉터\n국방부 한국전쟁 70주년 영상 수상 · 인천소방본부 공모전 대상\n과기정통부·KISA 수상 · 한국공간디자인협회 특별상",
       "photoUrl": "/team_portraits/choi-jonghyun.png",
       "photoPosition": 0,
-      "sortOrder": 7,
+      "sortOrder": 8,
       "isPublished": true,
       "landingSlot": "profile-choi-jonghyun"
     },
@@ -602,7 +612,7 @@
       "bio": "인도 Ballaleshwar Clinic · 독일 Jagolskileon 채널 광고·홍보영상\n태국 방콕 Aozora Restaurant · The Loft 광고·홍보영상\n태국 AI 숏폼 드라마 제작 · 유튜브 채널 운영",
       "photoUrl": "/team_portraits/hwangbo-minhyuk.png",
       "photoPosition": 0,
-      "sortOrder": 8,
+      "sortOrder": 9,
       "isPublished": true,
       "landingSlot": "profile-hwangbo-minhyuk"
     },
@@ -612,7 +622,7 @@
       "bio": "KBS 특집 다큐멘터리 〈성물〉 · 〈한국전쟁 이동외상센터〉 AI 영상 제작\nAI 애니메이션 〈TV동화 행복한 세상〉 · 어린이날 특집 〈구미호〉 제작\n박완규 〈수호〉 · 부활 〈To be one〉·〈사랑하고 있다〉·〈이별에서 영원으로〉 뮤직비디오 편집",
       "photoUrl": "/team_portraits/kim-jaehwan.png",
       "photoPosition": 0,
-      "sortOrder": 9,
+      "sortOrder": 10,
       "isPublished": true,
       "landingSlot": "profile-kim-jaehwan"
     },
@@ -622,7 +632,7 @@
       "bio": "영화 〈추격자〉·〈황해〉·〈거북이 달린다〉·〈기술자들〉 현장 편집\n영화 〈백야행〉·〈화차〉·〈완득이〉·〈오늘의 연애〉 현장 편집\nOCN 〈트랩〉·〈번외수사〉 · JTBC 〈보좌관〉 시즌 1·2 편집\nKBS 〈붉은 단심〉 · SBS 〈국민사형투표〉 편집",
       "photoUrl": "/team_portraits/bae-yeeun.png",
       "photoPosition": 0,
-      "sortOrder": 10,
+      "sortOrder": 11,
       "isPublished": true,
       "landingSlot": "profile-bae-yeeun"
     },
@@ -632,7 +642,7 @@
       "bio": "춘천애니메이션박물관·국립중앙도서관·화성어린이문화센터 등 국공립 전시시설 20곳 이상 미디어 기술 콘텐츠 기획·제작\n반려다움·슬룸·헤드스파7·인스탁스·SK매직·삼성 TV 등 50개 이상 브랜드 라이브커머스 총괄 PD\n채널A 〈지붕 위의 막걸리〉 · JTBC 〈취향존중 리얼라이프 – 취존생활〉 · TV조선 〈코리아헌터〉 PD",
       "photoUrl": "/team_portraits/cha-hana.png",
       "photoPosition": 0,
-      "sortOrder": 11,
+      "sortOrder": 12,
       "isPublished": true,
       "landingSlot": "profile-cha-hana"
     },
@@ -642,9 +652,19 @@
       "bio": "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0\n네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업\n공공기관 홍보 인포그래픽 제작",
       "photoUrl": "/team_portraits/heo-jaegu.png",
       "photoPosition": 0,
-      "sortOrder": 12,
+      "sortOrder": 13,
       "isPublished": true,
       "landingSlot": "profile-heo-jaegu"
+    },
+    {
+      "name": "성나연",
+      "role": "AI GENERATIVE PD · AI 생성 PD",
+      "bio": "큐브베리 스튜디오 및 XCONDA 기반 AI 이미지·비디오 생성 워크플로우 설계·연출\nAI 드라마·시리즈·브랜드 필름 프로젝트 비주얼 생성 및 컷 단위 에셋 품질 관리",
+      "photoUrl": "/team_portraits/sung-nayeon.png",
+      "photoPosition": 0,
+      "sortOrder": 14,
+      "isPublished": true,
+      "landingSlot": "profile-sung-nayeon"
     }
   ],
   "inquiries": []

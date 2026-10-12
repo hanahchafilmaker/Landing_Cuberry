@@ -219,9 +219,9 @@ console.log("\n[i18n] F. 운영 CMS 기본값(server/seed.json)을 그대로 받
   const { document } = dom.window;
   expect("시드 FAQ 질문 번역", text(document.querySelector("#faq button[aria-expanded] span.flex-1")), "Can you deliver a polished video without live-action shooting?");
   expect("시드 상품 이름 번역", text(document.querySelector("#pricing article h3")), "Short-form AI ad");
-  expect("시드 팀 소개 번역", text(document.querySelector("#team article h3")), "Minhee Cho, PD");
+  expect("시드 팀 소개 번역", text(document.querySelector("#team article h3")), "Lee Jin-seo");
   expect("시드 작품 제목 번역", text(document.querySelector("#works article h3")), "Hyundai E&C Corporate Film");
-  expect("시드 팀 이력도 번역", text(document.querySelector("#team li")).includes("SBS"), true);
+  expect("시드 팀 이력도 번역", text(document.querySelector("#team li")).includes("KBS"), true);
   expect("시드 전체에서 남은 한국어 없음", leftoverKorean(document), []);
   dom.window.close();
 }
