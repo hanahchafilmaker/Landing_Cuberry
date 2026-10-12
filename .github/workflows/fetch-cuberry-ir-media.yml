@@ -137,6 +137,19 @@ jobs:
           (out_dir / "MAPPING.json").write_text(
               json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
           )
+
+          # keep the (small) slide XMLs so card-level picture placement
+          # can be mapped to names without re-downloading the deck
+          xml_dir = out_dir / "xml"
+          xml_dir.mkdir(parents=True, exist_ok=True)
+          for n in names:
+              if re.match(r"ppt/slides/slide\d+\.xml$", n) or re.match(
+                  r"ppt/slides/_rels/slide\d+\.xml\.rels$", n
+              ) or n in ("ppt/presentation.xml",):
+                  target = xml_dir / n.replace("ppt/", "").replace("/", "__")
+                  with zf.open(n) as src, open(target, "wb") as dst:
+                      shutil.copyfileobj(src, dst)
+
           print("slides:", len(slide_nums), "media files:", len(copied))
           for s in report["slides"]:
               print(f"  slide {s['slide']:02d}: media={s['media']} label={s['label'][:60]}")
@@ -144,6 +157,36 @@ jobs:
           echo "=== tree ==="
           find "$OUT_DIR" -type f -printf "%10s %p\n" | sort -k2 | head -80
           du -sh "$OUT_DIR"
+
+      - name: Try converting WDP (HD Photo) media
+        run: |
+          set -uo pipefail
+          OUT_DIR="${{ inputs.out_dir || 'drive-incoming/ir-media' }}"
+          shopt -s nullglob
+          wdps=("$OUT_DIR"/media/*.wdp)
+          if [ ${#wdps[@]} -eq 0 ]; then echo "no wdp files"; exit 0; fi
+          sudo apt-get install -y -qq jxrlib >/dev/null 2>&1 || true
+          for f in "${wdps[@]}"; do
+            base="${f%.wdp}"
+            if command -v JxrDecApp >/dev/null 2>&1; then
+              if JxrDecApp -i "$f" -o "$base.ppm" >/dev/null 2>&1 && [ -s "$base.ppm" ]; then
+                convert "$base.ppm" "$base.png" 2>/dev/null || true
+                rm -f "$base.ppm"
+              fi
+            fi
+            if [ ! -s "$base.png" ]; then
+              python3 -m pip install --quiet pillow-jxr-plugin 2>/dev/null || true
+              python3 -c "
+from PIL import Image
+try:
+    import pillow_jxr
+    im = Image.open('$f'); im.save('$base.png'); print('converted', '$f', im.size)
+except Exception as e:
+    print('wdp convert failed:', e)" || true
+            fi
+            [ -s "$base.png" ] && echo "wdp -> $(basename "$base").png" || echo "wdp convert failed: $f"
+          done
+          ls -la "$OUT_DIR"/media/ | grep -i wdp || true
 
       - name: Commit extracted media
         run: |
