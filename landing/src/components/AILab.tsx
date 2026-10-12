@@ -20,13 +20,13 @@ function StoryboardGrid() {
       {cutLabels.map((label, i) => (
         <div
           key={label}
-          className="group relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-brand-dark/40 via-ink-3 to-fuchsia-900/25"
+          className="group relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-brand-dark/40 via-ink-3 to-brand-dark/25"
         >
           <div
             className="absolute inset-0 opacity-40 transition-opacity duration-500 group-hover:opacity-70"
             style={{
               backgroundImage:
-                "repeating-linear-gradient(135deg, rgba(167,139,250,0.12) 0 2px, transparent 2px 8px)",
+                "repeating-linear-gradient(135deg, rgba(216,181,170,0.11) 0 2px, transparent 2px 8px)",
             }}
           />
           <span className="absolute left-1.5 top-1.5 font-mono text-[9px] text-neon/80">
@@ -68,7 +68,7 @@ export function AILab() {
                   key={i}
                   className="card flex items-center gap-4 rounded-2xl px-5 py-4"
                 >
-                  <span className="flex-1 font-mono text-[11px] tracking-[0.08em] text-faint line-through decoration-fuchsia-500/50">
+                  <span className="flex-1 font-mono text-[11px] tracking-[0.08em] text-faint line-through decoration-brand-light/50">
                     {c.bad}
                   </span>
                   <svg

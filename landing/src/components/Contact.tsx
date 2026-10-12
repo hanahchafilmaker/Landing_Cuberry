@@ -3,7 +3,7 @@ import { Reveal } from "./Reveal";
 import { useContent } from "@/cms/ContentContext";
 
 const inputClass =
-  "mt-2 w-full rounded-xl border border-white/10 bg-ink-2/60 px-4 py-3 text-[14px] text-paper outline-none transition-colors placeholder:text-faint/60 focus:border-brand-light/60 focus:shadow-[0_0_0_3px_rgba(167,139,250,0.12)]";
+  "mt-2 w-full rounded-xl border border-white/10 bg-ink-2/60 px-4 py-3 text-[14px] text-paper outline-none transition-colors placeholder:text-faint/60 focus:border-brand-light/60 focus:shadow-[0_0_0_3px_rgba(216,181,170,0.11)]";
 
 type Status = { state: "idle" | "sending" | "sent" | "error"; message?: string; code?: string };
 

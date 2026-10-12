@@ -32,7 +32,7 @@ export function SmartImage({
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gradient-to-br from-brand-dark/50 via-ink-3 to-fuchsia-900/30",
+          "flex items-center justify-center bg-gradient-to-br from-brand-dark/50 via-ink-3 to-brand-dark/30",
           className,
         )}
       >
