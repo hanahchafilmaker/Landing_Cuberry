@@ -312,6 +312,21 @@ export const en: Record<string, string> = {
     "An introduction to the four new flagship businesses CJ Logistics is pursuing — live-action footage layered with line-art motion graphics, 3D typography and product visuals to express smart logistics.",
 
   // ── 포트폴리오 (운영 CMS 시드) ───────────────────────────────
+  // IR_큐브베리_2026 덱에서 추가한 플래그십 IP (2026-10-12)
+  "〈씨앗전쟁〉 — 장편 AI 애니메이션": "Seed War — Feature-Length AI Animation",
+  "경기문화재단 장편 AI 애니메이션 지원사업 선정 작품. XCONDA 파이프라인으로 컷이 바뀌어도 캐릭터와 세계관이 유지되는 장편급 제작 역량을 검증합니다.":
+    "Selected for the Gyeonggi Culture Foundation's feature-length AI animation programme — proving feature-scale craft on the XCONDA pipeline, with characters and worlds that hold across cuts.",
+  "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT": "Hometown of Legends: Gumiho — KBS1 Broadcast & REBOOT",
+  "KBS1 어린이날 특집으로 방영된 AI 애니메이션. K-호러 원조 설화를 AI로 재해석해 REBOOT 티저·파일럿까지 완성했습니다.":
+    "AI animation aired in KBS1's Children's Day special — a classic K-horror folktale reimagined with AI, completed through the REBOOT teaser and pilot.",
+  "경기문화재단": "Gyeonggi Culture Foundation",
+  "경기문화재단, 장편 AI 애니메이션, 수행 중": "Gyeonggi Culture Foundation, feature-length AI animation, in production",
+  "장편 AI 애니메이션": "Feature-length AI animation",
+  "수행 중": "In production",
+  "KBS1 방영": "Aired on KBS1",
+  "KBS1 방영, 국내 최초 AI 활용, 시즌제 기획": "Aired on KBS1, first AI use in Korean broadcast animation, season-format series",
+  "국내 최초 AI 활용": "First AI use in Korean broadcast animation",
+  "시즌제 기획": "Season-format series",
   "AI엑스콘다광고": "AI XCONDA Ad",
   "AI XCONDA 광고 · AI 광고 / 브랜드 필름": "AI XCONDA commercial · AI ad / brand film",
   "미국광고_세로숏폼": "US_ad_vertical",

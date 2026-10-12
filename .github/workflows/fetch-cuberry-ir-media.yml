@@ -1,0 +1,197 @@
+name: fetch-cuberry-ir-media
+
+# 공유된 Google Drive PPTX(IR_큐브베리_2026.pptx)를 받아
+# 슬라이드에 삽입된 원본 이미지(ppt/media)와 슬라이드별 텍스트·매핑을
+# drive-incoming/ir-media/ 에 커밋한다.
+# (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서, Actions 러너가 대신 받아온다.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      file_id:
+        description: "Google Drive file id"
+        required: true
+        default: "1xT6PI_k-D8IAuoxqIkiimFuLSWsavGp4"
+      out_dir:
+        description: "대상 폴더"
+        required: true
+        default: "drive-incoming/ir-media"
+  push:
+    branches:
+      - arena/07f7755e-landing-cuberry
+    paths:
+      - .github/workflows/fetch-cuberry-ir-media.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Download pptx from Drive
+        env:
+          FILE_ID: ${{ inputs.file_id || '1xT6PI_k-D8IAuoxqIkiimFuLSWsavGp4' }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dl
+          DEST=/tmp/dl/deck.pptx
+          ok=0
+          for url in \
+            "https://drive.usercontent.google.com/download?id=${FILE_ID}&export=download&confirm=t" \
+            "https://drive.google.com/uc?export=download&id=${FILE_ID}&confirm=t" ; do
+            echo "trying $url"
+            if curl -sSL --fail --retry 3 --retry-all-errors -A "Mozilla/5.0" -o "$DEST" "$url"; then
+              if [ "$(head -c 2 "$DEST" | od -An -tx1 | tr -d ' \n')" = "504b" ]; then
+                ok=1; break
+              fi
+              echo "not a zip, first 300 bytes:"; head -c 300 "$DEST"; echo
+            fi
+            echo "size: $(stat -c %s "$DEST" 2>/dev/null || echo 0)"
+          done
+          if [ "$ok" != "1" ]; then
+            echo "curl fallback: trying gdown"
+            python3 -m pip install --quiet gdown
+            python3 -m gdown --fuzzy "https://drive.google.com/file/d/${FILE_ID}/view" -O "$DEST" || true
+            [ -f "$DEST" ] && [ "$(head -c 2 "$DEST" | od -An -tx1 | tr -d ' \n')" = "504b" ] && ok=1 || true
+          fi
+          if [ "$ok" != "1" ]; then
+            echo "DOWNLOAD FAILED: the Drive file may not be shared as 'anyone with the link'." >&2
+            exit 1
+          fi
+          ls -la /tmp/dl
+          python3 - << 'PY'
+          import hashlib, pathlib
+          d = pathlib.Path("/tmp/dl/deck.pptx").read_bytes()
+          print("bytes", len(d), "sha256", hashlib.sha256(d).hexdigest())
+          PY
+
+      - name: Extract slide media and build mapping
+        run: |
+          set -euo pipefail
+          OUT_DIR="${{ inputs.out_dir || 'drive-incoming/ir-media' }}"
+          python3 - "$OUT_DIR" << 'PY'
+          import html, json, pathlib, re, shutil, sys, zipfile
+
+          out_dir = pathlib.Path(sys.argv[1])
+          media_dir = out_dir / "media"
+          if out_dir.exists():
+              shutil.rmtree(out_dir)
+          media_dir.mkdir(parents=True)
+
+          zf = zipfile.ZipFile("/tmp/dl/deck.pptx")
+          names = zf.namelist()
+
+          # slide -> rels -> referenced media, plus visible text runs (capped:
+          # an IR deck can hold sensitive numbers, keep only short labels)
+          slide_nums = sorted(
+              int(re.search(r"slide(\d+)\.xml$", n).group(1))
+              for n in names
+              if re.match(r"ppt/slides/slide\d+\.xml$", n)
+          )
+          slide_media = {}
+          slides = []
+          for num in slide_nums:
+              xml = zf.read(f"ppt/slides/slide{num}.xml").decode("utf-8", "replace")
+              try:
+                  rels = zf.read(f"ppt/slides/_rels/slide{num}.xml.rels").decode("utf-8", "replace")
+              except KeyError:
+                  rels = ""
+              rel_map = dict(re.findall(r'Id="([^"]+)"[^>]*Target="([^"]+)"', rels))
+              used = set()
+              for rid in re.findall(r'r:embed="([^"]+)"', xml):
+                  base = rel_map.get(rid, "").rsplit("/", 1)[-1]
+                  if base:
+                      used.add(base)
+              slide_media[num] = used
+              texts = [html.unescape(t).strip() for t in re.findall(r"<a:t>(.*?)</a:t>", xml, re.S)]
+              texts = [t for t in texts if t]
+              label = " | ".join(texts)[:300]
+              slides.append({"slide": num, "label": label, "media": sorted(used)})
+
+          # copy media, named by the slide(s) that use them
+          copied = {}
+          for m in sorted(n for n in names if n.startswith("ppt/media/")):
+              base = pathlib.PurePosixPath(m).name
+              used_by = [num for num in slide_nums if base in slide_media[num]]
+              prefix = ("slide%02d" % used_by[0]) if used_by else "unref"
+              target = media_dir / f"{prefix}__{base}"
+              with zf.open(m) as src, open(target, "wb") as dst:
+                  shutil.copyfileobj(src, dst)
+              copied[base] = target.name
+
+          report = {
+              "file_count": len(copied),
+              "slides": [
+                  {"slide": s["slide"], "label": s["label"],
+                   "media": [copied.get(x, x) for x in s["media"]]}
+                  for s in slides
+              ],
+          }
+          (out_dir / "MAPPING.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+          )
+
+          # keep the (small) slide XMLs so card-level picture placement
+          # can be mapped to names without re-downloading the deck
+          xml_dir = out_dir / "xml"
+          xml_dir.mkdir(parents=True, exist_ok=True)
+          for n in names:
+              if re.match(r"ppt/slides/slide\d+\.xml$", n) or re.match(
+                  r"ppt/slides/_rels/slide\d+\.xml\.rels$", n
+              ) or n in ("ppt/presentation.xml",):
+                  target = xml_dir / n.replace("ppt/", "").replace("/", "__")
+                  with zf.open(n) as src, open(target, "wb") as dst:
+                      shutil.copyfileobj(src, dst)
+
+          print("slides:", len(slide_nums), "media files:", len(copied))
+          for s in report["slides"]:
+              print(f"  slide {s['slide']:02d}: media={s['media']} label={s['label'][:60]}")
+          PY
+          echo "=== tree ==="
+          find "$OUT_DIR" -type f -printf "%10s %p\n" | sort -k2 | head -80
+          du -sh "$OUT_DIR"
+
+      - name: Try converting WDP (HD Photo) media
+        run: |
+          set -uo pipefail
+          OUT_DIR="${{ inputs.out_dir || 'drive-incoming/ir-media' }}"
+          shopt -s nullglob
+          wdps=("$OUT_DIR"/media/*.wdp)
+          if [ ${#wdps[@]} -eq 0 ]; then echo "no wdp files"; exit 0; fi
+          sudo apt-get install -y -qq jxrlib >/dev/null 2>&1 || true
+          for f in "${wdps[@]}"; do
+            base="${f%.wdp}"
+            if command -v JxrDecApp >/dev/null 2>&1; then
+              if JxrDecApp -i "$f" -o "$base.ppm" >/dev/null 2>&1 && [ -s "$base.ppm" ]; then
+                convert "$base.ppm" "$base.png" 2>/dev/null || true
+                rm -f "$base.ppm"
+              fi
+            fi
+            if [ ! -s "$base.png" ]; then
+              python3 -m pip install --quiet pillow-jxr-plugin 2>/dev/null || true
+              python3 -c "import importlib,sys; from PIL import Image; importlib.import_module('pillow_jxr'); im=Image.open(sys.argv[1]); im.save(sys.argv[2]); print('converted', sys.argv[1], im.size)" "$f" "$base.png" 2>&1 | tail -1 || true
+            fi
+            [ -s "$base.png" ] && echo "wdp -> $(basename "$base").png" || echo "wdp convert failed: $f"
+          done
+          ls -la "$OUT_DIR"/media/ | grep -i wdp || true
+
+      - name: Commit extracted media
+        run: |
+          set -euo pipefail
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          OUT_DIR="${{ inputs.out_dir || 'drive-incoming/ir-media' }}"
+          git add -f "$OUT_DIR"
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Import IR deck slide media from shared Drive into $OUT_DIR"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi

@@ -388,6 +388,24 @@ export type Work = {
 
 export const works: Work[] = [
   {
+    title: "〈씨앗전쟁〉 — 장편 AI 애니메이션",
+    category: "AI FEATURE ANIMATION",
+    year: "2026",
+    description:
+      "경기문화재단 장편 AI 애니메이션 지원사업 선정 작품. XCONDA 파이프라인으로 컷이 바뀌어도 캐릭터와 세계관이 유지되는 장편급 제작 역량을 검증합니다.",
+    thumbnailUrl: "images/still-seedwar.jpg",
+    tags: ["경기문화재단", "장편 AI 애니메이션", "수행 중"],
+  },
+  {
+    title: "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT",
+    category: "AI ANIMATION SERIES",
+    year: "2025",
+    description:
+      "KBS1 어린이날 특집으로 방영된 AI 애니메이션. K-호러 원조 설화를 AI로 재해석해 REBOOT 티저·파일럿까지 완성했습니다.",
+    thumbnailUrl: "images/still-gumiho.jpg",
+    tags: ["KBS1 방영", "국내 최초 AI 활용", "시즌제 기획"],
+  },
+  {
     title: "현대건설 기업 홍보 영상",
     category: "CORPORATE VIDEO",
     year: "2025",
