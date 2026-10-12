@@ -1,0 +1,153 @@
+{
+ "source_bytes": 5092266,
+ "manifest_json_bytes": 5039915,
+ "documents": [
+  {
+   "path": "index.html",
+   "bytes": 30885
+  }
+ ],
+ "assets": [
+  {
+   "uuid": "0b633790-ae70-463e-b442-8972669b25f4",
+   "mime": "font/woff2",
+   "bytes": 791156,
+   "path": "assets/0b633790.woff2",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "52b31364-b402-411a-8bfe-917564ab12b3",
+   "mime": "font/woff2",
+   "bytes": 785856,
+   "path": "assets/52b31364.woff2",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "394e9bb9-d986-46a5-b905-b168d40fdf61",
+   "mime": "font/woff2",
+   "bytes": 778432,
+   "path": "assets/394e9bb9.woff2",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "762db76e-6902-4d82-be97-f835405a0e42",
+   "mime": "font/woff2",
+   "bytes": 765892,
+   "path": "assets/762db76e.woff2",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "e67bfe5a-f417-4fe1-ae83-446140766f9d",
+   "mime": "text/javascript",
+   "bytes": 131835,
+   "path": "assets/e67bfe5a.js",
+   "name": null,
+   "compressed": true
+  },
+  {
+   "uuid": "71cbb2d7-7d98-41fb-95e3-ceb41aa6f866",
+   "mime": "image/webp",
+   "bytes": 107608,
+   "path": "assets/71cbb2d7.webp",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "233e41dc-6cea-4fa4-a9fd-57707b2839c1",
+   "mime": "image/jpeg",
+   "bytes": 102768,
+   "path": "assets/233e41dc.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "ee6bd9e7-259b-49f5-a3c9-7343ed984278",
+   "mime": "image/jpeg",
+   "bytes": 86146,
+   "path": "assets/ee6bd9e7.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "19be27d5-9586-44d7-ae06-0a0d7ee3aa25",
+   "mime": "image/jpeg",
+   "bytes": 67241,
+   "path": "assets/19be27d5.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "bbe80255-0772-4fbf-b37d-971601a05e33",
+   "mime": "image/jpeg",
+   "bytes": 66239,
+   "path": "assets/bbe80255.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "6abb06d6-56ba-4329-8172-950a42d01f01",
+   "mime": "image/jpeg",
+   "bytes": 46125,
+   "path": "assets/6abb06d6.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "6f4c9454-ea95-4665-b3f6-85453ad3e57a",
+   "mime": "text/javascript",
+   "bytes": 45305,
+   "path": "assets/6f4c9454.js",
+   "name": null,
+   "compressed": true
+  },
+  {
+   "uuid": "99064576-16d4-4dd1-8fb2-34ce94230d45",
+   "mime": "image/jpeg",
+   "bytes": 39086,
+   "path": "assets/99064576.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "ac86cb33-93d4-4350-af47-0e1cbd419c7d",
+   "mime": "image/jpeg",
+   "bytes": 31512,
+   "path": "assets/ac86cb33.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "4aae886a-d226-4fa4-b427-1f6be4cd9a77",
+   "mime": "image/jpeg",
+   "bytes": 31296,
+   "path": "assets/4aae886a.jpg",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "0d8e23ec-9ad6-44fa-abb3-6eca33916f8b",
+   "mime": "font/woff2",
+   "bytes": 14708,
+   "path": "assets/0d8e23ec.woff2",
+   "name": null,
+   "compressed": false
+  },
+  {
+   "uuid": "9d76d132-2b8c-4c86-be09-daf424a05085",
+   "mime": "text/javascript",
+   "bytes": 10751,
+   "path": "assets/9d76d132.js",
+   "name": null,
+   "compressed": true
+  }
+ ],
+ "page_order": [],
+ "ext_aliases": {
+  "https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js": "assets/9d76d132.js",
+  "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js": "assets/e67bfe5a.js"
+ }
+}
