@@ -23,6 +23,21 @@ services:
       # 선택: CSP 를 끄려면 빈 문자열을 넣습니다(기본은 화면에 맞춘 CSP 적용).
       # - key: CONTENT_SECURITY_POLICY
       #   value: ""
+      # ── 문의 알림(선택) ─────────────────────────────────────────
+      # 셋 다 비워두면 알림 기능이 완전히 꺼진 채 지금과 똑같이 동작합니다.
+      # 알림을 켜려면 아래 주석을 풀고 값을 등록하세요(resend.dev 는 발신 도메인 검증 필요).
+      # - key: NOTIFY_WEBHOOK_URL   # Slack Incoming Webhook 등 POST 한 번으로 알림을 받는 주소
+      #   sync: false
+      # - key: NOTIFY_EMAIL_TO      # 쉼표로 여러 명. 예) ops@cuberry.ai,ceo@cuberry.ai
+      #   sync: false
+      # - key: RESEND_API_KEY       # Resend REST 키. 없으면 이메일 채널만 자동으로 꺼집니다 (nodemailer 불필요)
+      #   sync: false
+      # - key: NOTIFY_EMAIL_FROM    # 기본값 "Cuberry <onboarding@resend.dev>"
+      #   sync: false
+      # - key: NOTIFY_MASK_CONTACT  # "1" 이면 웹훅 본문의 이메일·전화를 가립니다 (ab***@gmail.com)
+      #   value: "1"
+      # - key: NOTIFY_DISABLED      # "1" 이면 알림 전체 OFF — 장애 시 즉시 끄는 킬 스위치
+      #   value: "1"
       # 선택: 어드민의 "GitHub에 백업 및 배포" 버튼용.
       - key: GITHUB_TOKEN
         sync: false
