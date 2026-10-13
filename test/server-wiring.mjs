@@ -187,8 +187,6 @@ await withServer({ label: "서빙" }, async ({ origin }) => {
   expect("저장소의 cms-bridge 에도 같은 주소", bakedOnDisk.exec(diskBridge)?.[1], "https://landing-cuberry-admin.onrender.com");
 
   for (const [route, diskSource, type] of [
-    ["/admin", diskAdmin, "text/html"],
-    ["/admin/portfolio", diskAdmin, "text/html"],
     ["/cms-bridge.js", diskBridge, "text/javascript"],
   ]) {
     const response = await fetch(`${origin}${route}`);
@@ -198,6 +196,17 @@ await withServer({ label: "서빙" }, async ({ origin }) => {
     expect(`${route} 굽힌 주소가 비워짐`, bakedOnDisk.exec(body)?.[1], "");
     expect(`${route} 나머지 화면은 그대로(길이 차이 = 주소 길이만큼)`, diskSource.length - body.length, "https://landing-cuberry-admin.onrender.com".length);
     expect(`${route} 캐시 금지`, response.headers.get("cache-control"), "no-store");
+  }
+
+  // ── 레거시 어드민 은퇴: /admin → /admin-v2 리다이렉트 검증 ──
+  for (const [from, to] of [
+    ["/admin", "/admin-v2"],
+    ["/admin/portfolio", "/admin-v2/portfolio"],
+    ["/admin/services", "/admin-v2/services"],
+  ]) {
+    const response = await fetch(`${origin}${from}`, { redirect: "manual" });
+    expect(`${from} → 301`, response.status, 301);
+    expect(`${from} Location 헤더`, response.headers.get("location"), to);
   }
 
   // 새 어드민(admin-v2 단일 파일)도 같은 규칙: <meta name="cuberry-api-origin"> 값을 비운다.

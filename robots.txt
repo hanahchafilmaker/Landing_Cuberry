@@ -9,4 +9,6 @@ Disallow: /uploads/
 Disallow: /portfolio_thumbs/
 Disallow: /team_portraits/
 
+# 레거시 어드민(admin/)은 admin-v2/로 통합되어 리다이렉트됩니다.
+
 Sitemap: https://hanahchafilmaker.github.io/Landing_Cuberry/sitemap.xml
