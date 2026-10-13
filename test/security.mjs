@@ -10,11 +10,13 @@
 //   [8] 문의 폼 허니팟 — 채워진 숨은 칸은 저장되지 않는다
 //   [9] robots.txt · sitemap.xml 서빙
 //   [10] REQUIRE_ADMIN_PASSWORD=1 이면 기본 비밀번호로 기동 불가
+//   [11] Phase 2 — 서명된 폼 토큰·Turnstile (off/flag/strict + 시간창·siteverify)
 //
 // 실행: npm run test:security  (npm test 에 포함)
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { createServer as createHttpServer } from "node:http";
 import { tmpdir } from "os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -279,6 +281,205 @@ await withServer(
     expect("안내 로그", logs.join("").includes("REQUIRE_ADMIN_PASSWORD=1"), true);
   },
 );
+
+console.log("\n[11] Phase 2 — 서명된 폼 토큰 · Turnstile: off/flag/strict 3단계 + 시간창");
+{
+  const mockHttp = (handler) =>
+    new Promise((resolve) => {
+      const server = createHttpServer(handler);
+      server.listen(0, "127.0.0.1", () => resolve(server));
+    });
+  const closeHttp = (server) => new Promise((resolve) => server.close(resolve));
+  const until = async (fn, ms = 3000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      if (fn()) return true;
+      await sleep(50);
+    }
+    return fn();
+  };
+  const adminToken = async (origin) => {
+    const login = await fetch(`${origin}/api/auth/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password: PASSWORD }),
+    });
+    return (await login.json()).token;
+  };
+  const authHeaders = (token) => ({ authorization: `Bearer ${token}` });
+  const inquiriesOf = async (origin, token) =>
+    (await (await fetch(`${origin}/api/admin/content`, { headers: authHeaders(token) })).json()).inquiries;
+  const notificationsOf = async (origin, token) =>
+    (await (await fetch(`${origin}/api/admin/notifications`, { headers: authHeaders(token) })).json()).notifications;
+  const postPartnership = async (origin, body) => {
+    const res = await fetch(`${origin}/api/partnership`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "폼 검증 테스트",
+        email: "check@example.com",
+        message: "Phase 2 폼 토큰 검증용 문의입니다.",
+        website: "",
+        ...body,
+      }),
+    });
+    return { status: res.status, body: await res.json() };
+  };
+  const mint = async (origin) => (await fetch(`${origin}/api/form-token`)).json();
+
+  // ── flag(기본값): 빠름·위조·없음 → 저장하되 review + 알림 0 / 정상 시간 → 새 리드 + 알림 1 ──
+  let hookHits = 0;
+  const hook = await mockHttp((req, res) => {
+    hookHits += 1;
+    req.resume();
+    res.setHeader("content-type", "application/json");
+    res.end('{"ok":true}');
+  });
+  await withServer(
+    {
+      label: "폼토큰-flag",
+      env: {
+        FORM_TOKEN_MAX_AGE_MS: "5000", // 만료 창 5초 — 한 번의 실행에서 시간 전 구간을 검증
+        NOTIFY_WEBHOOK_URL: `http://127.0.0.1:${hook.address().port}/hook`,
+      },
+    },
+    async ({ origin, logs }) => {
+      const token = await adminToken(origin);
+      // t0: 세 토큰 동시 발급 (min-age 는 기본 3초 유지)
+      const [a, b, c] = await Promise.all([mint(origin), mint(origin), mint(origin)]);
+      expect("토큰 형식 <ts>.<64hex mac>", /^[0-9]+\.[0-9a-f]{64}$/.test(a.token), true);
+
+      // A: 즉시 제출 — 사람은 3초 안에 못 채운다 → 저장은 되지만 review
+      const ra = await postPartnership(origin, { formToken: a.token });
+      expect("flag 도 응답 shape 은 불변", { status: ra.status, hasId: String(ra.body.id || "").length > 0 }, { status: 200, hasId: true });
+      // 위조 mac / 토큰 없음 → 전부 review
+      await postPartnership(origin, { formToken: `${a.token.split(".")[0]}.${"0".repeat(64)}` });
+      await postPartnership(origin, { formToken: "" });
+
+      let inquiries = await inquiriesOf(origin, token);
+      expect("flag 는 리드를 남긴다", inquiries.length, 3);
+      expect("3건 모두 status=review", inquiries.every((i) => i.status === "review"), true);
+      expect("review 는 알림 0건", (await notificationsOf(origin, token)).length, 0);
+
+      // B: 3.1초 뒤 제출 → 정상 시간 → 새 리드 + 알림 1건
+      await sleep(3100);
+      await postPartnership(origin, { formToken: b.token });
+      inquiries = await inquiriesOf(origin, token);
+      expect("정상 토큰도 저장", inquiries.length, 4);
+      expect("정상 토큰 → 새 리드", inquiries[0].status, "new");
+      expect("정상 리드 알림 1건", (await notificationsOf(origin, token)).length, 1);
+      await until(() => hookHits === 1);
+      expect("웹훅도 1회만", hookHits, 1);
+
+      // C: t0+5.2초 제출 → max-age 5초 만료 → review, 알림 증가 없음
+      await sleep(2100);
+      await postPartnership(origin, { formToken: c.token });
+      inquiries = await inquiriesOf(origin, token);
+      expect("오래된 토큰도 저장은 된다", inquiries.length, 5);
+      expect("만료 토큰 → review", inquiries[0].status, "review");
+      expect("만료 토큰도 알림 없음", (await notificationsOf(origin, token)).length, 1);
+      expect("경고 로그 [spam] 남음", logs.join("").includes("[spam]"), true);
+    },
+  );
+  await closeHttp(hook);
+
+  // ── strict: 저장하지 않고 200 {ok:true,id:""} — 허니팟과 동일, 봇은 접수된 줄 안다 ──
+  await withServer({ label: "폼토큰-strict", env: { FORM_TOKEN_MODE: "strict" } }, async ({ origin }) => {
+    const token = await adminToken(origin);
+    const fresh = await mint(origin);
+    const r1 = await postPartnership(origin, { formToken: fresh.token }); // 너무 빠름
+    const r2 = await postPartnership(origin, { formToken: `1.${"0".repeat(64)}` }); // 위조
+    expect("strict 는 200 + 빈 id", { s1: r1.status, b1: r1.body, b2: r2.body }, { s1: 200, b1: { ok: true, id: "" }, b2: { ok: true, id: "" } });
+    expect("strict 는 리드를 남기지 않는다", (await inquiriesOf(origin, token)).length, 0);
+    expect("strict 알림 0건", (await notificationsOf(origin, token)).length, 0);
+  });
+
+  // ── off: 기존과 동일하게 새 리드로 저장 + 알림 + 경고 로그 ──
+  let offHits = 0;
+  const offHook = await mockHttp((req, res) => {
+    offHits += 1;
+    req.resume();
+    res.setHeader("content-type", "application/json");
+    res.end('{"ok":true}');
+  });
+  await withServer(
+    {
+      label: "폼토큰-off",
+      env: { FORM_TOKEN_MODE: "off", NOTIFY_WEBHOOK_URL: `http://127.0.0.1:${offHook.address().port}/hook` },
+    },
+    async ({ origin, logs }) => {
+      const token = await adminToken(origin);
+      await postPartnership(origin, { formToken: `1.${"0".repeat(64)}` }); // 위조지만 off 는 방해하지 않는다
+      const inquiries = await inquiriesOf(origin, token);
+      expect("off 는 기존처럼 새 리드로 저장", { n: inquiries.length, s: inquiries[0].status }, { n: 1, s: "new" });
+      await until(() => offHits === 1);
+      expect("off 알림도 기존과 같다(웹훅 1회)", offHits, 1);
+      expect("off 도 [spam] 경고 로그", logs.join("").includes("[spam]"), true);
+    },
+  );
+  await closeHttp(offHook);
+
+  // ── Turnstile: siteverify 통과 → new / 응답 누락·실패 → review (min-age 50ms 로 단축) ──
+  let seen = null;
+  let tsHits = 0;
+  const tsHook = await mockHttp((req, res) => {
+    tsHits += 1;
+    req.resume();
+    res.setHeader("content-type", "application/json");
+    res.end('{"ok":true}');
+  });
+  const tsMock = await mockHttp((req, res) => {
+    let raw = "";
+    req.on("data", (chunk) => { raw += chunk; });
+    req.on("end", () => {
+      seen = new URLSearchParams(raw);
+      const response = seen.get("response") || "";
+      const success = seen.get("secret") === "s3cr3t-turnstile" && response.length > 0 && response !== "bad";
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ success }));
+    });
+  });
+  await withServer(
+    {
+      label: "폼토큰-turnstile",
+      env: {
+        FORM_TOKEN_MIN_AGE_MS: "50",
+        TURNSTILE_SECRET: "s3cr3t-turnstile",
+        TURNSTILE_VERIFY_URL: `http://127.0.0.1:${tsMock.address().port}/siteverify`,
+        // 알림 채널이 없으면 알림 행 자체가 생기지 않는다 — 채널을 켜두고 행 1건을 검증
+        NOTIFY_WEBHOOK_URL: `http://127.0.0.1:${tsHook.address().port}/hook`,
+      },
+    },
+    async ({ origin, logs }) => {
+      const token = await adminToken(origin);
+      const t1 = await mint(origin);
+      await sleep(80);
+      await postPartnership(origin, { formToken: t1.token, turnstile: "valid-response" });
+      await until(() => seen !== null);
+      expect("siteverify 로 secret·response 전달", { secret: seen?.get("secret"), response: seen?.get("response") }, { secret: "s3cr3t-turnstile", response: "valid-response" });
+      let inquiries = await inquiriesOf(origin, token);
+      expect("siteverify 통과 → 새 리드", inquiries[0].status, "new");
+
+      // 토큰 정상 + turnstile 응답 누락 → success:false → review
+      const t2 = await mint(origin);
+      await sleep(80);
+      await postPartnership(origin, { formToken: t2.token, turnstile: "" });
+
+      // 토큰 정상 + 위조 응답 → success:false → review
+      const t3 = await mint(origin);
+      await sleep(80);
+      await postPartnership(origin, { formToken: t3.token, turnstile: "bad" });
+
+      inquiries = await inquiriesOf(origin, token);
+      expect("턴스타일 실패는 review 로 저장만", { n: inquiries.length, s0: inquiries[0].status, s1: inquiries[1].status, s2: inquiries[2].status }, { n: 3, s0: "review", s1: "review", s2: "new" });
+      await until(() => tsHits === 1);
+      expect("알림은 통과 건만 1건", (await notificationsOf(origin, token)).length, 1);
+      expect("턴스타일 실패도 [spam] 로그", logs.join("").includes("[spam]"), true);
+    },
+  );
+  await closeHttp(tsMock);
+  await closeHttp(tsHook);
+}
 
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
 if (failures) process.exitCode = 1;

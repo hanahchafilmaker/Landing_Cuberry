@@ -1,5 +1,6 @@
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { notifyInquiry, listNotifications, retryNotification, notificationStatusMap, lastNotification } from "./lib/notify.mjs";
+import { formTokenMode, mintFormToken, validateFormToken, verifyTurnstile } from "./lib/form-token.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -73,12 +74,12 @@ const DEFAULT_CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
   "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
-  "frame-src https://drive.google.com https://www.youtube-nocookie.com",
+  "frame-src https://drive.google.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
   "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
   "form-action 'self'",
 ].join("; ");
@@ -1184,18 +1185,52 @@ async function handleApi(req, res, url) {
     const phone = optionalText(body.phone, 40);
     const projectType = optionalText(body.projectType, 120);
     const budget = optionalText(body.budget, 80);
+    // ── Phase 2: 폼 토큰 · Turnstile 검증 (실패해도 문의 접수 자체는 막지 않는다) ──
+    const mode = formTokenMode();
+    let review = false;
+    {
+      const tokenVerdict = validateFormToken(db, body.formToken);
+      const turnstileSecret = String(process.env.TURNSTILE_SECRET || "").trim();
+      const turnstileVerdict = turnstileSecret
+        ? await verifyTurnstile(turnstileSecret, body.turnstile || body["cf-turnstile-response"] || "")
+        : { ok: true, skipped: true };
+      if (!tokenVerdict.ok || !turnstileVerdict.ok) {
+        const reason = [
+          !tokenVerdict.ok ? `token:${tokenVerdict.reason}` : "",
+          !turnstileVerdict.ok ? `turnstile:${turnstileVerdict.detail || "실패"}` : "",
+        ].filter(Boolean).join(" ");
+        console.warn(`[spam] 폼 토큰 검증 실패 (${ip}) ${reason} → mode=${mode}`);
+        if (mode === "strict") return send(res, 200, { ok: true, id: "" });
+        // flag(기본): 저장하되 status='review' + 알림 발송 안 함 → 어드민에서 직접 확인
+        review = mode === "flag";
+      }
+    }
     const stamp = nowIso();
     const code = nextInquiryCode();
     const result = db.prepare(`INSERT INTO inquiries (code, name, email, company, phone, project_type, budget, message, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(
-      code, name, email, company, phone, projectType, budget, message, stamp, stamp,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      code, name, email, company, phone, projectType, budget, message, review ? "review" : "new", stamp, stamp,
     );
     // 알림은 응답을 기다리지 않는다 — Slack/Resend 가 죽어도 리드는 남는다.
     // 실패·재시도 상태는 notifications 테이블에 남고 어드민에서 재발송한다.
-    void notifyInquiry(db, {
-      id: Number(result.lastInsertRowid), code, name, email, company, phone, projectType, budget, message,
-    });
+    // 단, flag 로 잡힌 review 문의는 알림을 보내지 않는다(스팸 후보는 어드민에서 직접 확인).
+    if (!review) {
+      void notifyInquiry(db, {
+        id: Number(result.lastInsertRowid), code, name, email, company, phone, projectType, budget, message,
+      });
+    }
     return send(res, 200, { id: code, inquiryId: Number(result.lastInsertRowid) });
+  }
+
+  // Phase 2: 문의 폼이 화면에 들어올 때 받는 서명 토큰. 비밀키는 meta 테이블에 최초 1회 생성한다.
+  if (req.method === "GET" && pathname === "/api/form-token") {
+    const issuedAt = Date.now();
+    return send(res, 200, {
+      token: mintFormToken(db, issuedAt),
+      issuedAt: new Date(issuedAt).toISOString(),
+      // Turnstile 위젯 siteKey — 없으면 랜딩은 위젯 스크립트를 아예 로드하지 않는다.
+      turnstileSiteKey: String(process.env.TURNSTILE_SITE_KEY || "").trim() || null,
+    });
   }
 
   const user = requireAdmin(req, res);
@@ -1287,7 +1322,7 @@ async function handleApi(req, res, url) {
   if (inquiryMatch && req.method === "PATCH") {
     const body = await readBody(req);
     const status = String(body.status || "");
-    if (!["new", "contacted", "closed"].includes(status)) return send(res, 400, { error: "상태를 확인해 주세요." });
+    if (!["new", "review", "contacted", "closed"].includes(status)) return send(res, 400, { error: "상태를 확인해 주세요." });
     const result = db.prepare("UPDATE inquiries SET status = ?, updated_at = ? WHERE id = ?").run(status, nowIso(), Number(inquiryMatch[1]));
     if (!result.changes) return send(res, 404, { error: "문의를 찾을 수 없습니다." });
     return send(res, 200, { ok: true });

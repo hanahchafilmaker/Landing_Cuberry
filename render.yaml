@@ -38,6 +38,13 @@ services:
       #   value: "1"
       # - key: NOTIFY_DISABLED      # "1" 이면 알림 전체 OFF — 장애 시 즉시 끄는 킬 스위치
       #   value: "1"
+      # ── 스팸 2차 방어(선택, Phase 2) — 등록 안 하면 기본값 flag 로 바로 동작 ──
+      # - key: FORM_TOKEN_MODE       # off | flag(기본) | strict — 정책 변경 시에만
+      #   value: "flag"
+      # - key: TURNSTILE_SECRET      # Cloudflare Turnstile 암호 키 (siteKey 와 함께 등록)
+      #   sync: false
+      # - key: TURNSTILE_SITE_KEY    # 랜딩 위젯 표시용 공개 키
+      #   sync: false
       # 선택: 어드민의 "GitHub에 백업 및 배포" 버튼용.
       - key: GITHUB_TOKEN
         sync: false

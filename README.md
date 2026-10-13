@@ -162,6 +162,20 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 - 알림 실패는 **문의 접수를 절대 막지 않습니다** — 응답은 INSERT 직후 200으로 돌아가고, 상태는 `GET /api/admin/notifications?status=failed` 로 확인합니다.
 - `render.yaml` · `render.free.yaml` 에 항목이 준비되어 있고, 빈 값이면 채널이 꺼진 채로 배포됩니다.
 
+### 스팸 2차 방어 (폼 토큰 · Turnstile)
+
+문의 폼이 화면에 들어올 때 `GET /api/form-token` 이 발급하는 **서명된 토큰**(HMAC-SHA256, 비밀키는 DB `meta` 테이블에 자동 생성 — 설정할 것 없음)을
+제출과 함께 보냅니다. 서버는 형식·서명·시간을 확인합니다 — **발급 후 3초 안 제출은 "사람이 못 채운다"** 로, 6시간이 지나면 만료로 봅니다.
+
+| 환경변수 | 기본값 | 역할 |
+| --- | --- | --- |
+| `FORM_TOKEN_MODE` | `flag` | `off` 경고만·기존처럼 저장 / `flag` 저장하되 `status='review'` + 알림 보류(어드민 "확인 필요") / `strict` 저장 안 함(허니팟과 동일 200) |
+| `TURNSTILE_SECRET` | *(빈 값)* | 있으면 Cloudflare Turnstile `siteverify` 를 1회 호출해 실패도 위 3단 정책으로 처리합니다 |
+| `TURNSTILE_SITE_KEY` | *(빈 값)* | 랜딩 문의 폼에 Turnstile 위젯을 표시합니다 — 두 키를 함께 등록해야 위젯이 뜹니다 |
+
+- 검증 실패가 **문의 접수를 500 으로 만들지 않는 것**은 `test/security.mjs` [11] 로 고정되어 있습니다.
+- `review` 로 잡힌 문의는 어드민 Inquiries 에서 노란 배지로 보이고, 상태 셀렉트로 `new` 등 정상 상태로 되돌릴 수 있습니다.
+
 ### 무료 플랜에서 콘텐츠 지키기 (seed.json 워크플로)
 
 무료 인스턴스는 재배포·재시작마다 `data/` 가 사라져 `server/seed.json` 으로 다시 시작합니다.

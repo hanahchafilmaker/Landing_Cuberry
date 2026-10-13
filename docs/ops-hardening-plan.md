@@ -9,7 +9,11 @@
 > - **Phase 1 (문의 알림) 구현 완료** — `server/lib/notify.mjs`(새 파일) · `test/notify.mjs`(63건) ·
 >   어드민 문의 배지·다시 보내기 · 개요의 "마지막 문의 알림" 줄 · `notifications` 테이블. **환경변수 미설정 시
 >   동작 변화 0**이므로 먼저 배포한 뒤 웹훅/Resend 키를 등록하면 켜집니다.
-> - Phase 2~4: 대기.
+> - **Phase 2 (스팸 2차 방어) 구현 완료** — `server/lib/form-token.mjs`(새 파일) · `GET /api/form-token` ·
+>   `FORM_TOKEN_MODE` 3단 정책(기본 `flag`) · Turnstile siteverify(선택) · 어드민 `review` 상태/배지 ·
+>   `test/security.mjs` [11]. 기본 `flag` 에서는 정상 문의도 발급 후 3초 안이면 `review` 로 남지만 **저장은 되고**
+>   알림만 보류되므로 리드를 잃지 않습니다. 검증 실패가 응답 500 을 만들지 않음도 테스트로 고정했습니다.
+> - Phase 3~4: 대기.
 
 ---
 
@@ -179,8 +183,8 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 | `FORM_TOKEN_MODE` | 동작 |
 |---|---|
-| `off` (기본) | 검증 결과를 `console.warn` 만 남기고 그대로 저장 |
-| `flag` | 저장하되 `status='review'` + **알림 발송 안 함** → 어드민에 "확인 필요" 배지 |
+| `off` | 검증 결과를 `console.warn` 만 남기고 그대로 저장 (기존과 동일) |
+| `flag` (기본) | 저장하되 `status='review'` + **알림 발송 안 함** → 어드민에 "확인 필요" 배지 |
 | `strict` | 저장하지 않고 200 (허니팟과 동일 처리) |
 
 운영에서 며칠 `flag` 로 관찰한 뒤 `strict` 로 올리는 전제. `inquiries.status` 허용 목록에 `review` 추가.
@@ -323,7 +327,7 @@ server/
 | 개인정보가 서드파티 채널로 | `NOTIFY_MASK_CONTACT=1` 옵션, 웹훅 본문 기본 마스킹 검토 |
 | 크론이 6시간마다 불필요한 재배포 유발 | 해시 비교로 무변경 시 커밋 생략 (테스트 4번) |
 | 크론 엔드포인트가 열린 채 배포 | `CRON_SECRET` 미설정 시 503, 상수시간 비교 |
-| 폼 토큰이 정상 문의를 차단 | 기본 `off` → `flag` 관찰 후 `strict`. 실패해도 `flag`에서는 저장됨 |
+| 폼 토큰이 정상 문의를 차단 | 기본 `flag`(저장은 되고 알림만 보류) → 관찰 후 `strict`. 검증 오류도 절대 500 이 아님 |
 | 모듈 분리 중 회귀 | 파일 단위 이동 + 매회 전체 테스트, 로직 변경 금지 |
 
 **롤백**: Phase 1·2·3은 모두 환경변수로 즉시 무효화 가능(`NOTIFY_DISABLED=1`, `FORM_TOKEN_MODE=off`, 워크플로 비활성화). Phase 4는 커밋 revert.

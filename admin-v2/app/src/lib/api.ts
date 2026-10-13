@@ -180,7 +180,7 @@ export type AdminContent = {
       projectType?: string;
       budget?: string;
       message: string;
-      status: "new" | "contacted" | "closed";
+      status: "new" | "review" | "contacted" | "closed";
       createdAt: string;
       /** 문의 알림(Phase 1) — 채널 중 가장 나쁜 상태 하나가 대표로 온다. 알림이 없으면 빈 문자열. */
       notificationId?: number;
