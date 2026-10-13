@@ -551,7 +551,7 @@ export const team: TeamMember[] = [
       "KBS2 〈내 생애 마지막 오디션〉 · EBS 애니메이션 〈안녕! 부부토〉",
       "KBS·MBC·SBS·EBS 방송 집필 · 드라마·예능·다큐멘터리 스토리텔링"
     ],
-    "image": "team_portraits/son-sooyeong.png",
+    "image": "team_portraits/son-sooyeong.webp",
     "photoPosition": 0
   },
   {
@@ -564,7 +564,7 @@ export const team: TeamMember[] = [
       "〈꼬마 신선 타오〉 · 〈미미와 다다의 미술탐험대〉",
       "대표 IP 공동 집필 및 스토리 참여 · 드라마·영화·소설 창작"
     ],
-    "image": "team_portraits/cho-kyuwon.png",
+    "image": "team_portraits/cho-kyuwon.webp",
     "photoPosition": 0
   },
   {
@@ -589,7 +589,7 @@ export const team: TeamMember[] = [
       "MBC every1 〈주간아이돌〉 · 〈비디오스타〉 집필",
       "지상파·케이블 주요 예능·토크·교양 프로그램 구성 및 스토리텔링"
     ],
-    "image": "team_portraits/yoo-seah.png",
+    "image": "team_portraits/yoo-seah.webp",
     "photoPosition": 0
   },
   {
@@ -667,7 +667,7 @@ export const team: TeamMember[] = [
       "OCN 〈트랩〉·〈번외수사〉 · JTBC 〈보좌관〉 시즌 1·2 편집",
       "KBS 〈붉은 단심〉 · SBS 〈국민사형투표〉 편집"
     ],
-    "image": "team_portraits/bae-yeeun.png",
+    "image": "team_portraits/bae-yeeun.webp",
     "photoPosition": 0
   },
   {
@@ -679,7 +679,7 @@ export const team: TeamMember[] = [
       "반려다움·슬룸·헤드스파7·인스탁스·SK매직·삼성 TV 등 50개 이상 브랜드 라이브커머스 총괄 PD",
       "채널A 〈지붕 위의 막걸리〉 · JTBC 〈취향존중 리얼라이프 – 취존생활〉 · TV조선 〈코리아헌터〉 PD"
     ],
-    "image": "team_portraits/cha-hana.png",
+    "image": "team_portraits/cha-hana.webp",
     "photoPosition": 0
   },
   {

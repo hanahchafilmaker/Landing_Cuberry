@@ -5,6 +5,7 @@ name: fetch-cuberry-ir-media
 # drive-incoming/ir-media/ 에 커밋한다.
 # (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서, Actions 러너가 대신 받아온다.)
 
+# 수동 실행 전용 — 죽은 arena 브랜치 push 트리거는 제거했다(대용량 재커밋 방지).
 on:
   workflow_dispatch:
     inputs:
@@ -16,11 +17,6 @@ on:
         description: "대상 폴더"
         required: true
         default: "drive-incoming/ir-media"
-  push:
-    branches:
-      - arena/07f7755e-landing-cuberry
-    paths:
-      - .github/workflows/fetch-cuberry-ir-media.yml
 
 permissions:
   contents: write

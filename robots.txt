@@ -1,0 +1,12 @@
+# 큐브베리 랜딩 — 크롤러 안내
+# 어드민·API·업로드 경로는 공개 인덱스에서 제외한다.
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin-v2
+Disallow: /api/
+Disallow: /uploads/
+Disallow: /portfolio_thumbs/
+Disallow: /team_portraits/
+
+Sitemap: https://hanahchafilmaker.github.io/Landing_Cuberry/sitemap.xml

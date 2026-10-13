@@ -15,6 +15,12 @@ const legacyProfilePhotos = new Map([
   ['/team_portraits/hwangbo-minhyuk.png', '/team_portraits/hwangbo-minhyuk.webp'],
   ['/team_portraits/kim-jaehwan.png', '/team_portraits/kim-jaehwan.webp'],
   ['/team_portraits/heo-jaegu.png', '/team_portraits/heo-jaegu.webp'],
+  // 2026-10-13: PDF 추출 PNG 5종도 WebP 로 전환 — 기존 DB 행은 재시작 시 자동 치환된다.
+  ['/team_portraits/son-sooyeong.png', '/team_portraits/son-sooyeong.webp'],
+  ['/team_portraits/cho-kyuwon.png', '/team_portraits/cho-kyuwon.webp'],
+  ['/team_portraits/yoo-seah.png', '/team_portraits/yoo-seah.webp'],
+  ['/team_portraits/bae-yeeun.png', '/team_portraits/bae-yeeun.webp'],
+  ['/team_portraits/cha-hana.png', '/team_portraits/cha-hana.webp'],
 ]);
 const currentPhotoUrl = (value) => legacyProfilePhotos.get(value) ?? value;
 const migrationSignature = (item) => JSON.stringify(fields.map((key) =>

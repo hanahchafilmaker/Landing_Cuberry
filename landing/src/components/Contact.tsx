@@ -22,6 +22,8 @@ async function sendInquiry(form: HTMLFormElement, t: Translate) {
     phone: String(data.get("phone") || "").trim(),
     projectType: "랜딩 무료 상담",
     brief: String(data.get("brief") || "").trim(),
+    // 허니팟 — 사람은 못 보는 숨은 칸. 봇만 채우고 서버는 채워진 문의를 버린다.
+    website: String(data.get("website") || "").trim(),
   };
   const endpoint =
     window.CuberryApi && window.CuberryApi.url
@@ -163,6 +165,17 @@ export function Contact() {
                   {t("프로젝트 정보를 간단히 남겨주시면 맞춤 제안을 드립니다.")}
                 </p>
 
+                {/* 허니팟 — 화면 밖으로 숨겨서 사람만 절대 채우지 않게 한다. */}
+                <input
+                  type="text"
+                  name="website"
+                  defaultValue=""
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  placeholder="Leave this field empty"
+                  style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1px", height: "1px", opacity: 0 }}
+                />
                 <div className="mt-6 flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block">

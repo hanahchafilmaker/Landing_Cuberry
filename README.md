@@ -14,7 +14,7 @@ https://landing-cuberry-admin.onrender.com/admin     ← 레거시 어드민
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙 + 한영 사전 135건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙·보안 회귀 + 한영 사전 174건)
 npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택)
 npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
 npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (43건)
@@ -94,6 +94,29 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 적용 상태는 `GET /api/config` 로 확인할 수 있습니다 — `allowedOrigins`(기본값 + 환경변수), `defaultAllowedOrigins`(기본값만), `publicOrigin`.
 허용되지 않은 Origin이 사전요청을 보내면 서버 로그에 `[cors] 거부된 Origin: …` 가 찍히고 403을 돌려줍니다.
 어떤 주소를 추가해야 할지 모를 때 이 로그를 보면 됩니다.
+
+> **`*`(전체 허용)를 쓰면 쿠키 자격증명이 자동으로 꺼집니다.** 임의 사이트가 방문자의 관리자 세션을
+> 이용해 API를 읽지 못하게 하는 안전장치입니다. 토큰(Bearer) 인증은 그대로 동작합니다.
+
+### 보안 · 성능 설정
+
+| 환경변수 | 기본값 | 역할 |
+| --- | --- | --- |
+| `CONTENT_SECURITY_POLICY` | 화면에 맞춘 기본값 적용 | 응답에 붙는 CSP. 빈 문자열(`""`)로 설정하면 꺼집니다. 인라인 번들·Google/jsDelivr 폰트·Drive 미리보기 iframe 을 허용하는 값이 기본입니다 |
+| `TRUST_PROXY` | Render·Fly·Railway 자동 켜짐 | 로그인/문의 시도 제한의 클라이언트 IP를 `X-Forwarded-For` **오른쪽 끝** hop에서 읽습니다. 꺼져 있으면 소켓 주소만 사용합니다. XFF 전체를 키로 쓰던 과거에는 헤더를 바꿔가며 제한을 우회할 수 있었습니다 |
+| `PROXY_HOPS` | `1` | 신뢰할 프록시 단 수(프록시가 여러 겹일 때 오른쪽에서 몇 개를 볼지) |
+| `REQUIRE_ADMIN_PASSWORD` | 꺼짐 | `1` 이면 `ADMIN_PASSWORD` 없이(기본 초기 비밀번호 상태로) 서버가 시작되지 않습니다 |
+
+그 밖의 서버 기본 동작(설정 없이 항상 적용):
+
+- **압축** — HTML·JS·CSS·JSON·SVG·XML 응답은 Brotli(없으면 gzip)로 압축합니다. 랜딩 단일 파일 374KB → 약 100KB.
+- **재검증** — 모든 정적 자산에 `ETag` 를 붙여 두 번째 요청은 304로 끝납니다. 랜딩 HTML은 `no-cache`(매번 재검증), 어드민 화면은 `no-store`, 이미지·영상은 `max-age=3600` 입니다.
+- **보안 헤더** — 모든 응답에 `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` 를 붙입니다. (`frame-ancestors`는 미리보기 iframe 때문에 일부러 제한하지 않습니다.)
+- **업로드 검증** — 이미지 업로드는 MIME 문자열이 아니라 실제 파일 시그니처(PNG/JPEG/GIF/WebP 매직바이트)로 확인합니다.
+- **스팸 방어** — 문의 폼에 사람만 못 보는 허니팟 필드(`website`)가 있고, 채워져 들어온 문의는 저장하지 않습니다.
+- **경로 보호** — `/images/…`, `/uploads/…` 는 인코딩된 `..` 세그먼트(`%2e%2e%2f`)와 형제 폴더 접근을 모두 거부합니다.
+- **세션 정리** — 만료 세션을 기동 시와 매시간 정리합니다.
+- **검색/공유** — 루트에 `robots.txt`·`sitemap.xml` 이 있고, 랜딩에는 OG·Twitter 카드·canonical·JSON-LD(Organization)·`images/og-cover.jpg`(1200×630) 가 들어 있습니다. 링크를 메신저에 붙이면 제목·설명·이미지가 함께 표시됩니다.
 
 **2) 브라우저 쪽** — 운영 서버 주소는 이미 소스에 커밋되어 있습니다(`BAKED_API_ORIGIN`).
 `https://hanahchafilmaker.github.io/Landing_Cuberry/admin/` 를 열면 **주소를 입력하지 않아도** 로그인 화면이 그 서버에 연결됩니다.
@@ -312,16 +335,21 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 135건 (client-origin 44 + static-paths 18 + server-wiring 68 + i18n-coverage 5)
+npm test           # 의존성 없음 · 174건 (client-origin 44 + static-paths 18 + server-wiring 68 + i18n-coverage 5 + team-profile + security 39)
+npm run test:security # 보안 회귀 39건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock API)
 npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS 값 번역)
 ```
 
+`main` 브랜치와 모든 PR 에서는 `.github/workflows/ci.yml` 이 typecheck → `npm test` → build →
+**커밋된 번들 최신 여부**(`git diff --exit-code index.html admin-v2/index.html`) → 서버 종단 테스트까지 자동 실행합니다.
+
 | 파일 | 무엇을 검증하나 |
 | --- | --- |
 | `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
+| `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |

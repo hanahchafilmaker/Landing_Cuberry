@@ -30,7 +30,7 @@ const LanguageContext = createContext<LanguageContextValue>({
   t: (text, vars) => translate(text, "ko", vars),
 });
 
-/** <html lang> · <title> · meta description 을 화면 언어에 맞춘다. */
+/** <html lang> · <title> · meta description · 공유(OG/Twitter) 메타를 화면 언어에 맞춘다. */
 function syncDocument(lang: Lang) {
   const root = document.documentElement;
   root.setAttribute("lang", lang);
@@ -38,6 +38,16 @@ function syncDocument(lang: Lang) {
   document.title = meta[lang].title;
   const description = document.querySelector('meta[name="description"]');
   if (description) description.setAttribute("content", meta[lang].description);
+  // 링크 미리보기·검색 결과에 나가는 제목/설명도 언어를 따라간다.
+  const shared: Array<[string, string]> = [
+    ['meta[property="og:title"]', meta[lang].title],
+    ['meta[name="twitter:title"]', meta[lang].title],
+    ['meta[property="og:description"]', meta[lang].description],
+    ['meta[name="twitter:description"]', meta[lang].description],
+  ];
+  for (const [selector, value] of shared) {
+    document.querySelector(selector)?.setAttribute("content", value);
+  }
 }
 
 /** 주소창의 ?lang= 을 화면 언어와 맞춘다(공유·북마크용, 페이지는 새로 뜨지 않음). */

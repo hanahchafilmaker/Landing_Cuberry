@@ -29,6 +29,13 @@ services:
         value: "1"
       - key: ADMIN_PASSWORD
         sync: false
+      # 선택: 기본 초기 비밀번호가 그대로면 서버가 뜨지 않게 막는 안전장치.
+      # ADMIN_PASSWORD 를 반드시 함께 등록해야 합니다.
+      # - key: REQUIRE_ADMIN_PASSWORD
+      #   value: "1"
+      # 선택: CSP 를 끄려면 빈 문자열을 넣습니다(기본은 화면에 맞춘 CSP 적용).
+      # - key: CONTENT_SECURITY_POLICY
+      #   value: ""
       # 어드민의 "GitHub에 백업 및 배포" 버튼용. 저장소 Contents: Read and write 권한의 fine-grained token.
       - key: GITHUB_TOKEN
         sync: false

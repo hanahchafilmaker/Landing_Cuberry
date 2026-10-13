@@ -4,6 +4,7 @@ name: fetch-flexboard-design
 # index.html / pages / assets 로 풀어드린 뒤 design-incoming/ 에 커밋한다.
 # (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서, Actions 러너가 대신 받아온다.)
 
+# 수동 실행 전용 — 죽은 arena 브랜치 push 트리거는 제거했다(대용량 재커밋 방지).
 on:
   workflow_dispatch:
     inputs:
@@ -15,12 +16,6 @@ on:
         description: "대상 폴더"
         required: true
         default: "design-incoming"
-  push:
-    branches:
-      - arena/a4684449-landing-cuberry
-    paths:
-      - .github/workflows/fetch-flexboard-design.yml
-      - scripts/unpack_bundle.py
 
 permissions:
   contents: write
