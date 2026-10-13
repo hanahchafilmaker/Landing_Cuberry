@@ -165,11 +165,21 @@
   transition:
     opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: opacity, transform;
 }
 [data-reveal].is-visible {
   opacity: 1;
   transform: none;
+}
+
+/* 팀 프로필의 이력은 필요할 때만 펼쳐 긴 목록을 한 번에 노출하지 않는다. */
+.team-history summary::-webkit-details-marker {
+  display: none;
+}
+.team-history-icon {
+  transition: transform 180ms ease;
+}
+.team-history[open] .team-history-icon {
+  transform: rotate(45deg);
 }
 
 /* ── 레이아웃 별명 (E안의 1200px 캐너스 · 1px 구분선 리듬) ── */

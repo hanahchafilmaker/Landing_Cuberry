@@ -1,49 +1,68 @@
 import { useEffect, useState } from "react";
 
 /**
- * 문서 전체의 [data-reveal] 요소를 관찰하며 화면에 들어오면
- * .is-visible 클래스를 붙여 등장 애니메이션을 트리거합니다.
- * DOM 변경(필터 탭 등)을 MutationObserver로 감지해 새 요소도 등록합니다.
+ * 화면에 들어오는 reveal 요소만 관찰합니다.
+ * 동적으로 추가된 DOM도 전체 페이지를 다시 검색하지 않고 새 하위 트리만 등록합니다.
  */
 export function useReveal() {
   useEffect(() => {
-    const io = new IntersectionObserver(
+    const revealElements = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    if (typeof IntersectionObserver === "undefined") {
+      revealElements.forEach((element) => element.classList.add("is-visible"));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            io.unobserve(entry.target);
-          }
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
         }
       },
       { threshold: 0.1, rootMargin: "0px 0px -36px 0px" },
     );
 
-    const observeAll = () => {
-      document
-        .querySelectorAll("[data-reveal]:not(.is-visible)")
-        .forEach((el) => io.observe(el));
+    const observeTree = (root: Element) => {
+      if (root.matches("[data-reveal]:not(.is-visible)")) observer.observe(root);
+      root.querySelectorAll<HTMLElement>("[data-reveal]:not(.is-visible)").forEach((element) => {
+        observer.observe(element);
+      });
     };
 
-    observeAll();
+    observeTree(document.body);
 
-    const mo = new MutationObserver(observeAll);
-    mo.observe(document.body, { childList: true, subtree: true });
+    const mutations = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) observeTree(node as Element);
+        }
+      }
+    });
+    mutations.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      io.disconnect();
-      mo.disconnect();
+      observer.disconnect();
+      mutations.disconnect();
     };
   }, []);
 }
 
-/** 스크롤이 threshold 이상 내려왔는지 확인하는 훅 */
+/** 스크롤 임계값을 넘었을 때만 상태를 갱신합니다. */
 export function useScrolled(threshold = 24) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > threshold);
-    onScroll();
+    let current = window.scrollY > threshold;
+    setScrolled(current);
+
+    const onScroll = () => {
+      const next = window.scrollY > threshold;
+      if (next === current) return;
+      current = next;
+      setScrolled(next);
+    };
+
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [threshold]);

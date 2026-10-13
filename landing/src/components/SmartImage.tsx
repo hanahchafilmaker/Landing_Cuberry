@@ -58,6 +58,7 @@ export function SmartImage({
       src={activeSrc}
       alt={alt}
       loading="lazy"
+      decoding="async"
       style={objectPosition ? { objectPosition } : undefined}
       onError={() => {
         if (activeSrc === src) setFailedSrc(src ?? null);

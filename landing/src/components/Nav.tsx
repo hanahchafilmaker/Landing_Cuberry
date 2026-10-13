@@ -88,6 +88,8 @@ export function Nav() {
 
       <div
         id="mobile-navigation"
+        aria-hidden={!open}
+        inert={!open}
         className={cn(
           "overflow-hidden transition-all duration-300 lg:hidden",
           open ? "max-h-[420px] opacity-100" : "pointer-events-none max-h-0 opacity-0",
@@ -117,7 +119,6 @@ export function Nav() {
             <span>{t("XCONDA 시작하기")}</span>
             <span aria-hidden="true">↗</span>
           </a>
-          <LangToggle className="mt-4 w-fit" onPick={() => setOpen(false)} />
         </nav>
       </div>
     </header>

@@ -202,9 +202,9 @@ npm run typecheck      # TypeScript 검사
 | 어드민 | 랜딩 반영 위치 |
 | --- | --- |
 | 사이트 문구 | 내비 브랜드명, 히어로 eyebrow·제목(마지막 단어 강조)·설명, 연락처(문의 섹션·푸터) |
-| 상품 | 히어로 상품 칩 + AI 광고 가격 카드 (slug 가 standard/deluxe/premium 이면 디자인의 상세 구성 목록 사용) |
-| 포트폴리오 | Portfolio 섹션 — `source=drive` 는 DRIVE FILM 탭, 나머지는 WORKS 탭 |
-| 팀 프로필 | Team 섹션 — 역할은 `역할 · 소속` 으로 나눠 표시, 이력의 `[텍스트](https://…)` 는 링크, 사진 위치 반영 |
+| 상품 | AI 광고 가격 카드 (히어로와 가격 노출을 중복하지 않음; slug 가 standard/deluxe/premium 이면 상세 구성 목록 사용) |
+| 포트폴리오 | Portfolio 섹션 — `source=drive` 는 DRIVE FILM 탭, 나머지는 WORKS 탭; 처음 6건만 그리고 필요하면 더 보기 |
+| 팀 프로필 | Team 섹션 — 역할은 `역할 · 소속` 으로 나눠 표시, 이력은 카드별로 펼쳐 확인, `[텍스트](https://…)` 는 링크, 사진 위치 반영 |
 | FAQ | FAQ 아코디언 |
 | 상담 문의 | 랜딩 문의 폼 → `POST /api/partnership` (회사/이름·이메일 필수) |
 

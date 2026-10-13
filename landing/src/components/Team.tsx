@@ -85,25 +85,32 @@ export function Team() {
                   )}
                 </div>
 
-                <ul
-                  className="m-0 flex list-none flex-col gap-2 border-t border-line p-5"
-                  hidden={member.career.length === 0}
-                >
-                  {member.career.map((c, j) => (
-                    <li
-                      key={`${j}-${c}`}
-                      className="flex gap-2.5 text-[13px] leading-relaxed text-mute"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-brand"
-                      />
-                      <span className="min-w-0 break-words">
-                        <CareerLine line={c} />
+                {member.career.length > 0 && (
+                  <details className="team-history border-t border-line px-5">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-[11px] font-mono tracking-[0.08em] text-faint transition-colors hover:text-paper">
+                      <span>{t("주요 이력 보기 {count}건", { count: member.career.length })}</span>
+                      <span aria-hidden="true" className="team-history-icon text-base leading-none text-brand">
+                        +
                       </span>
-                    </li>
-                  ))}
-                </ul>
+                    </summary>
+                    <ul className="m-0 flex list-none flex-col gap-2 pb-5">
+                      {member.career.map((c, j) => (
+                        <li
+                          key={`${j}-${c}`}
+                          className="flex gap-2.5 text-[13px] leading-relaxed text-mute"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-brand"
+                          />
+                          <span className="min-w-0 break-words">
+                            <CareerLine line={c} />
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
               </article>
             </Reveal>
           ))}
