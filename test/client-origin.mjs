@@ -305,7 +305,7 @@ expect("굽힌 주소는 https 절대주소", /^https:\/\/[^/\s]+$/i.test(adminB
 expect("굽힌 주소는 로컬이 아님", /localhost|127\.0\.0\.1|\[::1\]/i.test(adminBaked), false);
 expect("서버 기본 허용 목록에 Pages 주소", defaults.includes(PAGES_ORIGIN), true);
 expect("서버가 기본 허용 목록을 환경변수와 합침", /new Set\(\[\.\.\.DEFAULT_ALLOWED_ORIGINS, \.\.\.ENV_ALLOWED_ORIGINS\]\)/.test(serverSource), true);
-expect("서버가 화면을 직접 서빙할 때 굽힌 주소를 비움", /serveClientFile\(req, res, path\.join\(ROOT, "admin", "index\.html"\)\)/.test(serverSource)
+expect("서버가 화면을 직접 서빙할 때 굽힌 주소를 비움", /serveClientFile\(req, res, path\.join\(ROOT, "admin-v2", "index\.html"\)\)/.test(serverSource)
   && /serveClientFile\(req, res, path\.join\(ROOT, "cms-bridge\.js"\)\)/.test(serverSource), true);
 expect("render.yaml 에 Pages 주소", blueprintOrigins("render.yaml").includes(PAGES_ORIGIN), true);
 expect("render.free.yaml 에 Pages 주소", blueprintOrigins("render.free.yaml").includes(PAGES_ORIGIN), true);

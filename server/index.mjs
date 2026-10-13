@@ -1284,8 +1284,13 @@ const server = createServer(async (req, res) => {
       return;
     }
     if (url.pathname === "/admin" || url.pathname.startsWith("/admin/")) {
-      // 굽혀둔 BAKED_API_ORIGIN 을 비워서 본다(같은 서버에 API 가 있으므로).
-      serveClientFile(req, res, path.join(ROOT, "admin", "index.html"));
+      // ── 레거시 어드민 은퇴 ──────────────────────────────────
+      // admin/ (vanilla JS) → admin-v2/ (React) 로 리다이렉트한다.
+      // 기존 URL(/admin/portfolio, /admin/services 등) 도 새 주소로 보낸다.
+      const rest = url.pathname.replace(/^\/admin(?:\/|$)/, "/");
+      const target = `/admin-v2${rest === "/" ? "" : rest}${url.search || ""}`;
+      res.writeHead(301, { Location: target, ...SECURITY_HEADERS });
+      res.end();
       return;
     }
     if (url.pathname === "/admin-v2" || url.pathname.startsWith("/admin-v2/")) {
