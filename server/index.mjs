@@ -1,5 +1,5 @@
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
-import { createNotifier, ensureNotifySchema, emptyNotificationSummary, listNotificationSummary } from "./lib/notify.mjs";
+import { notifyInquiry, listNotifications, retryNotification, notificationStatusMap, lastNotification } from "./lib/notify.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -184,17 +184,19 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY,
+    inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
+    channel TEXT NOT NULL,
+    target TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    sent_at TEXT,
+    UNIQUE (inquiry_id, channel)
+  );
 `);
-
-// 문의 알림(Phase 1) — notifications 테이블. 기존 DB 에도 IF NOT EXISTS 로 그대로 적용된다.
-ensureNotifySchema(db);
-
-// 환경변수(NOTIFY_WEBHOOK_URL·NOTIFY_EMAIL_TO·RESEND_API_KEY)가 모두 비어 있으면
-// 이 발송기는 아무 행도 만들지 않는다 = 배포만 해서는 지금 동작이 바뀌지 않는다.
-const notifier = createNotifier({
-  db,
-  adminUrl: PUBLIC_ORIGIN ? `${PUBLIC_ORIGIN}/admin-v2` : "",
-});
 
 const nowIso = () => new Date().toISOString();
 const bool = (value) => (value ? 1 : 0);
@@ -452,17 +454,19 @@ function publicContent() {
 }
 
 function adminContent() {
-  const notificationMap = new Map(listNotificationSummary(db).map((item) => [item.inquiryId, item]));
+  // 알림 배지용 상태를 한 번의 쿼리로 묶어 N+1 을 피한다.
+  const notifStatus = notificationStatusMap(db);
   return {
     settings: rowSettings(db.prepare("SELECT * FROM settings WHERE id = 1").get()),
     services: db.prepare("SELECT * FROM services ORDER BY sort_order, id").all().map(rowService),
     portfolio: db.prepare("SELECT * FROM portfolio ORDER BY sort_order, id").all().map(rowPortfolio),
     faqs: db.prepare("SELECT * FROM faqs ORDER BY sort_order, id").all().map(rowFaq),
     team: db.prepare("SELECT * FROM team ORDER BY sort_order, id").all().map(rowTeam),
-    inquiries: db
-      .prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC")
-      .all()
-      .map((row) => ({ ...rowInquiry(row), ...(notificationMap.get(row.id) || emptyNotificationSummary()) })),
+    inquiries: db.prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC").all().map((row) => ({
+      ...rowInquiry(row),
+      // 채널이 하나도 없으면(알림 env 미설정) null → 화면에 배지 없음.
+      notificationStatus: notifStatus.get(row.id) ?? null,
+    })),
   };
 }
 
@@ -480,7 +484,8 @@ function exportSeed() {
     faqs: content.faqs.map((item) => omit(item, ["id", "updatedAt"])),
     team: content.team.map((item) => omit(item, ["id", "updatedAt"])),
     // 문의로 들어온 상담 기록. seed 로더는 이 키를 읽지 않지만 백업에 함께 담아둔다.
-    inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt"])),
+    // notificationStatus 는 매번 바뀌는 파생 값이라 백업에서 제외한다.
+    inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt", "notificationStatus"])),
   };
 }
 
@@ -537,11 +542,8 @@ function summary() {
     team: count("SELECT COUNT(*) AS n FROM team"),
     inquiries: count("SELECT COUNT(*) AS n FROM inquiries"),
     newInquiries: count("SELECT COUNT(*) AS n FROM inquiries WHERE status = 'new'"),
-    // 문의 알림 상태 — 어드민 개요의 "마지막 문의 알림" 줄에 쓴다.
-    notifyChannels: notifier.channels,
-    notifyDisabled: notifier.disabled,
-    lastNotificationAt: notifier.lastSentAt(),
-    failedNotifications: notifier.failedCount(),
+    // 개요 화면의 "마지막 문의 알림" 한 줄. 알림 행이 없으면 null.
+    lastNotification: lastNotification(db),
   };
 }
 
@@ -1186,13 +1188,14 @@ async function handleApi(req, res, url) {
     const code = nextInquiryCode();
     const result = db.prepare(`INSERT INTO inquiries (code, name, email, company, phone, project_type, budget, message, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(
-      code, name, email, company, phone,
-      projectType, budget, message, stamp, stamp,
+      code, name, email, company, phone, projectType, budget, message, stamp, stamp,
     );
-    const inquiryId = Number(result.lastInsertRowid);
-    // 알림은 저장이 끝난 뒤 백그라운드로. 실패해도 문의 접수·응답에는 영향이 없다.
-    notifier.notifyInquiry({ id: inquiryId, code, name, email, company, phone, projectType, budget, message, status: "new", createdAt: stamp });
-    return send(res, 200, { id: code, inquiryId });
+    // 알림은 응답을 기다리지 않는다 — Slack/Resend 가 죽어도 리드는 남는다.
+    // 실패·재시도 상태는 notifications 테이블에 남고 어드민에서 재발송한다.
+    void notifyInquiry(db, {
+      id: Number(result.lastInsertRowid), code, name, email, company, phone, projectType, budget, message,
+    });
+    return send(res, 200, { id: code, inquiryId: Number(result.lastInsertRowid) });
   }
 
   const user = requireAdmin(req, res);
@@ -1212,15 +1215,12 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
   if (req.method === "GET" && pathname === "/api/admin/content") return send(res, 200, adminContent());
   if (req.method === "GET" && pathname === "/api/admin/notifications") {
-    const status = String(url.searchParams.get("status") || "").trim();
-    return send(res, 200, { notifications: notifier.list(status ? { status } : {}), channels: notifier.channels });
+    const status = url.searchParams.get("status");
+    return send(res, 200, { notifications: listNotifications(db, status) });
   }
   const notifyRetryMatch = pathname.match(/^\/api\/admin\/notifications\/(\d+)\/retry$/);
-  if (req.method === "POST" && notifyRetryMatch) {
-    const notification = notifier.retry(Number(notifyRetryMatch[1]));
-    if (!notification) return send(res, 404, { error: "알림을 찾을 수 없습니다." });
-    console.log(`[notify] 재발송 요청 — #${notification.id} ${notification.channel} (${notification.inquiryCode})`);
-    return send(res, 200, { ok: true, notification });
+  if (notifyRetryMatch && req.method === "POST") {
+    return send(res, 200, await retryNotification(db, Number(notifyRetryMatch[1])));
   }
   if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
   if (req.method === "POST" && pathname === "/api/admin/github-backup") {

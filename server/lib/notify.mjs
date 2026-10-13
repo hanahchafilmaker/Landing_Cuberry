@@ -1,472 +1,317 @@
-// ─────────────────────────────────────────────────────────────
-// 문의 알림 (Phase 1) — 런타임 의존성 0개.
-//
+// ── Phase 1: 문의 알림 (웹훅 · 이메일) ───────────────────────────────────
 // 설계: docs/ops-hardening-plan.md §3
-//   * 채널은 fetch 로 부르는 REST/Webhook 만 쓴다 (Slack Incoming Webhook, Resend REST API).
-//     nodemailer/SMTP 같은 패키지는 넣지 않는다 (package.json 의 dependencies 는 계속 비어 있다).
-//   * 문의 INSERT 가 끝난 뒤 백그라운드에서 보낸다 → 알림이 느리거나 죽어도 문의 접수는 그대로.
-//   * 같은 문의·같은 채널은 notifications 행 1개(UNIQUE) → 재시도·수동 재발송이 행을 늘리지 않는다.
-//   * 환경변수가 하나도 없으면 행 자체를 만들지 않는다 → 배포만 해서는 동작이 바뀌지 않는다.
-// ─────────────────────────────────────────────────────────────
+//
+// 원칙 3가지 (설계 문서와 동일):
+//   1. 의존성 0 — fetch 만 쓴다 (nodemailer / slack SDK 없음).
+//   2. 알림 실패가 문의 접수를 막지 않는다 — 발송은 항상 백그라운드로 돌고,
+//      최종 실패해도 inquiries 행은 그대로 남는다.
+//   3. 상태는 notifications 테이블에 남긴다 — 어드민에서 재발송할 수 있다.
+//
+// 채널 확장: 새 채널(Telegram · SMS 등)은 activeChannels() 에 항목 하나와
+// send*() 함수 하나를 추가하면 된다.
 
-export const NOTIFICATIONS_SCHEMA = `
-  CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY,
-    inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
-    channel TEXT NOT NULL,                          -- 'webhook' | 'email'
-    target TEXT NOT NULL,                           -- 로그·표시용 (호스트 또는 수신 메일)
-    status TEXT NOT NULL DEFAULT 'pending',         -- pending | sent | failed | skipped
-    attempts INTEGER NOT NULL DEFAULT 0,
-    last_error TEXT,
-    created_at TEXT NOT NULL,
-    sent_at TEXT,
-    UNIQUE (inquiry_id, channel)                    -- 같은 문의·같은 채널은 1행만 → 중복 발송 방지
-  );
-  CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications (status, id DESC);
-`;
+const DEFAULT_RETRY_DELAYS_MS = [1000, 5000, 25000]; // 1s → 5s → 25s (최대 3회 재시도)
+const SEND_TIMEOUT_MS = 8000;
 
-/** 기본 백오프: 첫 실패 뒤 1s → 5s → 25s (총 4회 시도 = 최초 1 + 재시도 3). */
-export const DEFAULT_RETRY_DELAYS_MS = [1000, 5000, 25000];
+// 발송 중인 notification id — 자동 재시도와 어드민 재발송이 겹치지 않게 한다.
+const inflight = new Set();
 
-const MESSAGE_SUMMARY_MAX = 120;
-const ERROR_MAX = 300;
+const on = (value) => /^(1|true|yes|on)$/i.test(String(value ?? "").trim());
 
-/** 이 DB에 notifications 테이블을 준비한다(기존 DB에도 그대로 적용되는 IF NOT EXISTS). */
-export function ensureNotifySchema(db) {
-  db.exec(NOTIFICATIONS_SCHEMA);
+// 알림 관련 환경변수를 한 곳에서 읽는다. 전부 미설정이면 채널이 하나도
+// 잡히지 않아 아무 일도 일어나지 않는다(= 기존과 완전히 같은 동작).
+export function notifyConfig(env = process.env) {
+  return {
+    disabled: on(env.NOTIFY_DISABLED),
+    webhookUrl: String(env.NOTIFY_WEBHOOK_URL || "").trim(),
+    emailTo: String(env.NOTIFY_EMAIL_TO || "").split(",").map((value) => value.trim()).filter(Boolean),
+    resendApiKey: String(env.RESEND_API_KEY || "").trim(),
+    emailFrom: String(env.NOTIFY_EMAIL_FROM || "Cuberry <onboarding@resend.dev>").trim(),
+    // 테스트가 로컬 목 서버를 가리키도록 오버라이드하는 용도(운영은 기본값 사용).
+    resendUrl: String(env.RESEND_API_URL || "https://api.resend.com/emails").trim(),
+    maskContact: on(env.NOTIFY_MASK_CONTACT),
+    retryDelaysMs: parseRetryDelays(env.NOTIFY_RETRY_DELAYS_MS),
+    publicOrigin: String(env.PUBLIC_ORIGIN || env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, ""),
+    port: Number(env.PORT || 8080),
+  };
 }
 
-// ── 연락처 마스킹 (NOTIFY_MASK_CONTACT=1) ──────────────────────
-// 웹훅 본문은 서드파티(Slack 등)에 남으므로, 켜면 이메일·전화를 가려서 보낸다.
-// 이메일 채널은 우리 수신함이므로 원문을 그대로 쓴다(회신에 필요).
+export function parseRetryDelays(value) {
+  const parsed = String(value ?? "")
+    .split(",")
+    .map((part) => Number(part.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return parsed.length ? parsed : [...DEFAULT_RETRY_DELAYS_MS];
+}
 
+// ab***@gmail.com — 서드파티 채널으로 나가는 연락처를 최소화한다.
 export function maskEmail(value) {
-  const text = String(value || "").trim();
-  const at = text.lastIndexOf("@");
-  if (at <= 0) return text ? "***" : "";
+  const text = String(value || "");
+  const at = text.indexOf("@");
+  if (at <= 0) return "***";
   const local = text.slice(0, at);
-  const domain = text.slice(at + 1);
-  const keep = local.length <= 2 ? 1 : 2;
-  return `${local.slice(0, keep)}***@${domain}`;
+  return `${local.slice(0, 2)}***${text.slice(at)}`;
 }
 
+// 010-****-5678 — 가운데 자리를 가린다.
 export function maskPhone(value) {
-  const text = String(value || "").trim();
-  const digits = text.replace(/\D/g, "");
-  if (digits.length < 7) return text ? "***" : "";
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length < 7) return "***";
   return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
 }
 
-// ── 설정 ───────────────────────────────────────────────────────
-
-function parseDelays(value) {
-  return String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item !== "")
-    .map(Number)
-    .filter((item) => Number.isFinite(item) && item >= 0);
+function adminOrigin(cfg) {
+  return cfg.publicOrigin || `http://127.0.0.1:${cfg.port}`;
 }
 
-export function readNotifyConfig(env = process.env) {
-  const webhookUrl = String(env.NOTIFY_WEBHOOK_URL || "").trim();
-  const emailToList = String(env.NOTIFY_EMAIL_TO || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const resendApiKey = String(env.RESEND_API_KEY || "").trim();
-  const retryDelaysMs = parseDelays(env.NOTIFY_RETRY_DELAYS_MS);
-  const delays = retryDelaysMs.length ? retryDelaysMs : DEFAULT_RETRY_DELAYS_MS;
-  const requestedAttempts = Number(env.NOTIFY_MAX_ATTEMPTS);
-  return {
-    disabled: String(env.NOTIFY_DISABLED || "").trim() === "1",
-    maskContact: String(env.NOTIFY_MASK_CONTACT || "").trim() === "1",
-    webhookUrl,
-    emailTo: emailToList,
-    resendApiKey,
-    emailFrom: String(env.NOTIFY_EMAIL_FROM || "Cuberry <onboarding@resend.dev>").trim(),
-    // Resend 호환 엔드포인트. 테스트·사내 프록시에서만 바꾼다.
-    emailBaseUrl: String(env.RESEND_API_BASE || "https://api.resend.com").trim().replace(/\/+$/, ""),
-    retryDelaysMs: delays,
-    maxAttempts: Number.isFinite(requestedAttempts) && requestedAttempts >= 1 ? Math.floor(requestedAttempts) : delays.length + 1,
-    // 어드민 링크. PUBLIC_ORIGIN(없으면 RENDER_EXTERNAL_URL) 이 없으면 그 줄을 생략한다.
-    adminUrl: String(env.ADMIN_URL || "").trim(),
-  };
+// 웹훅 본문 텍스트. Slack · Google Chat · n8n 등에서 그대로 읽히는 모양이다.
+export function webhookText(inquiry, cfg) {
+  const contact = [
+    cfg.maskContact ? maskEmail(inquiry.email) : inquiry.email,
+    inquiry.phone ? (cfg.maskContact ? maskPhone(inquiry.phone) : inquiry.phone) : null,
+  ].filter(Boolean).join(" · ");
+  const meta = [inquiry.name, inquiry.company, inquiry.projectType, inquiry.budget].filter(Boolean).join(" · ");
+  const summary = String(inquiry.message || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  return [
+    `[Cuberry] 새 상담 문의 ${inquiry.code}`,
+    meta,
+    contact,
+    summary,
+    `→ 어드민에서 확인: ${adminOrigin(cfg)}/admin-v2`,
+  ].filter(Boolean).join("\n");
 }
 
-/** 설정된(켜진) 채널 이름 목록. 이게 비어 있으면 알림 행을 아예 만들지 않는다. */
-export function enabledChannels(config) {
+// 설정된 채널만 돌려준다. webhookUrl 비어 있으면 webhook 채널 없음,
+// EMAIL_TO + RESEND_API_KEY 중 하나라도 없으면 email 채널 없음.
+export function activeChannels(cfg) {
   const channels = [];
-  if (config.webhookUrl) channels.push("webhook");
-  if (config.emailTo.length && config.resendApiKey) channels.push("email");
+  if (cfg.webhookUrl) {
+    let host = cfg.webhookUrl;
+    try { host = new URL(cfg.webhookUrl).host; } catch { /* URL 아님 — 원문 유지 */ }
+    channels.push({ channel: "webhook", target: host });
+  }
+  if (cfg.emailTo.length && cfg.resendApiKey) {
+    channels.push({ channel: "email", target: cfg.emailTo.join(", ") });
+  }
   return channels;
 }
 
-// 표시용 target — 웹훅 URL 전체(비밀 토큰 포함)는 절대 저장하지 않고 호스트만 남긴다.
-function webhookTarget(url) {
-  try {
-    return new URL(url).host;
-  } catch {
-    return "webhook";
-  }
+async function sendWebhook(cfg, inquiry) {
+  const text = webhookText(inquiry, cfg);
+  const response = await fetch(cfg.webhookUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      text,
+      blocks: [{ type: "section", text: { type: "mrkdwn", text } }],
+    }),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`웹훅 HTTP ${response.status}`);
 }
 
-// ── 메시지 ─────────────────────────────────────────────────────
-
-function summarize(message) {
-  const text = String(message || "").replace(/\s+/g, " ").trim();
-  if (text.length <= MESSAGE_SUMMARY_MAX) return text;
-  return `${text.slice(0, MESSAGE_SUMMARY_MAX)}…`;
+async function sendEmail(cfg, inquiry) {
+  const subject = `[Cuberry] 새 상담 문의 ${inquiry.code} — ${inquiry.name}`;
+  const rows = [
+    ["담당자", inquiry.name],
+    ["회사", inquiry.company],
+    ["프로젝트", inquiry.projectType],
+    ["예산", inquiry.budget],
+    ["이메일", cfg.maskContact ? maskEmail(inquiry.email) : inquiry.email],
+    ["연락처", inquiry.phone ? (cfg.maskContact ? maskPhone(inquiry.phone) : inquiry.phone) : ""],
+  ].filter(([, value]) => value);
+  const html = [
+    `<h2>${subject}</h2>`,
+    `<table cellpadding="6" style="border-collapse:collapse">${rows.map(([label, value]) =>
+      `<tr><td style="border:1px solid #ddd;background:#f7f7f7"><b>${label}</b></td><td style="border:1px solid #ddd">${escapeHtml(value)}</td></tr>`).join("")}</table>`,
+    `<p style="white-space:pre-wrap">${escapeHtml(inquiry.message || "")}</p>`,
+    `<p><a href="${adminOrigin(cfg)}/admin-v2">어드민에서 확인</a></p>`,
+  ].join("\n");
+  const response = await fetch(cfg.resendUrl, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${cfg.resendApiKey}`,
+      "content-type": "application/json",
+    },
+    // Reply-To 를 문의자 메일로 두면 어드민에서 바로 답장할 수 있다.
+    body: JSON.stringify({
+      from: cfg.emailFrom,
+      to: cfg.emailTo,
+      reply_to: inquiry.email,
+      subject,
+      html,
+    }),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`이메일 HTTP ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
+  }
 }
 
 function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 }
 
-/** 웹훅/Slack 본문. 봇 알림이므로 한눈에 읽히는 평문 몇 줄로 끝낸다. */
-export function formatInquiryText(inquiry, { adminUrl = "", mask = false } = {}) {
-  const lines = [`[Cuberry] 새 상담 문의 ${inquiry.code || ""}`.trim()];
-  const who = [inquiry.name, inquiry.company, inquiry.projectType, inquiry.budget].filter(Boolean).join(" · ");
-  lines.push(who || "(담당자 정보 없음)");
-  const email = mask ? maskEmail(inquiry.email) : inquiry.email;
-  const phone = mask ? maskPhone(inquiry.phone) : inquiry.phone;
-  const contact = [email, phone].filter(Boolean).join(" · ");
-  if (contact) lines.push(contact);
-  const summary = summarize(inquiry.message);
-  if (summary) lines.push(summary);
-  if (adminUrl) lines.push(`→ 어드민에서 확인: ${adminUrl}`);
-  return lines.join("\n");
+function senderFor(channel) {
+  return channel === "email" ? sendEmail : sendWebhook;
 }
 
-export function buildWebhookPayload(inquiry, { adminUrl = "", mask = false } = {}) {
-  const text = formatInquiryText(inquiry, { adminUrl, mask });
-  return { text, blocks: [{ type: "section", text: { type: "mrkdwn", text } }] };
-}
+const nowIso = () => new Date().toISOString();
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function buildEmailMessage(inquiry, { adminUrl = "", mask = false } = {}) {
-  const contact = [mask ? maskEmail(inquiry.email) : inquiry.email, mask ? maskPhone(inquiry.phone) : inquiry.phone].filter(Boolean).join(" · ");
-  const subject = `[Cuberry] 새 상담 문의 ${inquiry.code || ""}${inquiry.name ? ` — ${inquiry.name}` : ""}`;
-  const meta = [
-    ["담당자", inquiry.name],
-    ["회사", inquiry.company],
-    ["연락처", contact],
-    ["유형", inquiry.projectType],
-    ["예산", inquiry.budget],
-    ["접수", inquiry.createdAt],
-  ].filter(([, value]) => value);
-  const message = String(inquiry.message || "(내용 없음)");
-  const text = [
-    ...meta.map(([label, value]) => `${label}: ${value}`),
-    "",
-    message,
-    ...(adminUrl ? ["", `어드민: ${adminUrl}`] : []),
-  ].join("\n");
-  const html = [
-    `<h2 style="font:600 16px/1.4 system-ui,sans-serif;margin:0 0 12px">새 상담 문의 ${escapeHtml(inquiry.code || "")}</h2>`,
-    `<table style="font:14px/1.6 system-ui,sans-serif;border-collapse:collapse">${meta
-      .map(([label, value]) => `<tr><td style="padding:2px 10px 2px 0;color:#777">${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`)
-      .join("")}</table>`,
-    `<p style="font:14px/1.7 system-ui,sans-serif;white-space:pre-wrap;margin:16px 0 0">${escapeHtml(message)}</p>`,
-    ...(adminUrl ? [`<p style="font:12px/1.6 system-ui,sans-serif;margin:16px 0 0"><a href="${escapeHtml(adminUrl)}">어드민에서 확인</a></p>`] : []),
-  ].join("");
-  return { subject, text, html };
-}
-
-// ── 채널 어댑터 (fetch 만 사용) ────────────────────────────────
-
-function describeError(error) {
-  const raw = error instanceof Error ? error.message : String(error);
-  return raw.length > ERROR_MAX ? `${raw.slice(0, ERROR_MAX)}…` : raw;
-}
-
-async function readDetail(response) {
+// 백오프 재시도 루프. 마지막 재시도까지 실패하면 status=failed + last_error 저장.
+async function deliverWithRetry(db, notification, inquiry, cfg) {
+  if (inflight.has(notification.id)) return;
+  inflight.add(notification.id);
   try {
-    const body = await response.text();
-    return body ? ` ${body.replace(/\s+/g, " ").slice(0, 160)}` : "";
-  } catch {
-    return "";
+    const send = senderFor(notification.channel);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await send(cfg, inquiry);
+        db.prepare("UPDATE notifications SET attempts = attempts + 1, status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?")
+          .run(nowIso(), notification.id);
+        return;
+      } catch (error) {
+        const message = String(error?.message || error).slice(0, 500);
+        const nextDelay = cfg.retryDelaysMs[attempt - 1];
+        db.prepare("UPDATE notifications SET attempts = attempts + 1, last_error = ? WHERE id = ?").run(message, notification.id);
+        if (nextDelay === undefined) {
+          db.prepare("UPDATE notifications SET status = 'failed' WHERE id = ?").run(notification.id);
+          console.warn(`[notify] 최종 실패 (${notification.channel} → ${notification.target}) ${message}`);
+          return;
+        }
+        await sleep(nextDelay);
+      }
+    }
+  } finally {
+    inflight.delete(notification.id);
   }
 }
 
-async function sendWebhook({ config, inquiry, fetchImpl }) {
-  const payload = buildWebhookPayload(inquiry, { adminUrl: config.adminUrl, mask: config.maskContact });
-  const response = await fetchImpl(config.webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(`웹훅 응답 ${response.status}${await readDetail(response)}`);
+// 문의 INSERT 직후 백그라운드에서 부른다. 절대 throw 하지 않는다.
+export function notifyInquiry(db, inquiry) {
+  try {
+    const cfg = notifyConfig();
+    if (cfg.disabled) return;
+    const channels = activeChannels(cfg);
+    if (!channels.length) return; // env 미설정 → 알림 행을 아예 만들지 않는다.
+    for (const entry of channels) {
+      const existing = db.prepare("SELECT * FROM notifications WHERE inquiry_id = ? AND channel = ?").get(inquiry.id, entry.channel);
+      let notification = existing;
+      if (!notification) {
+        const result = db.prepare(`INSERT INTO notifications (inquiry_id, channel, target, status, attempts, created_at)
+          VALUES (?, ?, ?, 'pending', 0, ?)`)
+          .run(inquiry.id, entry.channel, entry.target, nowIso());
+        notification = { id: Number(result.lastInsertRowid), channel: entry.channel, target: entry.target };
+      } else if (existing.status === "sent") {
+        continue; // 이미 보낸 알림은 중복 발송하지 않는다 (UNIQUE 가 보장하는 정책)
+      }
+      deliverWithRetry(db, notification, inquiry, cfg)
+        .catch((error) => console.warn(`[notify] 발송 중 오류: ${error?.message || error}`));
+    }
+  } catch (error) {
+    // 알림 준비 실패는 문의 접수에 영향을 주지 않는다.
+    console.warn(`[notify] 알림 준비 실패(문의 접수는 정상): ${error?.message || error}`);
+  }
 }
 
-async function sendEmail({ config, inquiry, fetchImpl }) {
-  const message = buildEmailMessage(inquiry, { adminUrl: config.adminUrl });
-  const response = await fetchImpl(`${config.emailBaseUrl}/emails`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.resendApiKey}` },
-    body: JSON.stringify({
-      from: config.emailFrom,
-      to: config.emailTo,
-      subject: message.subject,
-      html: message.html,
-      text: message.text,
-      // 어드민에서 "답장"만 누르면 문의자에게 바로 회신되도록.
-      reply_to: inquiry.email || undefined,
-    }),
-  });
-  if (!response.ok) throw new Error(`이메일 API 응답 ${response.status}${await readDetail(response)}`);
-}
-
-const ADAPTERS = { webhook: sendWebhook, email: sendEmail };
-
-// ── 조회 ───────────────────────────────────────────────────────
-
-const STATUS_RANK = { failed: 3, pending: 2, sent: 1, skipped: 0 };
-
-function inquiryFromRow(row) {
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    email: row.email,
-    company: row.company || "",
-    phone: row.phone || "",
-    projectType: row.project_type || "",
-    budget: row.budget || "",
-    message: row.message || "",
-    status: row.status || "new",
-    createdAt: row.created_at || "",
-  };
-}
-
-export function rowNotification(row) {
+function mapNotification(row) {
   return {
     id: row.id,
     inquiryId: row.inquiry_id,
-    inquiryCode: row.inquiry_code || "",
-    inquiryName: row.inquiry_name || "",
+    inquiryCode: row.inquiry_code ?? "",
     channel: row.channel,
     target: row.target,
     status: row.status,
     attempts: row.attempts,
-    lastError: row.last_error || "",
+    lastError: row.last_error || null,
     createdAt: row.created_at,
-    sentAt: row.sent_at || "",
+    sentAt: row.sent_at || null,
   };
 }
 
-/**
- * 문의별 알림 요약 — 어드민 문의 목록에 배지를 붙일 때 쓴다.
- * 여러 채널 중 **가장 나쁜 상태** 하나를 대표로 고른다(failed > pending > sent).
- * 쿼리 1회로 끝내므로 문의 N건이어도 N+1 이 생기지 않는다.
- */
-export function listNotificationSummary(db) {
-  const rows = db
-    .prepare(
-      `SELECT n.id, n.inquiry_id, n.channel, n.status, n.attempts, n.last_error
-         FROM notifications n
-         JOIN inquiries i ON i.id = n.inquiry_id
-        ORDER BY n.id`,
-    )
-    .all();
-  const grouped = new Map();
-  for (const row of rows) {
-    const current = grouped.get(row.inquiry_id);
-    if (!current) {
-      grouped.set(row.inquiry_id, {
-        inquiryId: row.inquiry_id,
-        notificationId: row.id,
-        notificationStatus: row.status,
-        notificationAttempts: row.attempts,
-        notificationError: row.last_error || "",
-        channels: [row.channel],
-      });
-      continue;
-    }
-    current.channels.push(row.channel);
-    current.notificationAttempts += row.attempts;
-    if ((STATUS_RANK[row.status] ?? 0) > (STATUS_RANK[current.notificationStatus] ?? 0)) {
-      current.notificationId = row.id;
-      current.notificationStatus = row.status;
-      current.notificationError = row.last_error || "";
-    }
+const STATUS_FILTERS = new Set(["pending", "sent", "failed", "skipped"]);
+
+export function listNotifications(db, status) {
+  if (status && !STATUS_FILTERS.has(status)) {
+    throw Object.assign(new Error("상태를 확인해 주세요. (pending | sent | failed | skipped)"), { status: 400 });
   }
-  return [...grouped.values()];
+  const sql = `SELECT n.*, i.code AS inquiry_code FROM notifications n
+    JOIN inquiries i ON i.id = n.inquiry_id
+    ${status ? "WHERE n.status = ?" : ""}
+    ORDER BY datetime(n.created_at) DESC, n.id DESC LIMIT 200`;
+  const rows = status ? db.prepare(sql).all(status) : db.prepare(sql).all();
+  return rows.map(mapNotification);
 }
 
-export function emptyNotificationSummary() {
-  return { notificationId: 0, notificationStatus: "", notificationAttempts: 0, notificationError: "" };
+// 어드민 재발송 — 기존 행을 재사용(UNIQUE)하고 시도 횟수만 올린다.
+// 자동 재시도와 달리 한 번만 시도해서 관리자가 눌렀을 때 바로 결과를 본다.
+export async function retryNotification(db, id) {
+  const row = db.prepare("SELECT * FROM notifications WHERE id = ?").get(id);
+  if (!row) throw Object.assign(new Error("알림을 찾을 수 없습니다."), { status: 404 });
+  const cfg = notifyConfig();
+  if (cfg.disabled) throw Object.assign(new Error("알림이 꺼져 있습니다. (NOTIFY_DISABLED=1)"), { status: 400 });
+  if (inflight.has(row.id)) throw Object.assign(new Error("이미 발송 중인 알림입니다."), { status: 409 });
+  const inquiryRow = db.prepare("SELECT * FROM inquiries WHERE id = ?").get(row.inquiry_id);
+  if (!inquiryRow) throw Object.assign(new Error("문의를 찾을 수 없습니다."), { status: 404 });
+
+  const inquiry = {
+    id: inquiryRow.id,
+    code: inquiryRow.code,
+    name: inquiryRow.name,
+    email: inquiryRow.email,
+    company: inquiryRow.company || "",
+    phone: inquiryRow.phone || "",
+    projectType: inquiryRow.project_type || "",
+    budget: inquiryRow.budget || "",
+    message: inquiryRow.message,
+  };
+
+  inflight.add(row.id);
+  db.prepare("UPDATE notifications SET status = 'pending' WHERE id = ?").run(row.id);
+  let failed = null;
+  try {
+    await senderFor(row.channel)(cfg, inquiry);
+    db.prepare("UPDATE notifications SET attempts = attempts + 1, status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?")
+      .run(nowIso(), row.id);
+  } catch (error) {
+    failed = String(error?.message || error).slice(0, 500);
+    db.prepare("UPDATE notifications SET attempts = attempts + 1, status = 'failed', last_error = ? WHERE id = ?")
+      .run(failed, row.id);
+    console.warn(`[notify] 재발송 실패 (${row.channel} → ${row.target}) ${failed}`);
+  } finally {
+    inflight.delete(row.id);
+  }
+  const updated = db.prepare(`SELECT n.*, i.code AS inquiry_code FROM notifications n
+    JOIN inquiries i ON i.id = n.inquiry_id WHERE n.id = ?`).get(row.id);
+  return { ok: !failed, notification: mapNotification(updated) };
 }
 
-// ── 발송기 ─────────────────────────────────────────────────────
-/**
- * @param {object} options
- * @param {import("node:sqlite").DatabaseSync} options.db
- * @param {Record<string, string|undefined>} [options.env]
- * @param {typeof fetch} [options.fetchImpl] 테스트에서 스텁으로 교체
- * @param {(ms: number) => Promise<void>} [options.sleep] 테스트에서 시간을 건너뛰기 위해 교체
- * @param {Console} [options.log]
- */
-export function createNotifier({ db, env = process.env, adminUrl = "", fetchImpl = fetch, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), log = console, now = () => new Date().toISOString() } = {}) {
-  const config = { ...readNotifyConfig(env), adminUrl: String(adminUrl || env.ADMIN_URL || "").trim() };
-  const channels = enabledChannels(config);
-  // 재발송 버튼 연타 등으로 같은 행에 체인이 두 개 붙는 것을 막는다(단일 인스턴스 기준).
-  const inFlight = new Set();
-
-  const selectRow = (id) => db.prepare("SELECT * FROM notifications WHERE id = ?").get(id);
-  const selectRowByChannel = (inquiryId, channel) =>
-    db.prepare("SELECT * FROM notifications WHERE inquiry_id = ? AND channel = ?").get(inquiryId, channel);
-
-  function ensureRow(inquiryId, channel, target, createdAt) {
-    db.prepare(
-      `INSERT INTO notifications (inquiry_id, channel, target, status, attempts, last_error, created_at, sent_at)
-       VALUES (?, ?, ?, 'pending', 0, NULL, ?, NULL)
-       ON CONFLICT (inquiry_id, channel) DO NOTHING`,
-    ).run(inquiryId, channel, target, createdAt);
-    return selectRowByChannel(inquiryId, channel);
+// GET /api/admin/content 의 inquiries 각 항목에 붙일 알림 상태.
+// 채널이 여러 개면 "가장 안 좋은 상태" 로 통합한다: failed > pending > skipped > sent.
+export function notificationStatusMap(db) {
+  const rank = { failed: 4, pending: 3, skipped: 2, sent: 1 };
+  const result = new Map();
+  for (const row of db.prepare("SELECT inquiry_id, status FROM notifications").all()) {
+    const current = result.get(row.inquiry_id);
+    if (!current || rank[row.status] > rank[current]) result.set(row.inquiry_id, row.status);
   }
+  return result;
+}
 
-  function markSent(id) {
-    db.prepare("UPDATE notifications SET status = 'sent', sent_at = ?, last_error = NULL WHERE id = ?").run(now(), id);
-  }
-
-  function markFailure(id, error, hasMoreAttempts) {
-    db.prepare("UPDATE notifications SET status = ?, last_error = ? WHERE id = ?").run(hasMoreAttempts ? "pending" : "failed", describeError(error), id);
-  }
-
-  function bumpAttempts(id) {
-    db.prepare("UPDATE notifications SET attempts = attempts + 1 WHERE id = ?").run(id);
-    return Number(selectRow(id)?.attempts || 0);
-  }
-
-  function channelConfig(channel) {
-    if (channel === "webhook") {
-      if (!config.webhookUrl) return null;
-      return { target: webhookTarget(config.webhookUrl) };
-    }
-    if (channel === "email") {
-      if (!config.emailTo.length || !config.resendApiKey) return null;
-      return { target: config.emailTo.join(", ") };
-    }
-    return null;
-  }
-
-  /** 한 행을 백오프 재시도와 함께 발송한다. 절대 예외를 밖으로 던지지 않는다. */
-  async function deliver(row, inquiry) {
-    if (inFlight.has(row.id)) return { ok: false, skipped: "in-flight" };
-    inFlight.add(row.id);
-    try {
-      const adapter = ADAPTERS[row.channel];
-      const ready = channelConfig(row.channel);
-      if (!adapter || !ready) {
-        db.prepare("UPDATE notifications SET status = 'failed', last_error = ? WHERE id = ?").run(`${row.channel} 채널이 더 이상 설정되어 있지 않습니다.`, row.id);
-        return { ok: false };
-      }
-      const max = Math.max(1, config.maxAttempts);
-      for (let attempt = 1; attempt <= max; attempt += 1) {
-        if (attempt > 1) {
-          const delay = config.retryDelaysMs[Math.min(attempt - 2, config.retryDelaysMs.length - 1)];
-          if (delay > 0) await sleep(delay);
-        }
-        bumpAttempts(row.id);
-        try {
-          await adapter({ config, inquiry, fetchImpl });
-          markSent(row.id);
-          log.log(`[notify] ${row.channel} 발송 완료 — ${inquiry.code} (시도 ${attempt}회)`);
-          return { ok: true };
-        } catch (error) {
-          const hasMore = attempt < max;
-          markFailure(row.id, error, hasMore);
-          if (hasMore) log.warn(`[notify] ${row.channel} 발송 실패 — ${inquiry.code} (${attempt}/${max}): ${describeError(error)}`);
-          else log.error(`[notify] ${row.channel} 발송 최종 실패 — ${inquiry.code}: ${describeError(error)}`);
-        }
-      }
-      return { ok: false };
-    } catch (error) {
-      log.error(`[notify] 알림 처리 중 예외 — ${inquiry?.code || "?"}: ${describeError(error)}`);
-      try {
-        db.prepare("UPDATE notifications SET status = 'failed', last_error = ? WHERE id = ?").run(describeError(error), row.id);
-      } catch {
-        /* DB까지 죽은 상황이면 여기서 할 일이 없다 */
-      }
-      return { ok: false };
-    } finally {
-      inFlight.delete(row.id);
-    }
-  }
-
-  /**
-   * 문의 접수 직후 호출. **동기 함수**라서 문의 응답을 1ms도 기다리게 하지 않는다.
-   * 행 생성까지만 하고 발송 체인은 백그라운드로 띄운다.
-   */
-  function notifyInquiry(inquiry) {
-    try {
-      if (config.disabled) return null;
-      if (!inquiry || !Number.isInteger(Number(inquiry.id))) return null;
-      // Phase 2 의 'review'(스팸 의심) 문의는 알리지 않는다.
-      if ((inquiry.status || "new") !== "new") return null;
-      if (!channels.length) return null; // 환경변수 미설정 → 지금과 동작이 완전히 같다
-      const createdAt = inquiry.createdAt || now();
-      const rows = channels.map((channel) => ensureRow(Number(inquiry.id), channel, channelConfig(channel).target, createdAt));
-      for (const row of rows) void deliver(row, inquiry);
-      return rows.map(rowNotification);
-    } catch (error) {
-      // 알림은 부가 기능이다. 어떤 경우에도 문의 접수를 깨뜨리지 않는다.
-      log.error(`[notify] 알림 준비 실패: ${describeError(error)}`);
-      return null;
-    }
-  }
-
-  /** 어드민 "다시 보내기" — 행은 그대로 두고 attempts 만 초기화해 다시 발송한다. */
-  function retry(id) {
-    const row = selectRow(Number(id));
-    if (!row) return null;
-    const inquiryRow = db.prepare("SELECT * FROM inquiries WHERE id = ?").get(row.inquiry_id);
-    if (!inquiryRow) return null;
-    const withInquiry = (source) => rowNotification({ ...source, inquiry_code: inquiryRow.code, inquiry_name: inquiryRow.name });
-    if (inFlight.has(row.id)) return { ...withInquiry(row), busy: true };
-    db.prepare("UPDATE notifications SET status = 'pending', attempts = 0, last_error = NULL, sent_at = NULL WHERE id = ?").run(row.id);
-    const reset = selectRow(row.id);
-    if (!channelConfig(row.channel)) {
-      db.prepare("UPDATE notifications SET status = 'failed', last_error = ? WHERE id = ?").run(`${row.channel} 채널이 더 이상 설정되어 있지 않습니다.`, row.id);
-      return withInquiry(selectRow(row.id));
-    }
-    // 응답은 초기화된 상태로 즉시 돌려준다 — 발송은 백그라운드에서 이어진다.
-    void deliver(reset, inquiryFromRow(inquiryRow));
-    return withInquiry(reset);
-  }
-
-  function list({ status = "", limit = 200 } = {}) {
-    const base = `SELECT n.*, i.code AS inquiry_code, i.name AS inquiry_name
-                    FROM notifications n
-                    LEFT JOIN inquiries i ON i.id = n.inquiry_id`;
-    const rows = status
-      ? db.prepare(`${base} WHERE n.status = ? ORDER BY n.id DESC LIMIT ?`).all(status, Number(limit) || 200)
-      : db.prepare(`${base} ORDER BY n.id DESC LIMIT ?`).all(Number(limit) || 200);
-    return rows.map(rowNotification);
-  }
-
-  function lastSentAt() {
-    const row = db.prepare("SELECT sent_at FROM notifications WHERE status = 'sent' AND sent_at IS NOT NULL ORDER BY sent_at DESC, id DESC LIMIT 1").get();
-    return row?.sent_at || "";
-  }
-
-  function failedCount() {
-    return Number(db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE status = 'failed'").get()?.n || 0);
-  }
-
+// 개요 화면의 "마지막 문의 알림" 한 줄.
+export function lastNotification(db) {
+  const row = db.prepare(`SELECT n.*, i.code AS inquiry_code FROM notifications n
+    JOIN inquiries i ON i.id = n.inquiry_id
+    ORDER BY n.id DESC LIMIT 1`).get();
+  if (!row) return null;
+  const mapped = mapNotification(row);
   return {
-    config,
-    channels,
-    disabled: config.disabled,
-    maskContact: config.maskContact,
-    notifyInquiry,
-    retry,
-    list,
-    lastSentAt,
-    failedCount,
+    inquiryCode: mapped.inquiryCode,
+    channel: mapped.channel,
+    status: mapped.status,
+    createdAt: mapped.createdAt,
+    sentAt: mapped.sentAt,
   };
 }

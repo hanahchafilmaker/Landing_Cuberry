@@ -108,7 +108,7 @@ export const trpc = {
     },
     summary: {
       useQuery: (_input?: undefined, o?: Options) =>
-        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number; notifyChannels?: string[]; notifyDisabled?: boolean; lastNotificationAt?: string; failedNotifications?: number }>({
+        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number; lastNotification: { inquiryCode: string; channel: string; status: string; createdAt: string; sentAt: string | null } | null }>({
           queryKey: K.summary,
           retry: o?.retry,
           enabled: o?.enabled,
@@ -137,8 +137,8 @@ export const trpc = {
     notifications: {
       list: {
         useQuery: (input?: { status?: string }, o?: Options) =>
-          useQuery<{ notifications: Array<Record<string, unknown> & { id: number; inquiryId: number; inquiryCode: string; channel: string; target: string; status: string; attempts: number; lastError: string; createdAt: string; sentAt: string }>; channels: string[] }>({
-            queryKey: [...K.notifications, input?.status ?? ""],
+          useQuery<{ notifications: Array<Record<string, unknown> & { id: number; inquiryId: number; status: string; attempts: number; lastError: string | null; createdAt: string }> }>({
+            queryKey: [...K.notifications, input?.status ?? "all"],
             retry: o?.retry,
             enabled: o?.enabled,
             queryFn: () => get(`/api/admin/notifications${input?.status ? `?status=${encodeURIComponent(input.status)}` : ""}`),
