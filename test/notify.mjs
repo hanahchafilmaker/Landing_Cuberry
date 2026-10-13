@@ -118,6 +118,8 @@ async function withServer({ label, env = {} }, handle) {
       NOTIFY_MASK_CONTACT: "",
       NOTIFY_DISABLED: "",
       NOTIFY_RETRY_DELAYS_MS: "",
+      // 알림 테스트는 스팸 정책과 분리한다 — off 면 저장·발송이 기존과 완전히 같다.
+      FORM_TOKEN_MODE: "off",
       ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],

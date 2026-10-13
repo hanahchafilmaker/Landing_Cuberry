@@ -128,7 +128,7 @@ export const trpc = {
       updateStatus: {
         useMutation: (o?: Options) =>
           useMutation({
-            mutationFn: (vars: { id: number; status: "new" | "contacted" | "closed" }) =>
+            mutationFn: (vars: { id: number; status: "new" | "review" | "contacted" | "closed" }) =>
               patch(`/api/admin/inquiries/${vars.id}`, { status: vars.status }),
             ...o,
           }),

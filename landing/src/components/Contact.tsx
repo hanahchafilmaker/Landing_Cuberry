@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Reveal } from "./Reveal";
 import { offices } from "@/data/content";
 import { useContent } from "@/cms/ContentContext";
@@ -24,6 +24,9 @@ async function sendInquiry(form: HTMLFormElement, t: Translate) {
     brief: String(data.get("brief") || "").trim(),
     // 허니팟 — 사람은 못 보는 숨은 칸. 봇만 채우고 서버는 채워진 문의를 버린다.
     website: String(data.get("website") || "").trim(),
+    // Phase 2: 서명된 폼 토큰 · Turnstile 응답 (없으면 서버가 FORM_TOKEN_MODE 정책에 따라 처리)
+    formToken: String(data.get("formToken") || "").trim(),
+    turnstile: String(data.get("cf-turnstile-response") || "").trim(),
   };
   const endpoint =
     window.CuberryApi && window.CuberryApi.url
@@ -49,6 +52,87 @@ export function Contact() {
   const { settings } = useContent();
   const { t } = useI18n();
   const [status, setStatus] = useState<Status>({ state: "idle" });
+  const [formToken, setFormToken] = useState("");
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState("");
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const tokenRef = useRef("");
+  const widgetRef = useRef<HTMLDivElement | null>(null);
+  const renderedRef = useRef(false);
+
+  // 폼이 화면에 들어오거나(교차 관찰) 처음 포커스되면 서버에서 서명 토큰을 받는다.
+  // 토큰을 못 받아도 제출은 그대로 — 서버가 FORM_TOKEN_MODE 정책에 따라 처리한다.
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      if (tokenRef.current) return;
+      try {
+        const endpoint =
+          window.CuberryApi && window.CuberryApi.url
+            ? window.CuberryApi.url("/api/form-token")
+            : "/api/form-token";
+        const res = await fetch(endpoint);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!alive || !data?.token || tokenRef.current) return;
+        tokenRef.current = String(data.token);
+        setFormToken(tokenRef.current);
+        if (data.turnstileSiteKey) setTurnstileSiteKey(String(data.turnstileSiteKey));
+      } catch {
+        /* 토큰 없이도 서버가 정책대로 처리한다 */
+      }
+    };
+    const el = formRef.current;
+    const observer =
+      el && typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver(
+            (entries) => {
+              if (entries.some((entry) => entry.isIntersecting)) {
+                void load();
+                observer?.disconnect();
+              }
+            },
+            { threshold: 0.2 },
+          )
+        : null;
+    if (el && observer) observer.observe(el);
+    const onFocus = () => void load();
+    el?.addEventListener("focusin", onFocus);
+    return () => {
+      alive = false;
+      observer?.disconnect();
+      el?.removeEventListener("focusin", onFocus);
+    };
+  }, []);
+
+  // Turnstile siteKey 가 오면 위젯만 그려준다 — 켜져 있지 않으면 CF 스크립트 요청도 0이다.
+  useEffect(() => {
+    if (!turnstileSiteKey || !widgetRef.current || renderedRef.current) return;
+    renderedRef.current = true;
+    const w = window as unknown as {
+      turnstile?: { render: (el: Element, opts: Record<string, unknown>) => void };
+    };
+    const render = () => {
+      if (!widgetRef.current || !w.turnstile) return;
+      try {
+        w.turnstile.render(widgetRef.current, { sitekey: turnstileSiteKey });
+      } catch {
+        renderedRef.current = false;
+      }
+    };
+    if (w.turnstile) {
+      render();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.onload = render;
+    script.onerror = () => {
+      renderedRef.current = false;
+    };
+    document.head.appendChild(script);
+  }, [turnstileSiteKey]);
+
   const sent = status.state === "sent";
   const telHref = `tel:${settings.phone.replace(/[^\d+]/g, "")}`;
 
@@ -98,6 +182,7 @@ export function Contact() {
 
         <Reveal delay={2}>
           <form
+            ref={formRef}
             className="rounded-[4px] border border-line bg-ink-3 p-6 sm:p-8"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -176,6 +261,10 @@ export function Contact() {
                   placeholder="Leave this field empty"
                   style={{ position: "absolute", left: "-9999px", top: "-9999px", width: "1px", height: "1px", opacity: 0 }}
                 />
+                {/* Phase 2: 서명 토큰 — 서버 발급분을 그대로 되돌려 보낸다. */}
+                <input type="hidden" name="formToken" value={formToken} readOnly />
+                {/* Turnstile siteKey 가 있을 때만 그려지는 자리 (CF 가 숨은 응답 칸을 만든다) */}
+                <div ref={widgetRef} />
                 <div className="mt-6 flex flex-col gap-4">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="block">
