@@ -107,6 +107,33 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 | `PROXY_HOPS` | `1` | 신뢰할 프록시 단 수(프록시가 여러 겹일 때 오른쪽에서 몇 개를 볼지) |
 | `REQUIRE_ADMIN_PASSWORD` | 꺼짐 | `1` 이면 `ADMIN_PASSWORD` 없이(기본 초기 비밀번호 상태로) 서버가 시작되지 않습니다 |
 
+### 문의 알림 (Slack · 이메일)
+
+문의가 접수되면 지정한 웹훅과 이메일로 **즉시** 알려줍니다. 아래 표의 변수를 **하나도 등록하지 않으면
+알림 기능이 완전히 꺼진 채 지금과 똑같이 동작**하므로, 먼저 배포해 두고 나중에 켜도 안전합니다.
+(`package.json` 의 `dependencies` 는 계속 비어 있습니다 — `fetch` 만 씁니다.)
+
+| 환경변수 | 기본값 | 역할 |
+| --- | --- | --- |
+| `NOTIFY_WEBHOOK_URL` | *(빈 값)* | Slack Incoming Webhook / Google Chat / n8n / Make 등. `{"text": "…"}` POST 한 번. 비어 있으면 이 채널은 발송하지 않습니다 |
+| `NOTIFY_EMAIL_TO` | *(빈 값)* | 쉼표로 여러 명. 비어 있으면 이메일 채널 비활성 |
+| `RESEND_API_KEY` | *(빈 값)* | [Resend](https://resend.com) REST 키. 없으면 이메일 채널만 자동으로 꺼집니다 |
+| `NOTIFY_EMAIL_FROM` | `Cuberry <onboarding@resend.dev>` | 발신자. Resend 에서 검증한 도메인 주소를 권장합니다 |
+| `NOTIFY_MASK_CONTACT` | 꺼짐 | `1` 이면 **웹훅 본문**의 이메일·전화를 가립니다(`ho***@gmail.com`, `010-****-5678`). 서드파티 채널에 개인정보를 덜 남기려면 켜세요. 이메일 채널은 회신에 필요하므로 원문을 씁니다 |
+| `NOTIFY_DISABLED` | 꺼짐 | `1` 이면 알림 전체 OFF — 장애가 의심될 때 즉시 끄는 킬 스위치 |
+| `NOTIFY_RETRY_DELAYS_MS` | `1000,5000,25000` | 재시도 간격(ms). 기본은 최초 1회 + 재시도 3회 = 최대 4회 시도 |
+| `NOTIFY_MAX_ATTEMPTS` | 백오프 개수 + 1 | 최대 시도 횟수(직접 지정할 때만) |
+
+동작 규칙:
+
+- **문의 접수와 알림은 분리되어 있습니다.** 문의는 DB에 저장되는 즉시 200을 돌려주고, 알림은 그 뒤
+  백그라운드에서 나갑니다. Slack·Resend가 죽어 있어도 리드는 잃지 않습니다.
+- 실패하면 `notifications` 테이블에 사유가 남고, 어드민 문의 목록에 **알림 실패** 배지와 **다시 보내기**
+  버튼이 나타납니다. 같은 문의·같은 채널의 기록은 1행뿐이라 재시도해도 행이 늘지 않습니다.
+- 웹훅 주소(비밀 토큰 포함)는 DB에 저장하지 않고 **호스트만** 남깁니다.
+- 발송 기록은 어드민에서 `GET /api/admin/notifications?status=failed` (전체/실패만) 로 확인할 수 있고,
+  개요 화면에 **마지막 발송 시각과 실패 건수**가 한 줄로 표시됩니다.
+
 그 밖의 서버 기본 동작(설정 없이 항상 적용):
 
 - **압축** — HTML·JS·CSS·JSON·SVG·XML 응답은 Brotli(없으면 gzip)로 압축합니다. 랜딩 단일 파일 374KB → 약 100KB.
@@ -335,11 +362,12 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 174건 (client-origin 44 + static-paths 18 + server-wiring 68 + i18n-coverage 5 + team-profile + security 39)
+npm test           # 의존성 없음 · 248건 (client-origin 44 + static-paths 18 + server-wiring 64 + i18n-coverage 5 + team-profile + notify 78 + security 39)
 npm run test:security # 보안 회귀 39건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟)
+npm run test:notify # 서버 불필요 · 78건 (알림 단위 테스트 + 자체 기동 종단 + 어드민 배지 UI)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
-npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock API)
-npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS 값 번역)
+npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
+npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS 값 번역)
 ```
 
 `main` 브랜치와 모든 PR 에서는 `.github/workflows/ci.yml` 이 typecheck → `npm test` → build →
@@ -349,6 +377,7 @@ npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS �
 | --- | --- |
 | `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
+| `test/notify.mjs` | 문의 알림(Phase 1). ①~⑨ 실제 SQLite + 가짜 `fetch` + 시간 건너뛰는 `sleep` 으로 웹훅 성공·500 재시도·최종 실패·환경변수 미설정(행 0건)·`NOTIFY_DISABLED`·연락처 마스킹·Resend 이메일(수신자·Reply-To)·중복 호출 시 행 1개 유지·`fetch` 예외에도 문의 접수 안전 ⑩~⑪ 로컬 수신기를 띄운 실제 서버에서 접수 → 발송 → 어드민 배지 → 실패 → 다시 보내기까지 왕복(⑪ 안에서는 jsdom 으로 어드민 화면의 배지·다시 보내기 버튼까지 눌러본다) |
 | `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
