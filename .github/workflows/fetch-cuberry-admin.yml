@@ -1,12 +1,9 @@
 name: fetch-cuberry-admin
 
+# 수동 실행 전용 — 과거에는 특정 arena 브랜치 push 에 고정되어 있었지만,
+# 그 브랜치들이 사라진 뒤에도 바이너리를 다시 커밋할 수 있어 트리거를 제거했다.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - arena/01a0dc10-landing-cuberry
-    paths:
-      - .github/workflows/fetch-cuberry-admin.yml
 
 permissions:
   contents: write
@@ -18,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: arena/01a0dc10-landing-cuberry
+          ref: ${{ github.ref_name }}
           fetch-depth: 1
 
       - name: Download Drive zip and publish source
@@ -100,6 +97,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "nothing to commit"
           else
-            git commit -m "Import cuberry-admin source from shared Drive archive"
-            git push origin HEAD:arena/01a0dc10-landing-cuberry
+          git commit -m "Import cuberry-admin source from shared Drive archive"
+          git push origin "HEAD:${{ github.ref_name }}"
           fi

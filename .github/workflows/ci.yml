@@ -1,0 +1,58 @@
+name: ci
+
+# 모든 PR·푸시에서 "코드 · 테스트 · 커밋된 번들" 세 가지를 확인한다.
+# 루트 index.html 과 admin-v2/index.html 은 빌드 산출물이지만 Pages 때문에 커밋되어 있으므로,
+# 소스를 고치고 번들을 다시 굽지 않는 회귀를 여기서 잡는다.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (no server)
+        run: npm test
+
+      - name: Build landing + admin
+        run: npm run build
+
+      - name: Committed bundles are up to date
+        run: |
+          if ! git diff --exit-code -- index.html admin-v2/index.html; then
+            echo "::error::루트 index.html 또는 admin-v2/index.html 이 소스와 다릅니다. 'npm run build' 후 커밋하세요."
+            exit 1
+          fi
+
+      - name: End-to-end tests (local server)
+        run: |
+          PORT=8080 npm start &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/api/health > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:dom
+          npm run test:cms
+          npm run test:i18n
+          npm run test:admin

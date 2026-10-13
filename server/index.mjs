@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,6 +49,41 @@ const GITHUB_BRANCH = String(process.env.GITHUB_BRANCH || "main").trim();
 const GITHUB_SEED_PATH = "server/seed.json";
 const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
+// ── 클라이언트 IP 판별 ────────────────────────────────────────────────
+// X-Forwarded-For 는 "클라이언트가 보낸 값, …, 프록시가 덧붙인 값" 순서로 쌓인다.
+// 즉 왼쪽 값은 방문자가 마음대로 꾸밀 수 있으므로, 로그인 시도 제한의 키로
+// 문자열 전체를 쓰면 헤더를 매번 바꿔가며 제한을 우회할 수 있다(과거 회귀).
+// 진짜 프록시 뒤에서만 XFF 를 신뢰하고, 그중 **오른쪽 끝 PROXY_HOPS 개**만 쓴다.
+const BEHIND_PROXY = process.env.TRUST_PROXY
+  ? !/^(0|false|no)$/i.test(String(process.env.TRUST_PROXY).trim())
+  : Boolean(process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL || process.env.FLY_APP_NAME || process.env.RAILWAY_SERVICE_ID);
+const PROXY_HOPS = Math.max(1, Number(process.env.PROXY_HOPS || 1) || 1);
+// ── 보안 응답 헤더 ────────────────────────────────────────────────────
+// 모든 응답(화면·API·업로드 이미지)에 붙인다. frame-ancestors 는 일부러 넣지 않는다 —
+// 미리보기/임베드 iframe 이 깨지는 쪽이 이 사이트엔 더 큰 손해다.
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+};
+// CSP 는 화면이 쓰는 출처(인라인 번들·Google/jsDelivr 폰트·Drive 미리보기 iframe)를
+// 그대로 허용하는 기본값을 두고, 환경변수로 덮어쓰거나 "" 로 끌 수 있게 한다.
+const DEFAULT_CSP = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+  "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' blob: https:",
+  "frame-src https://drive.google.com https://www.youtube-nocookie.com",
+  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
+  "form-action 'self'",
+].join("; ");
+const CONTENT_SECURITY_POLICY = process.env.CONTENT_SECURITY_POLICY !== undefined
+  ? String(process.env.CONTENT_SECURITY_POLICY).trim()
+  : DEFAULT_CSP;
 
 mkdirSync(UPLOAD_DIR, { recursive: true });
 
@@ -285,6 +321,22 @@ seedTeam();
 console.log("Team profile 2026:", migrateTeamProfile(db, JSON.parse(readFileSync(SEED_PATH, "utf8")).team));
 ensureAdminUser();
 
+// 운영에서 기본 비밀번호를 그대로 쓰는 사고를 막는 안전장치.
+// REQUIRE_ADMIN_PASSWORD=1 이면 ADMIN_PASSWORD 없이는 서버가 아예 뜨지 않는다.
+if (/^(1|true|yes)$/i.test(String(process.env.REQUIRE_ADMIN_PASSWORD || "").trim()) && adminAccount.initialPasswordInUse) {
+  console.error("REQUIRE_ADMIN_PASSWORD=1 인데 기본 초기 비밀번호가 그대로입니다. ADMIN_PASSWORD 환경변수를 설정한 뒤 다시 시작하세요.");
+  process.exit(1);
+}
+
+// 만료 세션은 쓸 때만 지워졌으므로 쌓이기만 했다 — 기동 시 + 매시간 정리한다.
+function purgeExpiredSessions() {
+  const result = db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
+  if (result.changes) console.log(`만료 세션 ${result.changes}건을 정리했습니다.`);
+}
+purgeExpiredSessions();
+const sessionPurgeTimer = setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+sessionPurgeTimer.unref?.();
+
 function rowSettings(row) {
   if (!row) return null;
   return {
@@ -495,6 +547,17 @@ function requireEmail(value) {
 
 const attempts = new Map();
 
+// 요청자를 식별하는 키. 프록시 뒤가 아니면 소켓 주소, 뒤면 XFF 의 오른쪽 끝 hop 만 믿는다.
+function clientIp(req) {
+  const socketIp = String(req.socket?.remoteAddress || "local").replace(/^::ffff:/, "");
+  if (!BEHIND_PROXY) return socketIp;
+  const hops = String(req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((value) => value.trim().replace(/^::ffff:/, ""))
+    .filter(Boolean);
+  return hops[hops.length - PROXY_HOPS] || socketIp;
+}
+
 // 실패한 시도만 기록한다. (예전에는 성공 로그인까지 세서 8회 이후 10분간 잠기는 문제가 있었다)
 function attemptGate(key, limit, windowMs) {
   const now = Date.now();
@@ -563,13 +626,22 @@ function requireAdmin(req, res) {
 }
 
 function send(res, status, body, headers = {}) {
-  const payload = Buffer.from(JSON.stringify(body));
-  res.writeHead(status, {
+  let payload = Buffer.from(JSON.stringify(body));
+  const merged = {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": payload.length,
     "Cache-Control": "no-store",
+    ...SECURITY_HEADERS,
     ...headers,
-  });
+  };
+  if (CONTENT_SECURITY_POLICY) merged["Content-Security-Policy"] = CONTENT_SECURITY_POLICY;
+  const encoding = res.__encoding || "";
+  if (encoding && payload.length >= COMPRESS_MIN && !(status >= 300 && status < 400)) {
+    payload = compress(payload, encoding, "");
+    merged["Content-Encoding"] = encoding;
+    addVary(res, "Accept-Encoding");
+  }
+  merged["Content-Length"] = payload.length;
+  res.writeHead(status, merged);
   res.end(payload);
 }
 
@@ -622,7 +694,8 @@ function applyCors(req, res) {
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Vary", "Origin");
   // 어드민은 쿠키 대신 Bearer 토큰을 주로 쓰지만, 같은 서버의 /admin 에서 여는 경우도 있어 자격증명을 허용한다.
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  // 단 "*"(모든 Origin 허용) 모드에서는 자격증명을 꺼야 임의 사이트가 관리자 세션을 이용할 수 없다.
+  if (!ALLOW_ANY_ORIGIN) res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Token");
   res.setHeader("Access-Control-Max-Age", "600");
@@ -647,18 +720,33 @@ function createSession(userId) {
   return token;
 }
 
+// COUNT(*)+1 은 행이 삭제되면 같은 번호를 다시 만들어 UNIQUE 충돌로 500 이 난다.
+// 최대 id 기준으로 발급한다.
 function nextInquiryCode() {
-  const row = db.prepare("SELECT COUNT(*) AS n FROM inquiries").get();
+  const row = db.prepare("SELECT COALESCE(MAX(id), 0) AS n FROM inquiries").get();
   return `CB-${String(Number(row.n) + 1).padStart(4, "0")}`;
 }
+
+// data-URL 의 MIME 문자열만 믿으면 "image/png 라고 주장하는 임의의 바이트"가 그대로 저장된다.
+// 실제 이미지 시그니처를 확인하고, 확장자는 선언이 아니라 내용으로 정한다.
+const IMAGE_SIGNATURES = [
+  { ext: "png", mime: "image/png", test: (buf) => buf.length > 24 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+  { ext: "jpg", mime: "image/jpeg", test: (buf) => buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff },
+  { ext: "gif", mime: "image/gif", test: (buf) => ["GIF87a", "GIF89a"].includes(buf.subarray(0, 6).toString("latin1")) },
+  { ext: "webp", mime: "image/webp", test: (buf) => buf.length > 12 && buf.subarray(0, 4).toString("latin1") === "RIFF" && buf.subarray(8, 12).toString("latin1") === "WEBP" },
+];
 
 function saveUpload(dataUrl) {
   const match = String(dataUrl || "").match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,([A-Za-z0-9+/=\s]+)$/);
   if (!match) throw Object.assign(new Error("이미지 파일만 업로드할 수 있습니다."), { status: 400 });
-  const ext = match[1].includes("png") ? "png" : match[1].includes("webp") ? "webp" : match[1].includes("gif") ? "gif" : "jpg";
+  const declared = match[1];
   const buffer = Buffer.from(match[2], "base64");
   if (buffer.length > 4_000_000) throw Object.assign(new Error("이미지는 4MB 이하로 올려 주세요."), { status: 400 });
-  const name = `${Date.now()}-${randomBytes(4).toString("hex")}.${ext}`;
+  const signature = IMAGE_SIGNATURES.find((item) => item.test(buffer));
+  if (!signature || signature.mime !== declared) {
+    throw Object.assign(new Error("이미지 파일 내용을 확인할 수 없습니다. 실제 이미지인지 확인해 주세요."), { status: 400 });
+  }
+  const name = `${Date.now()}-${randomBytes(4).toString("hex")}.${signature.ext}`;
   writeFileSync(path.join(UPLOAD_DIR, name), buffer);
   return `/uploads/${name}`;
 }
@@ -771,24 +859,134 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".mp4": "video/mp4",
   ".txt": "text/plain; charset=utf-8",
+  ".xml": "application/xml; charset=utf-8",
 };
 
 function safeFile(urlPath, base) {
   const decoded = decodeURIComponent(urlPath.split("?")[0]);
+  if (decoded.includes("\0")) return null;
+  // %2e%2e%2f 처럼 인코딩된 dot-segment 는 URL 정규화를 지나 여기까지 온다.
+  // 디코딩 결과에 "." / ".." 세그먼트가 하나라도 있으면 무조건 거부한다.
+  if (decoded.split("/").some((segment) => segment === "." || segment === "..")) return null;
   const resolved = path.resolve(base, `.${decoded}`);
-  if (!resolved.startsWith(base)) return null;
+  // startsWith(base) 만 쓰면 "uploads-backup/" 같은 형제 폴더가 통과한다.
+  // 구분자를 붙인 루트와 정확히 비교한다.
+  const root = base.endsWith(path.sep) ? base : base + path.sep;
+  if (resolved !== base && !resolved.startsWith(root)) return null;
   return resolved;
+}
+
+// ── 압축 · 캐시 헤더 공통 처리 ────────────────────────────────────────
+// 텍스트 응답(HTML/JS/CSS/JSON/SVG/XML)은 브롤리·gzip 으로 보낸다.
+// 랜딩 단일 파일이 374KB → 브롤리 98KB 라, 가장 효과적인 개선이다.
+const COMPRESSIBLE = new Set([".html", ".js", ".css", ".json", ".txt", ".svg", ".xml"]);
+const COMPRESS_MIN = 1024;
+const compressedCache = new Map(); // `${key}|${encoding}` → Buffer (파일 서빙용)
+const textFileCache = new Map(); // `${path}|${mtime}|${size}` → 원본 Buffer
+
+function negotiateEncoding(req) {
+  const header = String(req.headers["accept-encoding"] || "");
+  if (/\bbr\b/i.test(header)) return "br";
+  if (/\bgzip\b/i.test(header)) return "gzip";
+  return "";
+}
+
+function compress(buffer, encoding, cacheKey) {
+  if (cacheKey) {
+    const key = `${cacheKey}|${encoding}`;
+    const hit = compressedCache.get(key);
+    if (hit) return hit;
+    const made = compress(buffer, encoding, "");
+    if (compressedCache.size > 24) compressedCache.clear();
+    compressedCache.set(key, made);
+    return made;
+  }
+  return encoding === "br"
+    ? brotliCompressSync(buffer, { params: { [zlib.BROTLI_PARAM_QUALITY]: cacheKey ? 9 : 6 } })
+    : gzipSync(buffer, { level: cacheKey ? 9 : 6 });
+}
+
+function matchesEtag(req, etag) {
+  const header = String(req.headers["if-none-match"] || "");
+  if (!header || !etag) return false;
+  return header.split(",").map((value) => value.trim()).includes(etag) || header.trim() === "*";
+}
+
+function addVary(res, value) {
+  const current = res.getHeader("vary");
+  const list = Array.isArray(current) ? current : current ? [String(current)] : [];
+  if (!list.includes(value)) list.push(value);
+  res.setHeader("Vary", list.join(", "));
+}
+
+// 버퍼를 (가능하면 압축해서) 보낸다. ETag 재검증이면 304 로 끝낸다.
+function writeBody(req, res, buffer, { type, cacheControl, etag, encoding }) {
+  const headers = {
+    "Content-Type": type,
+    "Cache-Control": cacheControl,
+    "X-Content-Type-Options": "nosniff",
+  };
+  if (CONTENT_SECURITY_POLICY) headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY;
+  if (etag) headers.ETag = etag;
+  if (matchesEtag(req, etag)) {
+    res.writeHead(304, headers);
+    res.end();
+    return;
+  }
+  const canCompress = encoding && buffer.length >= COMPRESS_MIN;
+  const body = canCompress ? compress(buffer, encoding) : buffer;
+  if (canCompress) {
+    headers["Content-Encoding"] = encoding;
+    addVary(res, "Accept-Encoding");
+  }
+  headers["Content-Length"] = body.length;
+  res.writeHead(200, headers);
+  if (req.method === "HEAD") {
+    res.end();
+    return;
+  }
+  res.end(body);
+}
+
+function fileEtag(stat) {
+  return `W/"${stat.size.toString(36)}-${Math.floor(stat.mtimeMs).toString(36)}"`;
 }
 
 function serveFile(req, res, filePath) {
   if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" });
     res.end("Not found");
     return;
   }
   const stat = statSync(filePath);
   const type = MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream";
+  const etag = fileEtag(stat);
   const range = req.headers.range;
+
+  // 텍스트 자산은 압축 + ETag 재검증 경로로 보낸다(랜딩 HTML 374KB → 98KB).
+  if (!range && COMPRESSIBLE.has(path.extname(filePath).toLowerCase()) && stat.size < 8_000_000) {
+    const encoding = negotiateEncoding(req);
+    const cacheKey = `${filePath}|${Math.floor(stat.mtimeMs)}|${stat.size}`;
+    let buffer = textFileCache.get(cacheKey);
+    if (!buffer) {
+      buffer = readFileSync(filePath);
+      if (textFileCache.size > 16) textFileCache.clear();
+      textFileCache.set(cacheKey, buffer);
+    }
+    writeBody(req, res, buffer, {
+      type,
+      cacheControl: filePath.endsWith("index.html") ? "no-cache" : "public, max-age=3600",
+      etag,
+      encoding,
+    });
+    return;
+  }
+
+  if (matchesEtag(req, etag)) {
+    res.writeHead(304, { ETag: etag, "Cache-Control": "public, max-age=3600" });
+    res.end();
+    return;
+  }
   if (range && stat.size > 0) {
     const match = /bytes=(\d*)-(\d*)/.exec(range);
     if (match) {
@@ -805,8 +1003,14 @@ function serveFile(req, res, filePath) {
         "Content-Length": end - start + 1,
         "Content-Range": `bytes ${start}-${end}/${stat.size}`,
         "Accept-Ranges": "bytes",
+        ETag: etag,
         "Cache-Control": "public, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
       });
+      if (req.method === "HEAD") {
+        res.end();
+        return;
+      }
       createReadStream(filePath, { start, end }).pipe(res);
       return;
     }
@@ -815,7 +1019,10 @@ function serveFile(req, res, filePath) {
     "Content-Type": type,
     "Content-Length": stat.size,
     "Accept-Ranges": "bytes",
-    "Cache-Control": filePath.endsWith("index.html") ? "no-store" : "public, max-age=3600",
+    ETag: etag,
+    "Last-Modified": stat.mtime.toUTCString(),
+    "Cache-Control": "public, max-age=3600",
+    "X-Content-Type-Options": "nosniff",
   });
   if (req.method === "HEAD") {
     res.end();
@@ -837,27 +1044,31 @@ const BAKED_ORIGIN_META_PATTERN = /(name="cuberry-api-origin" content=")[^"]*(")
 
 function serveClientFile(req, res, filePath) {
   if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" });
     res.end("Not found");
     return;
   }
-  const body = Buffer.from(
-    readFileSync(filePath, "utf8")
-      .replace(BAKED_ORIGIN_PATTERN, '$1""$2')
-      .replace(BAKED_ORIGIN_META_PATTERN, "$1$2"),
-    "utf8",
-  );
-  res.writeHead(200, {
-    "Content-Type": MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
-    "Content-Length": body.length,
-    // 서빙 시점에 값이 바뀌므로 캐시되면 안 된다.
-    "Cache-Control": "no-store",
-  });
-  if (req.method === "HEAD") {
-    res.end();
-    return;
+  const stat = statSync(filePath);
+  const cacheKey = `${filePath}|${Math.floor(stat.mtimeMs)}|${stat.size}`;
+  let body = textFileCache.get(cacheKey);
+  if (!body) {
+    // 요청마다 500KB 를 읽고 정규식 치환하지 않도록 mtime 단위로 변환 결과를 기억한다.
+    body = Buffer.from(
+      readFileSync(filePath, "utf8")
+        .replace(BAKED_ORIGIN_PATTERN, '$1""$2')
+        .replace(BAKED_ORIGIN_META_PATTERN, "$1$2"),
+      "utf8",
+    );
+    if (textFileCache.size > 16) textFileCache.clear();
+    textFileCache.set(cacheKey, body);
   }
-  res.end(body);
+  // 서빙 시점에 값이 바뀌므로 캐시되면 안 된다(no-store 유지).
+  writeBody(req, res, body, {
+    type: MIME[path.extname(filePath).toLowerCase()] || "application/octet-stream",
+    cacheControl: "no-store",
+    etag: "",
+    encoding: negotiateEncoding(req),
+  });
 }
 
 async function handleApi(req, res, url) {
@@ -891,7 +1102,9 @@ async function handleApi(req, res, url) {
     return send(res, 200, { id: user.id, name: user.name, email: user.email, role: user.role });
   }
   if (req.method === "POST" && pathname === "/api/auth/login") {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
+    // 키는 조작 불가능한 클라이언트 IP 로만 만든다. XFF 문자열 전체를 쓰면
+    // 헤더를 매번 바꿔가며 시도 제한을 우회할 수 있다.
+    const ip = clientIp(req);
     const key = `login:${ip}`;
     const gate = attemptGate(key, LOGIN_LIMIT, LOGIN_WINDOW_MS);
     if (gate.blocked) {
@@ -900,7 +1113,7 @@ async function handleApi(req, res, url) {
         retryAfter: gate.retryAfter,
       }, { "Retry-After": String(gate.retryAfter) });
     }
-    const body = await readBody(req);
+    const body = await readBody(req, 16_000);
     const password = String(body.password || "");
     const user = db.prepare("SELECT * FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
     if (!user) {
@@ -931,11 +1144,17 @@ async function handleApi(req, res, url) {
     return send(res, 200, { ok: true }, { "Set-Cookie": clearCookie(req) });
   }
   if (req.method === "POST" && pathname === "/api/partnership") {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "local";
+    const ip = clientIp(req);
     const leadKey = `lead:${ip}`;
     if (attemptGate(leadKey, 20, 60 * 60 * 1000).blocked) return send(res, 429, { error: "잠시 후 다시 문의해 주세요." });
     noteAttempt(leadKey);
-    const body = await readBody(req);
+    const body = await readBody(req, 64_000);
+    // 허니팟 — 사람은 보지도 못하는 숨은 칸을 봇만 채운다. 채워져 있으면
+    // 저장하지 않고 성공처럼 응답한다(봇은 자기 문의가 접수된 줄 안다).
+    if (String(body.website || body.url || "").trim()) {
+      console.warn(`[spam] 허니팟 문의 무시 (${ip})`);
+      return send(res, 200, { ok: true, id: "" });
+    }
     const name = requireText(body.contactName || body.name, "담당자명", 120);
     const email = requireEmail(body.email);
     const message = optionalText(body.brief || body.message, 8000) || "(내용 없음)";
@@ -952,7 +1171,7 @@ async function handleApi(req, res, url) {
   const user = requireAdmin(req, res);
   if (!user) return;
   if (req.method === "POST" && pathname === "/api/auth/password") {
-    const body = await readBody(req);
+    const body = await readBody(req, 16_000);
     const row = db.prepare("SELECT * FROM users WHERE id = ?").get(user.id);
     if (!verifyPassword(String(body.currentPassword || ""), row.password_hash)) return send(res, 400, { error: "현재 비밀번호가 올바르지 않습니다." });
     const next = String(body.nextPassword || "");
@@ -1040,6 +1259,9 @@ async function handleApi(req, res, url) {
 
 const server = createServer(async (req, res) => {
   try {
+    // 모든 응답(화면·API·이미지·404 포함)에 기본 보안 헤더를 심는다.
+    for (const [key, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(key, value);
+    res.__encoding = negotiateEncoding(req);
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     if (url.pathname.startsWith("/api/")) {
       const origin = normalizeOrigin(req.headers.origin);
@@ -1073,6 +1295,11 @@ const server = createServer(async (req, res) => {
     }
     if (url.pathname === "/cms-bridge.js") {
       serveClientFile(req, res, path.join(ROOT, "cms-bridge.js"));
+      return;
+    }
+    if (url.pathname === "/robots.txt" || url.pathname === "/sitemap.xml") {
+      // 저장소 루트의 정적 파일을 그대로 서빙한다(GitHub Pages 도 같은 파일을 본다).
+      serveFile(req, res, path.join(ROOT, url.pathname === "/robots.txt" ? "robots.txt" : "sitemap.xml"));
       return;
     }
     if (url.pathname.startsWith("/uploads/")) {
@@ -1115,8 +1342,10 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Cuberry site  http://${HOST}:${PORT}/`);
   console.log(`Cuberry admin http://${HOST}:${PORT}/admin`);
-  console.log(`CORS 허용 Origin: ${ALLOW_ANY_ORIGIN ? "* (모든 Origin)" : ALLOWED_ORIGINS.join(", ") || "(없음)"}`);
+  console.log(`CORS 허용 Origin: ${ALLOW_ANY_ORIGIN ? "* (모든 Origin — 쿠키 자격증명 비활성)" : ALLOWED_ORIGINS.join(", ") || "(없음)"}`);
   console.log(`  └ 기본값 ${JSON.stringify(DEFAULT_ALLOWED_ORIGINS)} + ADMIN_ALLOWED_ORIGINS ${JSON.stringify(ENV_ALLOWED_ORIGINS)}`);
+  console.log(`클라이언트 IP: ${BEHIND_PROXY ? `X-Forwarded-For 오른쪽 ${PROXY_HOPS} hop (프록시 신뢰)` : "소켓 주소 (프록시 비신뢰, TRUST_PROXY=1 로 전환 가능)"}`);
+  console.log(`CSP: ${CONTENT_SECURITY_POLICY ? "적용" : "꺼짐 (CONTENT_SECURITY_POLICY 미설정)"}`);
   if (!adminAccount.hasAdmin) {
     console.log("경고: 관리자 계정이 없습니다. 서버를 재시작하면 초기 계정이 생성됩니다.");
   } else if (adminAccount.initialPasswordInUse) {
