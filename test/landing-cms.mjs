@@ -136,10 +136,12 @@ const pricing = document.querySelector("#pricing");
 expect("상품 카드 개수", pricing?.querySelectorAll("article").length, 2);
 expect("상품명 저장값", [...pricing.querySelectorAll("article h3")].map(text), ["관리형 숏폼", "브랜드 필름"]);
 expect("상품 가격 저장값", [...pricing.querySelectorAll("article")].map((card) => text(card).includes("39만원~") || text(card).includes("89만원~")), [true, true]);
-expect("히어로 상품 칩도 저장값", [...document.querySelectorAll('#top a[href="#pricing"]')].map((node) => [...node.children].map(text)), [["PLAN 1", "39만원~", "20초 · 6컷"], ["PLAN 2", "89만원~", "60초 · 12컷"]]);
+expect("프로젝트 문의 CTA", text(document.querySelector('#top a[href="#contact"]')), "프로젝트 상담하기");
+expect("히어로와 상품 카드 사이 가격 중복 없음", document.querySelectorAll('#top a[href="#pricing"]').length, 0);
 
 const works = document.querySelector("#works");
 expect("포트폴리오 전체 = 일반 + 드라이브", [...works.querySelectorAll("article h3")].map(text), ["CMS 기업 작품", "CMS 신규 작품", "CMS 드라이브 작품"]);
+expect("작품이 6개 이하면 더 보기 버튼 생략", works.querySelector('button[aria-controls="portfolio-grid"]'), null);
 expect("썸네일 저장값", works.querySelector("article img")?.getAttribute("src"), "https://example.com/work.jpg");
 expect("작품 태그 분리", [...works.querySelectorAll("article")][0] && text([...works.querySelectorAll("article")][0]).includes("PLAN"), true);
 const tabs = [...works.querySelectorAll("button")];
@@ -156,6 +158,10 @@ expect("팀 인원 개수", team.querySelectorAll("article").length, 1);
 expect("팀 이름", text(team.querySelector("article h3")), "저장된 감독");
 expect("팀 역할/소속 분리", [...team.querySelectorAll("article div")].some((node) => text(node) === "CMS TEAM"), true);
 expect("팀 사진 위치", team.querySelector("article img")?.style.objectPosition, "center 27%");
+const teamHistory = team.querySelector("article details");
+expect("팀 이력은 기본 접힘", teamHistory?.open, false);
+teamHistory?.querySelector("summary")?.click();
+await until("팀 이력 열기", () => teamHistory?.open === true);
 expect("팀 이력 링크", text(team.querySelector('a[href="https://example.com/profile"]')), "포트폴리오");
 
 const faq = document.querySelector("#faq");

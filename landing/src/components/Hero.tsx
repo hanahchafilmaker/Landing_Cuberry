@@ -3,7 +3,7 @@ import { heroStills } from "@/data/content";
 import { useContent } from "@/cms/ContentContext";
 import { useI18n } from "@/i18n/LanguageContext";
 
-/** 히어로 제목 — 마지막 단어를 accent gold 로 분리한다 (테스트가 .text-gradient 단어를 확인). */
+/** 히어로 제목의 마지막 단어만 accent gold 로 분리한다. */
 function HeroTitle({ text }: { text: string }) {
   const words = text.trim().split(/\s+/);
   const last = words.pop() ?? "";
@@ -20,12 +20,9 @@ function HeroTitle({ text }: { text: string }) {
   );
 }
 
-/**
- * E안 히어로 — 왼쪽 제목·설명·CTA, 오른쪽 3×2 스틸 격자.
- * 아래 상품 칩은 어드민 "상품" 값이 그대로 반영된다.
- */
+/** 가격 중복을 덜고 문의 동선을 분명하게 한 에디토리얼 히어로. */
 export function Hero() {
-  const { settings, services } = useContent();
+  const { settings } = useContent();
   const { t } = useI18n();
 
   return (
@@ -54,12 +51,12 @@ export function Hero() {
             </Reveal>
 
             <Reveal delay={3}>
-              <div className="flex flex-wrap items-center gap-5">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                 <a
                   href="#contact"
                   className="rounded-[3px] bg-brand px-[22px] py-[15px] text-[15px] font-semibold text-[#140f00] transition-colors duration-200 hover:bg-brand-light"
                 >
-                  {t("회사소개서 PDF 받기")}
+                  {t("프로젝트 상담하기")}
                 </a>
                 <a
                   href={`mailto:${settings.email}?subject=${encodeURIComponent(t("IR · 취재 문의"))}`}
@@ -79,7 +76,10 @@ export function Hero() {
                   src={still.src}
                   alt={t(still.alt)}
                   loading={i === 0 ? "eager" : "lazy"}
+                  fetchPriority={i === 0 ? "high" : "auto"}
                   decoding="async"
+                  width={800}
+                  height={1000}
                   className="block aspect-[4/5] w-full object-cover"
                 />
               ))}
@@ -92,31 +92,6 @@ export function Hero() {
             </div>
           </Reveal>
         </div>
-
-        {services.length > 0 && (
-          <Reveal delay={3} className="pb-[clamp(40px,6vw,72px)]">
-            <div className="grid overflow-hidden rounded-[4px] border border-line sm:grid-cols-3">
-              {services.map((service, i) => (
-                <a
-                  key={service.key}
-                  href="#pricing"
-                  aria-label={t("{name} {price} 자세히 보기", { name: t(service.name), price: t(service.price) })}
-                  className={`grid min-h-[86px] grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 bg-ink-3 px-5 py-4 transition-colors duration-200 hover:bg-[#1c1c19] ${
-                    i > 0 ? "border-t border-line sm:border-t-0 sm:border-l" : ""
-                  }`}
-                >
-                  <span className="font-mono text-[10px] tracking-[0.18em] text-brand">
-                    {service.tier}
-                  </span>
-                  <span className="row-span-2 text-[19px] font-bold text-paper">
-                    {t(service.price)}
-                  </span>
-                  <span className="font-mono text-[10px] text-faint">{t(service.duration)}</span>
-                </a>
-              ))}
-            </div>
-          </Reveal>
-        )}
       </div>
     </section>
   );

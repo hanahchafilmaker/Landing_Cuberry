@@ -131,7 +131,13 @@ console.log("\n[i18n] B. 영어 브라우저 → 자동으로 영어 화면");
   const dom = await renderLanding({ language: "en-US" });
   const { document } = dom.window;
   expect("내비 메뉴", navLabels(document).slice(0, 4), ["Company", "Studio", "XCONDA", "Contact"]);
-  expect("히어로 버튼", text(document.querySelector('#top a[href="#contact"]')), "Get the company deck (PDF)");
+  expect("히어로 상담 CTA", text(document.querySelector('#top a[href="#contact"]')), "Discuss a project");
+  expect("히어로 포트폴리오 CTA", text(document.querySelector('#top a[href="#works"]')), "Portfolio →");
+  expect("포트폴리오 초기 카드 6개", document.querySelectorAll("#works article").length, 6);
+  const moreProjects = [...document.querySelectorAll("#works button")].find((button) => text(button).includes("Load more projects"));
+  expect("포트폴리오 추가 로드 버튼", text(moreProjects), "Load more projects+6");
+  moreProjects?.click();
+  await until("추가 작품 렌더", () => document.querySelectorAll("#works article").length === 12);
   expect("섹션 제목(연혁)", text(document.querySelector("#history h2")), "Milestones");
   expect("숫자 요약 라벨", document.querySelector('section[aria-label="Key numbers"]') !== null, true);
   expect("특허 상태", text(document.querySelector("#patents article span")), "Registered");
@@ -202,7 +208,8 @@ console.log("\n[i18n] E. 어드민 저장값(CMS)도 같은 사전으로 번역"
   const dom = await renderLanding({ language: "en-US", cms });
   const { document } = dom.window;
   expect("CMS 히어로 설명(사전에 없음)은 원문 유지", text(document.querySelector("#top p")), "관리자가 저장한 소개 문장입니다.");
-  expect("CMS 홍보 문구 번역", text(document.querySelector("#top a[href^='mailto']")).includes("Press"), true);
+  expect("CMS 문의 CTA는 잘못된 PDF 다운로드 문구를 쓰지 않음", text(document.querySelector('#top a[href="#contact"]')), "Discuss a project");
+  expect("CMS 히어로 메모 번역", text(document.querySelector("#top a[href^='mailto']")).includes("Press"), true);
   expect("CMS 상품 금액 규칙 변환", text(document.querySelector("#pricing article span.text-\\[38px\\]")), "from ₩390,000");
   expect("CMS 상품 길이 규칙 변환", priceDuration(document), "20s · 6 cuts");
   expect("CMS FAQ(사전 등록분) 번역", text(document.querySelector("#faq button[aria-expanded] span.flex-1")), "What kind of company is CUBEBERRY?");
@@ -220,7 +227,11 @@ console.log("\n[i18n] F. 운영 CMS 기본값(server/seed.json)을 그대로 받
   expect("시드 FAQ 질문 번역", text(document.querySelector("#faq button[aria-expanded] span.flex-1")), "Can you deliver a polished video without live-action shooting?");
   expect("시드 상품 이름 번역", text(document.querySelector("#pricing article h3")), "Short-form AI ad");
   expect("시드 팀 소개 번역", text(document.querySelector("#team article h3")), "Lee Jin-seo");
-  expect("시드 작품 제목 번역", text(document.querySelector("#works article h3")), "Hyundai E&C Corporate Film");
+  expect(
+    "시드 작품 제목 번역",
+    [...document.querySelectorAll("#works article h3")].map(text).find((title) => title.startsWith("Seed War")),
+    "Seed War — Feature-Length AI Animation",
+  );
   expect("시드 팀 이력도 번역", text(document.querySelector("#team li")).includes("KBS"), true);
   expect("시드 전체에서 남은 한국어 없음", leftoverKorean(document), []);
   dom.window.close();

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/utils/cn";
 import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
@@ -8,15 +8,17 @@ import type { PortfolioCard } from "@/cms/map";
 import { T, useI18n } from "@/i18n/LanguageContext";
 
 type Tab = "ALL" | "DRIVE FILM" | "WORKS";
+const PAGE_SIZE = 6;
 
 /**
  * PORTFOLIO — 어드민 "포트폴리오"가 그대로 이 카드 목록이 된다.
- * source=drive 였던 작품은 DRIVE FILM 탭으로 모인다.
+ * source=drive 작품은 DRIVE FILM 탭으로 모으고, 6건씩 점진적으로 렌더한다.
  */
 export function Portfolio() {
   const { films, works } = useContent();
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("ALL");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const tabs = useMemo<Tab[]>(
     () => (films.length && works.length ? ["ALL", "DRIVE FILM", "WORKS"] : ["ALL"]),
@@ -29,6 +31,10 @@ export function Portfolio() {
     if (activeTab === "WORKS") return works;
     return [...works, ...films];
   }, [activeTab, films, works]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [activeTab, cards.length]);
 
   if (films.length + works.length === 0) return null;
 
@@ -47,7 +53,10 @@ export function Portfolio() {
               <button
                 key={tab}
                 type="button"
-                onClick={() => setTab(tab)}
+                onClick={() => {
+                  setTab(tab);
+                  setVisibleCount(PAGE_SIZE);
+                }}
                 className={cn(
                   "min-h-9 cursor-pointer rounded-full px-4 py-1.5 font-mono text-[11px] tracking-[0.12em] transition-colors duration-200",
                   activeTab === tab
@@ -64,8 +73,8 @@ export function Portfolio() {
           </div>
         </Reveal>
 
-        <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cards.map((card, i) => (
+        <div id="portfolio-grid" className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {cards.slice(0, visibleCount).map((card, i) => (
             <Reveal key={card.key} delay={(i % 3) + 1} className="h-full">
               <article className="group flex h-full flex-col overflow-hidden rounded-[4px] border border-line bg-ink-3 transition-colors duration-200 hover:border-line-4">
                 <div className="relative bg-void">
@@ -147,6 +156,22 @@ export function Portfolio() {
             </Reveal>
           ))}
         </div>
+
+        {visibleCount < cards.length && (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              aria-controls="portfolio-grid"
+              onClick={() => setVisibleCount((current) => Math.min(current + PAGE_SIZE, cards.length))}
+              className="inline-flex min-h-11 items-center gap-2 rounded-[3px] border border-line-2 px-5 py-3 text-sm text-body transition-colors hover:border-brand hover:text-brand"
+            >
+              {t("작품 더 보기")}
+              <span aria-hidden="true" className="font-mono text-xs text-faint">
+                +{Math.min(PAGE_SIZE, cards.length - visibleCount)}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
