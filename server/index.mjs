@@ -1,4 +1,5 @@
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
+import { createNotifier, ensureNotifySchema, emptyNotificationSummary, listNotificationSummary } from "./lib/notify.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -184,6 +185,16 @@ db.exec(`
     updated_at TEXT NOT NULL
   );
 `);
+
+// 문의 알림(Phase 1) — notifications 테이블. 기존 DB 에도 IF NOT EXISTS 로 그대로 적용된다.
+ensureNotifySchema(db);
+
+// 환경변수(NOTIFY_WEBHOOK_URL·NOTIFY_EMAIL_TO·RESEND_API_KEY)가 모두 비어 있으면
+// 이 발송기는 아무 행도 만들지 않는다 = 배포만 해서는 지금 동작이 바뀌지 않는다.
+const notifier = createNotifier({
+  db,
+  adminUrl: PUBLIC_ORIGIN ? `${PUBLIC_ORIGIN}/admin-v2` : "",
+});
 
 const nowIso = () => new Date().toISOString();
 const bool = (value) => (value ? 1 : 0);
@@ -441,13 +452,17 @@ function publicContent() {
 }
 
 function adminContent() {
+  const notificationMap = new Map(listNotificationSummary(db).map((item) => [item.inquiryId, item]));
   return {
     settings: rowSettings(db.prepare("SELECT * FROM settings WHERE id = 1").get()),
     services: db.prepare("SELECT * FROM services ORDER BY sort_order, id").all().map(rowService),
     portfolio: db.prepare("SELECT * FROM portfolio ORDER BY sort_order, id").all().map(rowPortfolio),
     faqs: db.prepare("SELECT * FROM faqs ORDER BY sort_order, id").all().map(rowFaq),
     team: db.prepare("SELECT * FROM team ORDER BY sort_order, id").all().map(rowTeam),
-    inquiries: db.prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC").all().map(rowInquiry),
+    inquiries: db
+      .prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC")
+      .all()
+      .map((row) => ({ ...rowInquiry(row), ...(notificationMap.get(row.id) || emptyNotificationSummary()) })),
   };
 }
 
@@ -522,6 +537,11 @@ function summary() {
     team: count("SELECT COUNT(*) AS n FROM team"),
     inquiries: count("SELECT COUNT(*) AS n FROM inquiries"),
     newInquiries: count("SELECT COUNT(*) AS n FROM inquiries WHERE status = 'new'"),
+    // 문의 알림 상태 — 어드민 개요의 "마지막 문의 알림" 줄에 쓴다.
+    notifyChannels: notifier.channels,
+    notifyDisabled: notifier.disabled,
+    lastNotificationAt: notifier.lastSentAt(),
+    failedNotifications: notifier.failedCount(),
   };
 }
 
@@ -1158,14 +1178,21 @@ async function handleApi(req, res, url) {
     const name = requireText(body.contactName || body.name, "담당자명", 120);
     const email = requireEmail(body.email);
     const message = optionalText(body.brief || body.message, 8000) || "(내용 없음)";
+    const company = optionalText(body.company, 160);
+    const phone = optionalText(body.phone, 40);
+    const projectType = optionalText(body.projectType, 120);
+    const budget = optionalText(body.budget, 80);
     const stamp = nowIso();
     const code = nextInquiryCode();
     const result = db.prepare(`INSERT INTO inquiries (code, name, email, company, phone, project_type, budget, message, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(
-      code, name, email, optionalText(body.company, 160), optionalText(body.phone, 40),
-      optionalText(body.projectType, 120), optionalText(body.budget, 80), message, stamp, stamp,
+      code, name, email, company, phone,
+      projectType, budget, message, stamp, stamp,
     );
-    return send(res, 200, { id: code, inquiryId: Number(result.lastInsertRowid) });
+    const inquiryId = Number(result.lastInsertRowid);
+    // 알림은 저장이 끝난 뒤 백그라운드로. 실패해도 문의 접수·응답에는 영향이 없다.
+    notifier.notifyInquiry({ id: inquiryId, code, name, email, company, phone, projectType, budget, message, status: "new", createdAt: stamp });
+    return send(res, 200, { id: code, inquiryId });
   }
 
   const user = requireAdmin(req, res);
@@ -1184,6 +1211,17 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
   if (req.method === "GET" && pathname === "/api/admin/content") return send(res, 200, adminContent());
+  if (req.method === "GET" && pathname === "/api/admin/notifications") {
+    const status = String(url.searchParams.get("status") || "").trim();
+    return send(res, 200, { notifications: notifier.list(status ? { status } : {}), channels: notifier.channels });
+  }
+  const notifyRetryMatch = pathname.match(/^\/api\/admin\/notifications\/(\d+)\/retry$/);
+  if (req.method === "POST" && notifyRetryMatch) {
+    const notification = notifier.retry(Number(notifyRetryMatch[1]));
+    if (!notification) return send(res, 404, { error: "알림을 찾을 수 없습니다." });
+    console.log(`[notify] 재발송 요청 — #${notification.id} ${notification.channel} (${notification.inquiryCode})`);
+    return send(res, 200, { ok: true, notification });
+  }
   if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
   if (req.method === "POST" && pathname === "/api/admin/github-backup") {
     const result = await backupSeedToGitHub();
