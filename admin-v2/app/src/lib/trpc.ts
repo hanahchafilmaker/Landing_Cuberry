@@ -13,6 +13,7 @@ const K = {
   me: ["auth", "me"] as const,
   content: ["admin", "content"] as const,
   summary: ["admin", "summary"] as const,
+  notifications: ["admin", "notifications"] as const,
   landing: ["landing", "content"] as const,
 };
 
@@ -107,7 +108,7 @@ export const trpc = {
     },
     summary: {
       useQuery: (_input?: undefined, o?: Options) =>
-        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number }>({
+        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number; lastNotification: { inquiryCode: string; channel: string; status: string; createdAt: string; sentAt: string | null } | null }>({
           queryKey: K.summary,
           retry: o?.retry,
           enabled: o?.enabled,
@@ -133,6 +134,24 @@ export const trpc = {
           }),
       },
     },
+    notifications: {
+      list: {
+        useQuery: (input?: { status?: string }, o?: Options) =>
+          useQuery<{ notifications: Array<Record<string, unknown> & { id: number; inquiryId: number; status: string; attempts: number; lastError: string | null; createdAt: string }> }>({
+            queryKey: [...K.notifications, input?.status ?? "all"],
+            retry: o?.retry,
+            enabled: o?.enabled,
+            queryFn: () => get(`/api/admin/notifications${input?.status ? `?status=${encodeURIComponent(input.status)}` : ""}`),
+          }),
+      },
+      retry: {
+        useMutation: (o?: Options) =>
+          useMutation({
+            mutationFn: (vars: { id: number }) => post(`/api/admin/notifications/${vars.id}/retry`, {}),
+            ...o,
+          }),
+      },
+    },
     exportSeed: {
       useQuery: (_input?: undefined, o?: Options) =>
         useQuery({ queryKey: ["admin", "export"], retry: o?.retry, enabled: o?.enabled, queryFn: () => get("/api/admin/export") }),
@@ -146,7 +165,7 @@ export const trpc = {
     });
     return {
       auth: { me: wrap(K.me) },
-      admin: { content: wrap(K.content), summary: wrap(K.summary) },
+      admin: { content: wrap(K.content), summary: wrap(K.summary), notifications: wrap(K.notifications) },
       landing: { content: wrap(K.landing) },
     };
   },

@@ -47,3 +47,20 @@ services:
       # 여러 개는 쉼표로 구분합니다. 모든 사이트를 허용하려면 "*".
       - key: ADMIN_ALLOWED_ORIGINS
         value: https://hanahchafilmaker.github.io
+      # ── 문의 알림 (선택) ────────────────────────────────────────────
+      # 빈 값이면 채널이 꺼진다 — 전부 비워 두면 알림 없는 기존 동작 그대로.
+      # Slack Incoming Webhook 등 범용 웹훅 주소.
+      - key: NOTIFY_WEBHOOK_URL
+        sync: false
+      # 이메일 알림: NOTIFY_EMAIL_TO 와 RESEND_API_KEY 를 함께 등록해야 켜집니다.
+      - key: NOTIFY_EMAIL_TO
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      # 선택: 킬 스위치 / 서드파티 채널 연락처 마스킹 / 발신자.
+      # - key: NOTIFY_DISABLED
+      #   value: "1"
+      # - key: NOTIFY_MASK_CONTACT
+      #   value: "1"
+      # - key: NOTIFY_EMAIL_FROM
+      #   value: "Cuberry <onboarding@resend.dev>"

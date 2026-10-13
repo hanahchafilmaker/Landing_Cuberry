@@ -1,4 +1,5 @@
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
+import { notifyInquiry, listNotifications, retryNotification, notificationStatusMap, lastNotification } from "./lib/notify.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -182,6 +183,18 @@ db.exec(`
     status TEXT NOT NULL DEFAULT 'new',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY,
+    inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
+    channel TEXT NOT NULL,
+    target TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    sent_at TEXT,
+    UNIQUE (inquiry_id, channel)
   );
 `);
 
@@ -441,13 +454,19 @@ function publicContent() {
 }
 
 function adminContent() {
+  // 알림 배지용 상태를 한 번의 쿼리로 묶어 N+1 을 피한다.
+  const notifStatus = notificationStatusMap(db);
   return {
     settings: rowSettings(db.prepare("SELECT * FROM settings WHERE id = 1").get()),
     services: db.prepare("SELECT * FROM services ORDER BY sort_order, id").all().map(rowService),
     portfolio: db.prepare("SELECT * FROM portfolio ORDER BY sort_order, id").all().map(rowPortfolio),
     faqs: db.prepare("SELECT * FROM faqs ORDER BY sort_order, id").all().map(rowFaq),
     team: db.prepare("SELECT * FROM team ORDER BY sort_order, id").all().map(rowTeam),
-    inquiries: db.prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC").all().map(rowInquiry),
+    inquiries: db.prepare("SELECT * FROM inquiries ORDER BY datetime(created_at) DESC, id DESC").all().map((row) => ({
+      ...rowInquiry(row),
+      // 채널이 하나도 없으면(알림 env 미설정) null → 화면에 배지 없음.
+      notificationStatus: notifStatus.get(row.id) ?? null,
+    })),
   };
 }
 
@@ -465,7 +484,8 @@ function exportSeed() {
     faqs: content.faqs.map((item) => omit(item, ["id", "updatedAt"])),
     team: content.team.map((item) => omit(item, ["id", "updatedAt"])),
     // 문의로 들어온 상담 기록. seed 로더는 이 키를 읽지 않지만 백업에 함께 담아둔다.
-    inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt"])),
+    // notificationStatus 는 매번 바뀌는 파생 값이라 백업에서 제외한다.
+    inquiries: content.inquiries.map((item) => omit(item, ["id", "updatedAt", "notificationStatus"])),
   };
 }
 
@@ -522,6 +542,8 @@ function summary() {
     team: count("SELECT COUNT(*) AS n FROM team"),
     inquiries: count("SELECT COUNT(*) AS n FROM inquiries"),
     newInquiries: count("SELECT COUNT(*) AS n FROM inquiries WHERE status = 'new'"),
+    // 개요 화면의 "마지막 문의 알림" 한 줄. 알림 행이 없으면 null.
+    lastNotification: lastNotification(db),
   };
 }
 
@@ -1158,13 +1180,21 @@ async function handleApi(req, res, url) {
     const name = requireText(body.contactName || body.name, "담당자명", 120);
     const email = requireEmail(body.email);
     const message = optionalText(body.brief || body.message, 8000) || "(내용 없음)";
+    const company = optionalText(body.company, 160);
+    const phone = optionalText(body.phone, 40);
+    const projectType = optionalText(body.projectType, 120);
+    const budget = optionalText(body.budget, 80);
     const stamp = nowIso();
     const code = nextInquiryCode();
     const result = db.prepare(`INSERT INTO inquiries (code, name, email, company, phone, project_type, budget, message, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?)`).run(
-      code, name, email, optionalText(body.company, 160), optionalText(body.phone, 40),
-      optionalText(body.projectType, 120), optionalText(body.budget, 80), message, stamp, stamp,
+      code, name, email, company, phone, projectType, budget, message, stamp, stamp,
     );
+    // 알림은 응답을 기다리지 않는다 — Slack/Resend 가 죽어도 리드는 남는다.
+    // 실패·재시도 상태는 notifications 테이블에 남고 어드민에서 재발송한다.
+    void notifyInquiry(db, {
+      id: Number(result.lastInsertRowid), code, name, email, company, phone, projectType, budget, message,
+    });
     return send(res, 200, { id: code, inquiryId: Number(result.lastInsertRowid) });
   }
 
@@ -1184,6 +1214,14 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/admin/summary") return send(res, 200, summary());
   if (req.method === "GET" && pathname === "/api/admin/content") return send(res, 200, adminContent());
+  if (req.method === "GET" && pathname === "/api/admin/notifications") {
+    const status = url.searchParams.get("status");
+    return send(res, 200, { notifications: listNotifications(db, status) });
+  }
+  const notifyRetryMatch = pathname.match(/^\/api\/admin\/notifications\/(\d+)\/retry$/);
+  if (notifyRetryMatch && req.method === "POST") {
+    return send(res, 200, await retryNotification(db, Number(notifyRetryMatch[1])));
+  }
   if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
   if (req.method === "POST" && pathname === "/api/admin/github-backup") {
     const result = await backupSeedToGitHub();
