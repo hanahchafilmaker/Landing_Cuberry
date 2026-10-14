@@ -10,6 +10,7 @@
 | --- | --- | --- |
 | `cuberry.kr` (공식) | **이 저장소의 새 랜딩을 apex 에 연결** — 화면은 GitHub Pages, API/어드민 데이터는 Render | 무료·무중단·콜드스타트 없음. 아래 3장 절차만 실행하면 끝 |
 | `www.cuberry.kr` | `cuberry.kr` 로 자동 301 | GitHub Pages 가 자동 처리 |
+| 구 회사 사이트 | **`old.cuberry.kr` 로 보존** (2026-10-14 대표님 방침) | 기존 링크 유지. 자원에 별칭만 추가하면 됨 → `docs/domain/handoff-dns.md` 3-4 |
 | 어드민 | `cuberry.kr/admin-v2` (같은 도메인, 비밀번호 보호 + noindex) | `admin.cuberry.kr` 로 분리도 가능 |
 | `cubeberry.ai` | **안 A+B 결합 추천**: 영문 사이트가 필요하면 `301 → https://cuberry.kr/en/`, 별도 사이트를 유지할 거면 지금 그대로 둠 | 4장 참고 |
 | 하지 말 것 | `/kr`, `/us` 를 **두 도메인에 나눠** 같은 내용을 두 벌 운영 | 검색엔진 중복 콘텐츠·운영비 2배. 언어는 “한 도메인 안 경로”로만 나눔 |
@@ -34,7 +35,7 @@
 ### 교체 전에 반드시 확인할 것
 
 1. 지금 `cuberry.kr` 을 서비스하는 **AWS 자원이 무엇인지**(EC2? S3+CloudFront? Amplify?)와 **관리자**가 누구인지. 교체 후에도 남겨두려면 `old.cuberry.kr` 같은 보존 주소를 그 자원에 붙여 주세요.
-2. 구 사이트의 페이지 주소가 `/` 외에 더 있는지(예: `/about`). 있다면 교체 후 404 가 되므로, 필요하면 리다이렉트 목록을 만들어 새 랜딩의 앵커(예: `#history`)로 보냅니다.
+2. ~~구 사이트의 페이지 주소가 `/` 외에 더 있는지~~ — **2026-10-14 확인 완료: 구 사이트는 단일 페이지**입니다(회사소개·HISTORY·BUSINESS·CONTENTS·특허/파트너가 한 페이지 안 앵커 이동, 외부 링크는 `aiconda.ai`·`xconda.ai` 뿐). 따라서 하위 페이지 리다이렉트는 **불필요**합니다. 구 사이트 이미지(`www.cuberry.kr/images/…`)를 외부에서 직접 링크한 곳이 있다면 알려주세요.
 3. 검색엔진 도구(Google Search Console)에서 `cuberry.kr` 속성이 등록되어 있는지 → 교체 후 새 `sitemap.xml` 을 제출하면 정리됩니다.
 
 ---
@@ -81,6 +82,9 @@ GitHub 문서 기준 **커스텀 도메인을 먼저 등록한 뒤 DNS 를 바�
 > 되돌리려면 8장(롤백) — 즉시 원상복구됩니다.
 
 ### 2) Route 53 레코드 (A · AAAA · www)
+
+> 구 사이트 보존(`old.cuberry.kr`)은 별도 자원(CloudFront/S3/EC2) 작업이라 실행 문서 `docs/domain/handoff-dns.md` 3-4 에 정리했습니다.
+> DNS 값을 넘겨줄 때 그 문서를 함께 전달하면 한 번에 끝납니다.
 
 Route 53 → Hosted zones → `cuberry.kr` → **Create record** 로 아래를 넣습니다.
 
@@ -210,6 +214,8 @@ curl -s https://cuberry.kr | grep -o 'rel="canonical" href="[^"]*"'   # https://
 | 검증 | `test/static-paths.mjs` | 저장소가 **루트**(= 공식 도메인)에 놓인 상태를 흉내 내 `/`·`/en/`·`/kr/`·`/admin/`·`/sitemap.xml` 이 200 인지까지 확인 |
 | 검증 | `test/server-wiring.mjs` · `test/security.mjs` · `test/client-origin.mjs` | `cuberry.kr`·`www` 사전요청 204, 환경변수 없이도 공식 도메인에서 로그인 200, render*.yaml·서버 기본값 일치 |
 | 문서 | `README.md`, 이 문서 | 배포 표에 공식 주소와 도메인 문서 링크 추가 |
+| 문서 | `docs/domain/handoff-dns.md` | DNS 담당자 전달용 실행 문서(사전 확인·단계·확인·롤백·증상별 조치) |
+| 문서 | `docs/domain/ceo-decision.md` | 대표님 판단용 1장 요약(결정 3가지 + 추천안 + 일정) |
 | 컷오버 자산 | `docs/domain/CNAME`, `docs/domain/route53-cuberry-kr-change.json` | 복사해서 쓰는 값(루트 `CNAME` 은 DNS 변경 시점에 함께 켜야 하므로 아직 넣지 않음) |
 
 **아직 코드로 하지 않은 것(의도적)**
@@ -224,17 +230,21 @@ curl -s https://cuberry.kr | grep -o 'rel="canonical" href="[^"]*"'   # https://
 
 ## 6. 대표님 확인이 필요한 3가지
 
-1. **`cuberry.kr` 교체 시점** — 구 회사 사이트(AWS)를 언제 내릴지, 어느 주소로 보존할지(`old.cuberry.kr` 등), AWS 자원 관리자가 누구인지.
+1. ~~**`cuberry.kr` 교체 시점·보존 주소**~~ — **확정(2026-10-14): apex 교체 + 구 사이트는 `old.cuberry.kr` 로 보존.** 남은 확인: 구 사이트가 도는 AWS 자원이 무엇인지, 교체 시점.
 2. **`cubeberry.ai` 처리** — (a) 그대로 유지 (b) `cuberry.kr/en/` 로 301 (c) 별도 영문 사이트로 계속 운영 중 선택.
    추가로 **경로 분기(안 B)를 원하시면** 목표 형태를 골라주세요 — `cuberry.kr`(ko) + `cuberry.kr/en/`(en) 이 기본 권장입니다.
 3. **어드민 노출** — `cuberry.kr/admin-v2` 로 둘지, `admin.cuberry.kr`(Render 커스텀 도메인)로 분리할지.
+
+> 대표님께 그대로 보여드릴 요약본은 [`docs/domain/ceo-decision.md`](docs/domain/ceo-decision.md),
+> DNS 담당자에게 전달할 실행 문서는 [`docs/domain/handoff-dns.md`](docs/domain/handoff-dns.md) 입니다.
 
 ---
 
 ## 7. 실행 체크리스트 (인쇄용)
 
 ```
-[ ] 구 cuberry.kr 사이트 담당자/자원 확인, 필요 시 보존 주소 확보
+[ ] (전달) DNS 담당자에게 docs/domain/handoff-dns.md 전달 — 실행·롤백이 이 한 문서에 정리됨
+[ ] 구 cuberry.kr 을 서비스하는 AWS 자원 확인 후 old.cuberry.kr 별칭 추가(보존)
 [ ] (선택) Route 53 에서 cuberry.kr A/www 레코드 TTL 을 300 으로 낮춰 대기(전파 시간 단축)
 [ ] GitHub → Settings → Pages → Custom domain = cuberry.kr  (CNAME 파일 커밋됨)
 [ ] Route 53 → apex A 4개 + AAAA 4개 UPSERT, www CNAME 신규(기존 A 삭제)
