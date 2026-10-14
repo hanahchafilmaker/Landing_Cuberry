@@ -5,6 +5,9 @@
 // (어드민 /api/public/content 값이 오면 히어로·상품·작품·팀·FAQ는 그 값이 우선합니다)
 // ─────────────────────────────────────────────────────────────
 
+// node 로 직접 읽는 테스트(test/team-profile.mjs)가 이 파일을 import 하므로 상대경로+확장자를 쓴다.
+import { TABS } from "../tabs/config.ts";
+
 export const settings = {
   brand: "CUBEBERRY",
   brandKo: "큐브베리",
@@ -21,12 +24,9 @@ export const settings = {
   phone: "070-8095-2302",
 };
 
-export const navLinks = [
-  { label: "회사소개", href: "#top" },
-  { label: "스튜디오", href: "#works" },
-  { label: "엑스콘다", href: "#lab" },
-  { label: "문의", href: "#contact" },
-];
+// 상단 메뉴는 콘텐츠 탭 정의(tabs/config.ts)에서 그대로 가져온다.
+// 메뉴와 탭 이름이 어긋나지 않게, 항목을 늘리거나 바꿀 때는 그 파일만 고치면 된다.
+export const navLinks = TABS.map((tab) => ({ label: tab.label, href: tab.href }));
 
 /** 히어로 오른쪽 3×2 스틸 격자 (디자인 E안의 6편) */
 export const heroStills = [

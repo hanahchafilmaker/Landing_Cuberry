@@ -25,8 +25,9 @@ export function Hero() {
   const { settings } = useContent();
   const { t } = useI18n();
 
+  // 헤더에 가리지 않게 하는 위쪽 여백은 main 이 담당한다(그 자리에 콘텐츠 탭 바가 들어간다)
   return (
-    <section id="top" className="scroll-mt-0 pt-[60px]">
+    <section id="top" className="scroll-mt-0">
       <div className="shell">
         <div className="flex flex-wrap items-center gap-x-14 gap-y-12 py-[clamp(40px,7vw,90px)]">
           <div className="flex min-w-0 flex-[999_1_460px] flex-col gap-6">

@@ -297,7 +297,8 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 | 색 | 배경 `#0E0E0E` · 본문 `#EDEAE2`/`#C9C5BB`/`#A9A59B`/`#8A867D` · 구분선 `#2A2A26` · 패널 `#161614` · 이미지 액자 `#050505` · accent gold `#F4B400` · REC `#E5484D` |
 | 타이포 | 본문 Pretendard(CDN 가변 폰트), 라벨·숫자 각주 IBM Plex Mono |
 | 형태 | 그림자·글로우 없이 1px 선과 3~4px 모서리, 본문 폭 1200px |
-| 절 순서 | 히어로(6편 스틸 격자) → 숫자 요약 → TWO SECTORS → WHAT WE DO → FOUNDER & CEO → HISTORY(연도 필터) → PATENTS → XCONDA/AI Lab → PORTFOLIO → TEAM → 상품 → PROCESS → FAQ → CONTACT(이메일·전화·사무실 2곳) → 푸터 |
+| 절 순서 | **탭 4개로 나눠 담는다** (2026-10-14) — 회사소개 · 스튜디오 · 엑스콘다 · 문의 |
+| 탭 구성 | 회사소개: 히어로(6편 스틸 격자) → 숫자 요약 → TWO SECTORS → WHAT WE DO → FOUNDER & CEO → HISTORY(연도 필터) → PATENTS / 스튜디오: PORTFOLIO → TEAM → PROCESS / 엑스콘다: XCONDA(AI Lab) → 상품 / 문의: FAQ → CONTACT(이메일·전화·사무실 2곳). 푸터는 모든 탭 아래 공통 |
 
 고정 문구(연혁·특허·숫자 근거·대표 소개·사무실·푸터 그룹)는 `landing/src/data/content.ts` 에 있습니다.
 **아래 표의 어드민 입력란은 아직 히어로·상품·포트폴리오·팀·FAQ·연락처 6개 항목뿐이라,
@@ -314,6 +315,7 @@ landing/
     data/content.ts   # 기본 문구·콘텐츠 (API 에 연결되지 않았을 때의 기본값)
     cms/              # 어드민 콘텐츠 → 화면 뷰 모델 변환 + 구독(ContentProvider)
     i18n/             # 한영 자동 번역 (사전·규칙·언어 감지·LanguageProvider, 아래 "한영 자동 번역" 참고)
+    tabs/             # 콘텐츠 탭 정의(config.ts)와 탭 상태(TabContext — 해시·앵커·뒤로가기 연동)
   vite.config.ts      # 빌드 결과를 landing/dist/ 에 만든 뒤 루트 index.html 로 복사
 images/               # 랜딩 이미지 (상대경로 images/… 로 참조 → Pages 서브경로에서도 동작)
 ```
@@ -324,6 +326,21 @@ npm run build          # landing/ → 루트 index.html 갱신 (결과물을 커
 npm start & npm run dev:landing   # 디자인 수정용 개발 서버 (5173). /api·이미지는 8080 서버로 프록시
 npm run typecheck      # TypeScript 검사
 ```
+
+### 콘텐츠 탭 (2026-10-14 · 대표님 요청 "탭을 나눠서 보고 싶다")
+
+긴 한 페이지를 그대로 두고, **탭으로 나눠 보는 구조**를 얹었습니다.
+
+- 탭 정의는 **`landing/src/tabs/config.ts` 한 곳**에 있습니다(이름·순서·각 탭에 들어가는 섹션 id).
+  탭 이름은 상단 메뉴와 같은 문구를 쓰고, `landing/src/data/content.ts` 의 `navLinks` 도 이 정의에서 파생됩니다.
+- 화면은 **패널을 `hidden` 으로 감출 뿐 DOM 에서 지우지 않습니다.** 그래서 검색엔진이 모든 문구를 읽고,
+  어드민 CMS 값·기존 테스트·`/en/` 별칭이 그대로 동작합니다(탭을 켜야만 내용이 생기는 구조가 아님).
+- 주소에 해시가 남습니다 — `cuberry.kr/#works`(스튜디오) · `#lab`(엑스콘다) · `#contact`(문의) · `#history`(회사소개).
+  그 주소로 바로 들어오면 해당 탭이 켜지고, **뒤로가기·공유 링크도 그대로 동작**합니다.
+- 상단 메뉴·섹터 CTA·푸터 등 **본문 안의 앵커 링크**를 누르면 그 섹션이 있는 탭을 켜고 그 자리로 이동합니다.
+- 키보드 `←/→`·`Home/End` 로 탭 이동(ARIA 탭 패턴), 켜진 탭은 gold 밑줄로 표시합니다.
+- 탭 바는 헤더 아래에 붙어 따라옵니다. 두 겹의 높이를 화면에서 재어 `--header-height`·`--tab-top`·`--anchor-offset`
+  로 반영하므로, 좁은 화면에서 헤더가 줄바꿈돼도 어긋나지 않습니다.
 
 **어드민 연동 방식** — 랜딩 React 앱이 관리자 콘텐츠를 **직접 렌더**합니다.
 `cms-bridge.js` 는 API 서버 주소를 정하고 `/api/public/content` 를 읽어 `window.CuberryContent` 에 저장한 뒤
@@ -449,11 +466,12 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 411건 (client-origin 51 + static-paths 34 + server-wiring 71 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 60)
+npm test           # 의존성 없음 · 458건 (client-origin 51 + static-paths 34 + server-wiring 71 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 60 + landing-tabs 47)
 npm run test:security # 보안 회귀 63건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟·폼 토큰/Turnstile)
 npm run test:notify  # 문의 알림 63건 (웹훅 성공·백오프 재시도·실패 보존·UNIQUE 재발송·마스킹·킬 스위치, 외부 요청 0)
 npm run test:cron    # 자동 백업 61건 (시크릿 503/401·무변경 skip·내용 변경 재커밋·목 GitHub API, 외부 요청 0)
 npm run test:domain  # 도메인 컷오버 60건 (canonical/OG/사이트맵/robots·/en/·/kr/ 별칭·서버 허용목록·Route 53 레코드 파일)
+npm run test:tabs  # 콘텐츠 탭 47건 (탭 전환·해시 딥링크·메뉴/앵커 연동·키보드·영어 라벨·DOM 유지·접근성·고정 배치)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
 npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS 값 번역)
@@ -470,6 +488,7 @@ npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS �
 | `test/notify.mjs` | Phase 1 문의 알림. 로컬 목 웹훅·목 Resend 서버로 **외부 요청 없이** 실제 서버를 띄워 ① 성공 → `sent`·`attempts 1` ② 500 1회 → 백오프 재시도 후 `sent`·`attempts 2`·호출 간격 준수 ③ 계속 실패 → `failed` + `last_error` (문의 접수는 200 유지) ④ UNIQUE — 재발송을 여러 번 해도 행은 1개·시도만 증가 ⑤ env 미설정 → 알림 행 0 ⑥ `NOTIFY_DISABLED=1` → 발송 0 ⑦ `NOTIFY_MASK_CONTACT=1` → 원본 연락처 평문 없음 · 이메일(Resend) 채널·인증 401·`status` 필터·`summary.lastNotification` |
 | `test/cron-backup.mjs` | Phase 3 자동 백업. **목 GitHub Contents API** 를 로컬에 띄우고(`GITHUB_API_BASE` 오버라이드) 실제 서버로 확인 — ① `CRON_SECRET` 미설정 `503`·GitHub 호출 0 ② 틀린 시크릿(헤더 없음·짧은 값·아주 긴 값) `401`·호출 0 ③ 올바른 시크릿 → 커밋 1회(경로·branch·base64 디코드 내용·메시지까지) ④ 즉시 재호출 → `skipped: "no-change"` + **GitHub 요청 0건** ⑤ 콘텐츠 변경 → 재커밋 ⑥ 수동 백업 뒤 크론 skip ⑦ `GITHUB_TOKEN` 미설정 `503`·실패는 해시를 남기지 않음 ⑧ `GET` 으로는 백업이 돌지 않음 · `summary.lastBackupAt/Hash` · 해시 정규화(키 순서·`exportedAt`)·상수시간 비교 단위 검증 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버를 띄운다. ① 미러(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)에서 참조 경로가 전부 해결되고 루트 절대경로(`/…`)가 없는지 ② **공식 도메인처럼 저장소가 루트에 놓인 상태**에서 `/`·`/en/`·`/kr/`·`/admin/`·`/sitemap.xml`·`/robots.txt` 가 200 이고 별칭 페이지의 상대경로가 그대로 풀리는지 확인 |
+| `test/landing-tabs.mjs` | 콘텐츠 탭 동작. 실제 번들을 jsdom 에서 돌려 ① 첫 화면은 회사소개 탭(히어로부터) ② 탭 클릭 → 패널 전환 + 주소 해시 ③ `#works`·`#lab`·`#contact` 로 바로 열면 그 탭 ④ 상단 메뉴·본문 앵커를 누르면 그 섹션의 탭이 켜짐 ⑤ 영어 화면 탭 이름(Company/Studio/XCONDA/Contact) ⑥ 키보드 ←/→·End ⑦ **탭을 꺼도 내용이 DOM 에 남는지**(검색엔진·CMS 대응) ⑧ role/aria 배선 ⑨ 헤더 아래 고정 배치(`--header-height`·`--tab-top`·`--anchor-offset` 배선) |
 | `test/domain.mjs` | 도메인 컷오버 점검. ① 원본(`landing/index.html`)과 빌드 산출물(`index.html`)의 canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 가 모두 `https://cuberry.kr/` 인지(미러 주소가 남아 있으면 실패) ② 빌드가 넣는 hreflang 3종이 절대주소인지 ③ `robots.txt`·`sitemap.xml` 의 Sitemap/loc/hreflang ④ `/en/`·`/kr/` 별칭 페이지가 `noindex` + 상대경로 전용인지 ⑤ 서버 기본 허용목록·`render*.yaml` 에 `cuberry.kr`·`www` 가 있는지 ⑥ `docs/domain/` 의 CNAME·Route 53 변경 파일이 GitHub Pages 공식 IP 4+4 와 www CNAME 만 담고 **MX/TXT 는 담고 있지 않은지**(메일 보존) |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |
