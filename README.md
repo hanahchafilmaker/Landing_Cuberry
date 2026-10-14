@@ -30,6 +30,27 @@ npm run sync:seed      # 운영 서버의 공개 콘텐츠를 server/seed.json �
 - 레거시 어드민: `/admin` (같은 기능) — 둘은 같은 API·같은 세션(`cuberry-admin-token`)을 공유하므로 어느 쪽에서 저장해야 다른 쪽과 랜딩에도 같이 반영됩니다
 - 데이터: `data/cuberry.sqlite` (SQLite, 최초 실행 시 `server/seed.json` 으로 자동 시드) — `DATA_DIR` 환경변수로 다른 폴더를 지정할 수 있습니다(테스트가 사용)
 - 업로드 이미지: `data/uploads/`
+- 서버 구조: `server/index.mjs` 는 조립·기동·요청 디스패치만 하고, 나머지는 아래 "서버 모듈" 참고
+
+### 서버 모듈 (Phase 4: 1,508줄 단일 파일 → 11개)
+
+| 파일 | 역할 |
+| --- | --- |
+| `server/index.mjs` | **조립 + 기동 + 요청 디스패치** (193줄). 시드 실행 순서가 여기 그대로 보입니다 |
+| `server/lib/config.mjs` | 경로·포트·CORS Origin·보안 헤더/CSP·GitHub·세션 등 환경변수 설정 |
+| `server/lib/db.mjs` | SQLite 오픈·스키마 DDL·시드(`seedContent`·`seedTeam`)·`meta` 헬퍼·백업 상태 |
+| `server/lib/http.mjs` | `send`·`readBody`·CORS 적용·압축/ETag/캐시 헤더·`serveFile`·`serveClientFile` |
+| `server/lib/auth.mjs` | 비밀번호 해시(scrypt)·세션·`requireAdmin`·로그인/문의 시도 게이트 |
+| `server/lib/content.mjs` | 행 ↔ 응답 매핑·공개/관리자 콘텐츠·`exportSeed`·`summary`·upsert·업로드 검증 |
+| `server/lib/inquiries.mjs` | 문의 코드 발급·저장·상태 변경 |
+| `server/lib/notify.mjs` | Phase 1 문의 알림(웹훅·이메일) |
+| `server/lib/form-token.mjs` | Phase 2 서명 폼 토큰·Turnstile |
+| `server/lib/backup.mjs` | Phase 3 시크릿 상수시간 비교·`exportedAt` 제외 SHA-256 해시(순수 함수) |
+| `server/lib/seed-backup.mjs` | Phase 3 GitHub 커밋·변경 감지·크론 실행 |
+| `server/routes/api.mjs` | `/api/*` 라우트 테이블 |
+
+분리는 **동작 변경 없는 순수 이동**입니다 — 함수 본문·로그 문구·에러 응답은 그대로이고,
+경로만 `server/lib/` 기준으로 한 단계 조정했습니다(`ROOT`, `SEED_PATH`).
 
 ## 배포
 
@@ -48,7 +69,7 @@ GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행
 | 조각 | 주소 |
 | --- | --- |
 | Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` 과 `admin-v2/index.html` 의 `<meta name="cuberry-api-origin">` (서버는 자기 주소로 볼 때 이 값을 비워서 본다) |
-| GitHub Pages (화면) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — `server/index.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` |
+| GitHub Pages (화면) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — `server/lib/config.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` |
 
 ### A. Node 서버 배포 (Render Blueprint)
 
@@ -78,7 +99,7 @@ Render는 Node.js 22와 Singapore 리전을 쓰도록 설정되어 있습니다.
 Pages에 올라간 랜딩/어드민은 같은 주소에 API가 없으므로, **Node 서버 주소를 알려주면** 그 서버를 직접 호출합니다.
 서버가 다른 Origin의 요청을 받으려면 CORS 허용이 필요합니다.
 
-**1) 서버 쪽** — GitHub Pages 주소(`https://hanahchafilmaker.github.io`)는 `server/index.mjs` 의
+**1) 서버 쪽** — GitHub Pages 주소(`https://hanahchafilmaker.github.io`)는 `server/lib/config.mjs` 의
 `DEFAULT_ALLOWED_ORIGINS` 에 **기본값으로 들어 있습니다.** 그래서 Render 서비스를 Blueprint 가 아니라
 대시보드에서 수동으로 만들었더라도(`render.yaml` 의 환경변수가 하나도 적용되지 않더라도) **재배포만으로** CORS 가 통과합니다.
 기동 로그에 `CORS 허용 Origin: …` 으로 실제 적용된 목록이 찍힙니다.
