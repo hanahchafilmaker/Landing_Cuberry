@@ -19,7 +19,14 @@
 >   `last_backup_hash`/`last_backup_at` 기록 · 어드민 개요의 "마지막 백업" 줄 · `test/cron-backup.mjs`(61건,
 >   목 GitHub API) · `.github/workflows/backup-seed.yml`(6시간 cron). 수동 백업 버튼은 명시적 요청이라
 >   무변경이어도 커밋하되 해시를 기록해 다음 크론이 건너뜁니다. `CRON_SECRET` 미등록 시 동작 변화 0.
-> - Phase 4: 대기.
+> - **Phase 4 (서버 모듈 분리) 구현 완료** — `server/index.mjs` **1,508줄 → 193줄**(조립·기동·요청 디스패치),
+>   `lib/config.mjs`·`db.mjs`·`http.mjs`·`auth.mjs`·`content.mjs`·`inquiries.mjs`·`seed-backup.mjs`(신규),
+>   `routes/api.mjs`(신규), 기존 `notify.mjs`·`form-token.mjs`·`backup.mjs`. **동작 변경 없는 순수 이동** —
+>   이동한 함수 23개 본문이 원문과 같고(문의 INSERT/상태 변경만 `insertInquiry`/`setInquiryStatus` 호출로
+>   치환, SQL·상태 판정 동일), 기동 로그·응답·에러 문구도 그대로다. 검증: `npm test` 318 +
+>   `test:dom` 79 + `test:cms` 46 + `test:i18n` 55 + `test:admin` 14 + `npm run typecheck` 전부 통과,
+>   `npm run build` 후 커밋된 `index.html`·`admin-v2/index.html` 변경 없음.
+> - **Phase 1~4 전체 완료.**
 
 ---
 
