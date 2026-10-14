@@ -71,7 +71,13 @@
   }
 
   section[id] {
-    scroll-margin-top: 76px;
+    /* 헤더 + 콘텐츠 탭 바 높이를 화면에서 재어 useStickyOffset 이 넣어 준다 */
+    scroll-margin-top: var(--anchor-offset, 76px);
+  }
+
+  /* 고정 헤더 높이만큼 본문을 내려 준다 — 그 자리에 콘텐츠 탭 바가 놓인다 */
+  main {
+    padding-top: var(--header-height, 68px);
   }
 
   body {
@@ -193,6 +199,67 @@
 .section {
   border-top: 1px solid var(--color-line);
   padding-block: clamp(56px, 8vw, 88px);
+}
+
+/* ── 콘텐츠 탭 (2026-10-14 · 긴 페이지를 네 항목으로 나눠 보기) ──
+   헤더 바로 아래에 붙어 따라오고, 활성 항목만 gold 밑줄로 표시한다. */
+.tabbar {
+  position: sticky;
+  top: var(--tab-top, 64px);
+  z-index: 40;
+  border-bottom: 1px solid var(--color-line);
+  background: rgba(14, 14, 14, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.tabbar-list {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabbar-list::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 13px 14px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-mute);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+.tab:hover {
+  color: var(--color-paper);
+}
+.tab[aria-selected="true"] {
+  color: var(--color-paper);
+  border-bottom-color: var(--color-brand);
+}
+.tab:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: -3px;
+}
+
+/* 탭 패널 — 켜지지 않은 탭은 hidden 으로만 감춘다(내용은 DOM 에 남는다) */
+.tabpanel {
+  scroll-margin-top: var(--anchor-offset, 76px);
+}
+.tabpanel[hidden] {
+  display: none;
 }
 
 /* ── 호환 별명 (이전 마크업·테스트가 이 클래스 이름을 참조한다) ── */

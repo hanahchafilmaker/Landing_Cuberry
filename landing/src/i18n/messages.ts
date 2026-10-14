@@ -99,6 +99,9 @@ export const en: Record<string, string> = {
   "스튜디오": "Studio",
   "엑스콘다": "XCONDA",
   "문의": "Contact",
+  // 콘텐츠 탭 (2026-10-14 — 긴 페이지를 네 탭으로 나눠 보기)
+  "콘텐츠 탭": "Content tabs",
+  "현재 탭: {tab}": "Current tab: {tab}",
   "XCONDA 시작하기": "Get started with XCONDA",
   "XCONDA 시작하기 ↗": "Get started with XCONDA ↗",
   "본문으로 바로가기": "Skip to content",
