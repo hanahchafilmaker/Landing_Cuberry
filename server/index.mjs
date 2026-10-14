@@ -10,31 +10,15 @@ import {
 } from "./lib/config.mjs";
 import { backupStatus, bool, clampPosition, db, flag, freshInstall, metaGet, metaSet, nowIso, seedContent, seedTeam } from "./lib/db.mjs";
 import { applyCors, corsOrigin, isHttps, MIME, negotiateEncoding, normalizeOrigin, readBody, safeFile, send, serveClientFile, serveFile } from "./lib/http.mjs";
+import {
+  adminAccount, attemptGate, clearAttempts, clearCookie, clientIp, createSession, currentUser, formatWait,
+  hashPassword, noteAttempt, purgeExpiredSessions, readToken, requireAdmin, sessionCookie, verifyPassword,
+} from "./lib/auth.mjs";
 import { createServer } from "node:http";
 import { createReadStream, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 import path from "node:path";
-
-function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-function verifyPassword(password, stored) {
-  const [salt, hash] = String(stored || "").split(":");
-  if (!salt || !hash) return false;
-  const next = scryptSync(password, salt, 64);
-  const prev = Buffer.from(hash, "hex");
-  return next.length === prev.length && timingSafeEqual(next, prev);
-}
-
-const adminAccount = {
-  hasAdmin: false,
-  passwordSource: "default", // default | environment | custom
-  initialPasswordInUse: true,
-};
 
 
 // 관리자 계정은 콘텐츠 시드와 분리해서 항상 보장한다.
@@ -102,10 +86,6 @@ if (/^(1|true|yes)$/i.test(String(process.env.REQUIRE_ADMIN_PASSWORD || "").trim
 }
 
 // 만료 세션은 쓸 때만 지워졌으므로 쌓이기만 했다 — 기동 시 + 매시간 정리한다.
-function purgeExpiredSessions() {
-  const result = db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(Date.now());
-  if (result.changes) console.log(`만료 세션 ${result.changes}건을 정리했습니다.`);
-}
 purgeExpiredSessions();
 const sessionPurgeTimer = setInterval(purgeExpiredSessions, 60 * 60 * 1000);
 sessionPurgeTimer.unref?.();
@@ -361,104 +341,6 @@ function requireEmail(value) {
   return email;
 }
 
-const attempts = new Map();
-
-// 요청자를 식별하는 키. 프록시 뒤가 아니면 소켓 주소, 뒤면 XFF 의 오른쪽 끝 hop 만 믿는다.
-function clientIp(req) {
-  const socketIp = String(req.socket?.remoteAddress || "local").replace(/^::ffff:/, "");
-  if (!BEHIND_PROXY) return socketIp;
-  const hops = String(req.headers["x-forwarded-for"] || "")
-    .split(",")
-    .map((value) => value.trim().replace(/^::ffff:/, ""))
-    .filter(Boolean);
-  return hops[hops.length - PROXY_HOPS] || socketIp;
-}
-
-// 실패한 시도만 기록한다. (예전에는 성공 로그인까지 세서 8회 이후 10분간 잠기는 문제가 있었다)
-function attemptGate(key, limit, windowMs) {
-  const now = Date.now();
-  if (attempts.size > 1000) {
-    for (const [bucketKey, bucket] of attempts) {
-      if (!bucket.some((ts) => now - ts < windowMs)) attempts.delete(bucketKey);
-    }
-  }
-  const bucket = (attempts.get(key) || []).filter((ts) => now - ts < windowMs);
-  attempts.set(key, bucket);
-  const oldest = bucket[0];
-  const blocked = bucket.length >= limit;
-  return {
-    blocked,
-    remaining: Math.max(0, limit - bucket.length),
-    retryAfter: blocked && oldest ? Math.max(1, Math.ceil((windowMs - (now - oldest)) / 1000)) : 0,
-  };
-}
-
-function noteAttempt(key) {
-  const bucket = attempts.get(key) || [];
-  bucket.push(Date.now());
-  attempts.set(key, bucket);
-  return bucket.length;
-}
-
-function clearAttempts(key) {
-  attempts.delete(key);
-}
-
-function formatWait(seconds) {
-  if (seconds < 60) return `${seconds}초`;
-  return `${Math.ceil(seconds / 60)}분`;
-}
-
-function readToken(req) {
-  const header = req.headers.authorization || "";
-  if (header.startsWith("Bearer ")) return header.slice(7).trim();
-  // 프록시가 Authorization 헤더를 지우는 환경을 위한 대체 경로
-  const custom = req.headers["x-admin-token"];
-  if (custom) return String(custom).trim();
-  const cookie = String(req.headers.cookie || "");
-  const match = cookie.match(/(?:^|;\s*)cuberry_session=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
-}
-
-function currentUser(req) {
-  const token = readToken(req);
-  if (!token) return null;
-  const session = db.prepare("SELECT * FROM sessions WHERE token = ?").get(token);
-  if (!session || session.expires_at < Date.now()) {
-    if (session) db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
-    return null;
-  }
-  const user = db.prepare("SELECT id, name, email, role FROM users WHERE id = ?").get(session.user_id);
-  return user ? { ...user, token } : null;
-}
-
-function requireAdmin(req, res) {
-  const user = currentUser(req);
-  if (!user || user.role !== "admin") {
-    send(res, 401, { error: "관리자 로그인이 필요합니다." });
-    return null;
-  }
-  return user;
-}
-
-
-function sessionCookie(token, req) {
-  const secure = isHttps(req);
-  // HTTPS(미리보기/iframe)에서는 SameSite=None + Secure 여야 쿠키가 전달된다.
-  const sameSite = secure ? "None" : "Lax";
-  return `cuberry_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=${sameSite}; Max-Age=${Math.floor(SESSION_MS / 1000)}${secure ? "; Secure" : ""}`;
-}
-
-function clearCookie(req) {
-  const secure = req ? isHttps(req) : false;
-  return `cuberry_session=; Path=/; HttpOnly; SameSite=${secure ? "None" : "Lax"}; Max-Age=0${secure ? "; Secure" : ""}`;
-}
-
-function createSession(userId) {
-  const token = randomBytes(32).toString("hex");
-  db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(token, userId, Date.now() + SESSION_MS);
-  return token;
-}
 
 // COUNT(*)+1 은 행이 삭제되면 같은 번호를 다시 만들어 UNIQUE 충돌로 500 이 난다.
 // 최대 id 기준으로 발급한다.
