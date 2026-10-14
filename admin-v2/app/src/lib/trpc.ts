@@ -108,7 +108,7 @@ export const trpc = {
     },
     summary: {
       useQuery: (_input?: undefined, o?: Options) =>
-        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number; lastNotification: { inquiryCode: string; channel: string; status: string; createdAt: string; sentAt: string | null } | null }>({
+        useQuery<{ portfolio: number; published: number; services: number; faqs: number; team: number; inquiries: number; newInquiries: number; lastNotification: { inquiryCode: string; channel: string; status: string; createdAt: string; sentAt: string | null } | null; lastBackupAt: string | null; lastBackupHash: string | null }>({
           queryKey: K.summary,
           retry: o?.retry,
           enabled: o?.enabled,
