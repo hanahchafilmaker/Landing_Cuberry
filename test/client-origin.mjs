@@ -14,7 +14,11 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const adminSource = readFileSync(path.join(ROOT, "admin", "index.html"), "utf8");
 const bridgeSource = readFileSync(path.join(ROOT, "cms-bridge.js"), "utf8");
-const serverSource = readFileSync(path.join(ROOT, "server", "index.mjs"), "utf8");
+// Phase 4(모듈 분리): 서버 배선은 이제 server/index.mjs(디스패치)와 server/lib/config.mjs(설정)에
+// 나뉘어 있다. 둘을 합쳐서 본다 — 검사 항목은 분리 전과 동일하다.
+const serverSource = [path.join("server", "index.mjs"), path.join("server", "lib", "config.mjs")]
+  .map((file) => readFileSync(path.join(ROOT, file), "utf8"))
+  .join("\n");
 
 // 이 저장소의 실제 배포 주소. 바뀌면 네 곳(어드민·랜딩·서버 기본값·Blueprint)을 함께 바꿔야 한다.
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
@@ -276,7 +280,7 @@ const bakedOf = (source, label) => {
 };
 const serverDefaults = () => {
   const block = /const DEFAULT_ALLOWED_ORIGINS = \[([\s\S]*?)\];/.exec(serverSource);
-  if (!block) throw new Error("server/index.mjs: DEFAULT_ALLOWED_ORIGINS 를 찾지 못함");
+  if (!block) throw new Error("server/index.mjs + server/lib/config.mjs: DEFAULT_ALLOWED_ORIGINS 를 찾지 못함");
   return [...block[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
 };
 const blueprintOrigins = (file) => {

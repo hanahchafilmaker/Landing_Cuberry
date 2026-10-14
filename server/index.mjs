@@ -2,209 +2,18 @@ import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { notifyInquiry, listNotifications, retryNotification, notificationStatusMap, lastNotification } from "./lib/notify.mjs";
 import { formTokenMode, mintFormToken, validateFormToken, verifyTurnstile } from "./lib/form-token.mjs";
 import { LAST_BACKUP_AT_KEY, LAST_BACKUP_HASH_KEY, cronSecret, safeSecretEqual, seedHash } from "./lib/backup.mjs";
+import {
+  ALLOW_ANY_ORIGIN, ALLOWED_ORIGINS, BEHIND_PROXY, CONTENT_SECURITY_POLICY, DEFAULT_ALLOWED_ORIGINS, DEFAULT_PASSWORD,
+  ENV_ALLOWED_ORIGINS, GITHUB_API_BASE, GITHUB_BRANCH, GITHUB_REPOSITORY, GITHUB_SEED_PATH, GITHUB_TOKEN, HOST,
+  INITIAL_PASSWORD, LOGIN_LIMIT, LOGIN_WINDOW_MS, PORT, PROXY_HOPS, PUBLIC_ORIGIN, ROOT, SECURITY_HEADERS,
+  SEED_PATH, SESSION_MS, UPLOAD_DIR,
+} from "./lib/config.mjs";
+import { backupStatus, bool, clampPosition, db, flag, freshInstall, metaGet, metaSet, nowIso, seedContent, seedTeam } from "./lib/db.mjs";
 import { createServer } from "node:http";
-import { DatabaseSync } from "node:sqlite";
-import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
-// 테스트가 저장소 밖 임시 폴더에서 돌 수 있도록 DATA_DIR 로 덮어쓸 수 있게 한다. (기본값은 그대로 data/)
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "data");
-const UPLOAD_DIR = path.join(DATA_DIR, "uploads");
-const DB_PATH = path.join(DATA_DIR, "cuberry.sqlite");
-const SEED_PATH = path.join(__dirname, "seed.json");
-const PORT = Number(process.env.PORT || 8080);
-const HOST = "0.0.0.0";
-// GitHub Pages 처럼 정적 호스팅에 올린 화면이 이 서버의 API를 직접 호출할 수 있도록 허용할 Origin.
-// 예) ADMIN_ALLOWED_ORIGINS="https://hanahchafilmaker.github.io,https://cuberry.com"
-// "*" 로 지정하면 모든 Origin 을 허용합니다(토큰 인증만 사용하므로 쿠키 자격증명은 무시됩니다).
-//
-// DEFAULT_ALLOWED_ORIGINS 는 환경변수와 무관하게 항상 허용되는 주소입니다.
-// Render 서비스를 Blueprint(render.yaml)가 아니라 대시보드에서 수동으로 만들면 환경변수가
-// 하나도 적용되지 않아 allowedOrigins 가 비고, 그 결과 Pages 화면의 사전요청이 403 으로
-// 거부되어 주소가 맞아도 로그인이 되지 않습니다. Pages 주소는 이미 저장소에 공개된 값이므로
-// 기본값으로 넣어 "재배포만 하면 되는" 상태로 만듭니다.
-// ADMIN_ALLOWED_ORIGINS 는 이 목록을 대체하지 않고 **추가**로 합쳐집니다.
-const DEFAULT_ALLOWED_ORIGINS = [
-  "https://hanahchafilmaker.github.io",
-];
-const ENV_ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
-  .split(/[\s,]+/)
-  .map((value) => value.trim().replace(/\/+$/, ""))
-  .filter(Boolean);
-const ALLOW_ANY_ORIGIN = ENV_ALLOWED_ORIGINS.includes("*");
-const ALLOWED_ORIGINS = [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...ENV_ALLOWED_ORIGINS])];
-// 리버스 프록시 뒤에서 외부에 노출되는 주소. 업로드 이미지 URL 을 절대경로로 만들 때 사용합니다.
-// Render 에서는 RENDER_EXTERNAL_URL 이 자동으로 주입되므로 별도 설정 없이도 채워집니다.
-const PUBLIC_ORIGIN = String(process.env.PUBLIC_ORIGIN || process.env.RENDER_EXTERNAL_URL || "").replace(/\/+$/, "");
-const INITIAL_PASSWORD = "cuberry2026"; // 화면에 안내되는 기본 초기 비밀번호
-const DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || INITIAL_PASSWORD;
-const SESSION_MS = 1000 * 60 * 60 * 24 * 14;
-// Settings → Backup의 "GitHub에 백업 및 배포" 버튼에서 사용합니다.
-// 토큰은 저장소 Contents 쓰기 권한만 가진 fine-grained token을 Render 환경변수에 넣습니다.
-const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || "").trim();
-const GITHUB_REPOSITORY = String(process.env.GITHUB_REPOSITORY || "hanahchafilmaker/Landing_Cuberry").trim();
-const GITHUB_BRANCH = String(process.env.GITHUB_BRANCH || "main").trim();
-const GITHUB_SEED_PATH = "server/seed.json";
-// GitHub API 주소. 테스트가 로컬 목 서버를 가리키게 하는 오버라이드다(운영은 기본값 사용).
-const GITHUB_API_BASE = String(process.env.GITHUB_API_BASE || "https://api.github.com").replace(/\/+$/, "");
-const LOGIN_LIMIT = 10;
-const LOGIN_WINDOW_MS = 5 * 60 * 1000;
-// ── 클라이언트 IP 판별 ────────────────────────────────────────────────
-// X-Forwarded-For 는 "클라이언트가 보낸 값, …, 프록시가 덧붙인 값" 순서로 쌓인다.
-// 즉 왼쪽 값은 방문자가 마음대로 꾸밀 수 있으므로, 로그인 시도 제한의 키로
-// 문자열 전체를 쓰면 헤더를 매번 바꿔가며 제한을 우회할 수 있다(과거 회귀).
-// 진짜 프록시 뒤에서만 XFF 를 신뢰하고, 그중 **오른쪽 끝 PROXY_HOPS 개**만 쓴다.
-const BEHIND_PROXY = process.env.TRUST_PROXY
-  ? !/^(0|false|no)$/i.test(String(process.env.TRUST_PROXY).trim())
-  : Boolean(process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL || process.env.FLY_APP_NAME || process.env.RAILWAY_SERVICE_ID);
-const PROXY_HOPS = Math.max(1, Number(process.env.PROXY_HOPS || 1) || 1);
-// ── 보안 응답 헤더 ────────────────────────────────────────────────────
-// 모든 응답(화면·API·업로드 이미지)에 붙인다. frame-ancestors 는 일부러 넣지 않는다 —
-// 미리보기/임베드 iframe 이 깨지는 쪽이 이 사이트엔 더 큰 손해다.
-const SECURITY_HEADERS = {
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-};
-// CSP 는 화면이 쓰는 출처(인라인 번들·Google/jsDelivr 폰트·Drive 미리보기 iframe)를
-// 그대로 허용하는 기본값을 두고, 환경변수로 덮어쓰거나 "" 로 끌 수 있게 한다.
-const DEFAULT_CSP = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
-  "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: https:",
-  "frame-src https://drive.google.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
-  "connect-src 'self' https: http://localhost:* http://127.0.0.1:*",
-  "form-action 'self'",
-].join("; ");
-const CONTENT_SECURITY_POLICY = process.env.CONTENT_SECURITY_POLICY !== undefined
-  ? String(process.env.CONTENT_SECURITY_POLICY).trim()
-  : DEFAULT_CSP;
-
-mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const db = new DatabaseSync(DB_PATH);
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'admin'
-  );
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    expires_at INTEGER NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    brand_name TEXT NOT NULL,
-    hero_eyebrow TEXT NOT NULL,
-    hero_title TEXT NOT NULL,
-    hero_subtitle TEXT NOT NULL,
-    contact_email TEXT NOT NULL,
-    contact_phone TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS services (
-    id INTEGER PRIMARY KEY,
-    slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    price TEXT NOT NULL,
-    duration TEXT NOT NULL,
-    description TEXT NOT NULL,
-    accent TEXT NOT NULL DEFAULT 'lime',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_published INTEGER NOT NULL DEFAULT 1,
-    landing_slot TEXT,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS portfolio (
-    id INTEGER PRIMARY KEY,
-    title TEXT NOT NULL,
-    category TEXT NOT NULL,
-    year TEXT NOT NULL,
-    description TEXT NOT NULL,
-    video_url TEXT NOT NULL DEFAULT '',
-    thumbnail_url TEXT,
-    tags TEXT NOT NULL DEFAULT '',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_featured INTEGER NOT NULL DEFAULT 0,
-    is_published INTEGER NOT NULL DEFAULT 1,
-    kind TEXT NOT NULL DEFAULT '광고',
-    source TEXT NOT NULL DEFAULT 'extra',
-    landing_slot TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS faqs (
-    id INTEGER PRIMARY KEY,
-    question TEXT NOT NULL,
-    answer TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_published INTEGER NOT NULL DEFAULT 1,
-    landing_slot TEXT,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS team (
-    id INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT '',
-    bio TEXT NOT NULL DEFAULT '',
-    photo_url TEXT NOT NULL DEFAULT '',
-    photo_position INTEGER NOT NULL DEFAULT 0,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    is_published INTEGER NOT NULL DEFAULT 1,
-    landing_slot TEXT,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS meta (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS inquiries (
-    id INTEGER PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    company TEXT,
-    phone TEXT,
-    project_type TEXT,
-    budget TEXT,
-    message TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'new',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY,
-    inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
-    channel TEXT NOT NULL,
-    target TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    attempts INTEGER NOT NULL DEFAULT 0,
-    last_error TEXT,
-    created_at TEXT NOT NULL,
-    sent_at TEXT,
-    UNIQUE (inquiry_id, channel)
-  );
-`);
-
-const nowIso = () => new Date().toISOString();
-const bool = (value) => (value ? 1 : 0);
-const flag = (value) => Boolean(value);
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString("hex");
@@ -226,38 +35,6 @@ const adminAccount = {
   initialPasswordInUse: true,
 };
 
-let freshInstall = false;
-
-function seedContent() {
-  const existing = db.prepare("SELECT id FROM settings WHERE id = 1").get();
-  if (existing) return;
-  freshInstall = true;
-  const seed = JSON.parse(readFileSync(SEED_PATH, "utf8"));
-  const stamp = nowIso();
-  const settings = seed.settings;
-  db.prepare(`INSERT INTO settings (id, brand_name, hero_eyebrow, hero_title, hero_subtitle, contact_email, contact_phone, updated_at)
-    VALUES (1, ?, ?, ?, ?, ?, ?, ?)`).run(
-    settings.brandName, settings.heroEyebrow, settings.heroTitle, settings.heroSubtitle,
-    settings.contactEmail, settings.contactPhone, stamp,
-  );
-  const insertService = db.prepare(`INSERT INTO services
-    (slug, name, price, duration, description, accent, sort_order, is_published, landing_slot, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  for (const item of seed.services) {
-    insertService.run(item.slug, item.name, item.price, item.duration, item.description, item.accent || "lime", item.sortOrder || 0, bool(item.isPublished), item.landingSlot || null, stamp);
-  }
-  const insertWork = db.prepare(`INSERT INTO portfolio
-    (title, category, year, description, video_url, thumbnail_url, tags, sort_order, is_featured, is_published, kind, source, landing_slot, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  for (const item of seed.portfolio) {
-    insertWork.run(item.title, item.category, item.year, item.description, item.videoUrl || "", item.thumbnailUrl || null, item.tags || "", item.sortOrder || 0, bool(item.isFeatured), bool(item.isPublished), item.kind || "광고", item.source || "extra", item.landingSlot || null, stamp, stamp);
-  }
-  const insertFaq = db.prepare(`INSERT INTO faqs (question, answer, sort_order, is_published, landing_slot, updated_at) VALUES (?, ?, ?, ?, ?, ?)`);
-  for (const item of seed.faqs) {
-    insertFaq.run(item.question, item.answer, item.sortOrder || 0, bool(item.isPublished), item.landingSlot || null, stamp);
-  }
-  console.log("콘텐츠 시드 데이터를 새로 넣었습니다.");
-}
 
 // 관리자 계정은 콘텐츠 시드와 분리해서 항상 보장한다.
 // (예전 버전으로 만들어진 DB에 users 행이 없으면 아무 비밀번호로도 로그인할 수 없던 문제 수정)
@@ -310,28 +87,6 @@ function ensureAdminUser() {
   }
 }
 
-// 팀(PD·감독) 프로필은 나중에 추가된 기능이라 기존 DB에도 한 번만 시드한다.
-// (관리자가 전부 삭제한 뒤 재시작해도 다시 생기지 않도록 meta 에 기록)
-function seedTeam() {
-  if (db.prepare("SELECT value FROM meta WHERE key = 'team_seeded'").get()) return;
-  const hasRows = Number(db.prepare("SELECT COUNT(*) AS n FROM team").get().n || 0) > 0;
-  if (!hasRows) {
-    const seed = JSON.parse(readFileSync(SEED_PATH, "utf8"));
-    const stamp = nowIso();
-    const insert = db.prepare(`INSERT INTO team (name, role, bio, photo_url, photo_position, sort_order, is_published, landing_slot, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    for (const item of seed.team || []) {
-      insert.run(item.name, item.role || "", item.bio || "", item.photoUrl || "", clampPosition(item.photoPosition), item.sortOrder || 0, bool(item.isPublished !== false), item.landingSlot || null, stamp);
-    }
-    console.log("팀 프로필 시드 데이터를 넣었습니다.");
-  }
-  db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('team_seeded', ?)").run(nowIso());
-}
-
-function clampPosition(value) {
-  const n = Math.round(Number(value));
-  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
-}
 
 seedContent();
 seedTeam();
@@ -539,20 +294,6 @@ async function backupSeedToGitHub() {
   };
 }
 
-// ── Phase 3: 백업 상태 (meta 테이블) ────────────────────────────────────
-// meta 는 key/value 한 줄짜리 표다. last_backup_hash/last_backup_at 을 남겨
-// ① 크론이 "내용이 그대로면 커밋하지 않는" 판단을 하고 ② 어드민 개요가 마지막 백업을 보여준다.
-function metaGet(key) {
-  return db.prepare("SELECT value FROM meta WHERE key = ?").get(key)?.value ?? null;
-}
-
-function metaSet(key, value) {
-  db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)").run(key, String(value));
-}
-
-function backupStatus() {
-  return { lastBackupAt: metaGet(LAST_BACKUP_AT_KEY), lastBackupHash: metaGet(LAST_BACKUP_HASH_KEY) };
-}
 
 function recordBackup(result) {
   if (result?.hash) metaSet(LAST_BACKUP_HASH_KEY, result.hash);
