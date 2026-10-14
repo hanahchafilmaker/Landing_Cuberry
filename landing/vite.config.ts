@@ -18,6 +18,8 @@ const proxied = ["/api", "/cms-bridge.js", "/images", "/portfolio_thumbs", "/tea
 // 한영 자동 번역(landing/src/i18n)의 주소는 ?lang=ko · ?lang=en 두 가지다.
 // 검색엔진이 두 언어를 같은 페이지로 알 수 있게 hreflang 링크를 빌드 산출물에 넣는다.
 // (HTML 에 직접 써 두면 Vite 가 rel="alternate" 를 번들 대상으로 오해하므로 빌드 단계에서 주입한다)
+// 같은 파일이 GitHub Pages 미러(…/Landing_Cuberry/)에서도 서빙되므로 **공식 주소 절대경로**로 적는다.
+// 상대주소로 두면 크롤러가 미러 주소를 두 언어의 정본으로 오해할 수 있다(docs/domain-setup.md).
 function injectLanguageAlternates(): Plugin {
   return {
     name: "cuberry-language-alternates",
@@ -26,9 +28,9 @@ function injectLanguageAlternates(): Plugin {
       order: "post",
       handler(html) {
         const links = [
-          '    <link rel="alternate" hreflang="ko" href="?lang=ko" />',
-          '    <link rel="alternate" hreflang="en" href="?lang=en" />',
-          '    <link rel="alternate" hreflang="x-default" href="./" />',
+          '    <link rel="alternate" hreflang="ko" href="https://cuberry.kr/?lang=ko" />',
+          '    <link rel="alternate" hreflang="en" href="https://cuberry.kr/?lang=en" />',
+          '    <link rel="alternate" hreflang="x-default" href="https://cuberry.kr/" />',
           "  </head>",
         ].join("\n");
         return html.replace("  </head>", links);

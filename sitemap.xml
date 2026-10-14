@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- 공식 주소는 https://cuberry.kr/ 입니다(GitHub Pages 미러·Render 주소는 canonical 로 정리).
+     언어별 주소는 쿼리 파라미터(?lang=ko · ?lang=en)를 정본으로 쓰고, /en/ · /kr/ 은 진입용 별칭입니다.
+     도메인 연결 절차: docs/domain-setup.md -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://hanahchafilmaker.github.io/Landing_Cuberry/</loc>
-    <lastmod>2026-10-13</lastmod>
+    <loc>https://cuberry.kr/</loc>
+    <lastmod>2026-10-14</lastmod>
     <changefreq>weekly</changefreq>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://hanahchafilmaker.github.io/Landing_Cuberry/?lang=ko" />
-    <xhtml:link rel="alternate" hreflang="en" href="https://hanahchafilmaker.github.io/Landing_Cuberry/?lang=en" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://hanahchafilmaker.github.io/Landing_Cuberry/" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://cuberry.kr/?lang=ko" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://cuberry.kr/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://cuberry.kr/" />
   </url>
 </urlset>

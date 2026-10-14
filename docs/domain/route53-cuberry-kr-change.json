@@ -1,0 +1,44 @@
+{
+  "Comment": "cuberry.kr -> GitHub Pages (커스텀 도메인). apex A/AAAA 를 Pages 주소로 교체하고 www 를 CNAME 으로 연결합니다. MX/TXT(구글 워크스페이스)는 건드리지 않습니다. 되돌리려면 docs/domain-setup.md 8장(롤백) 참고.",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "cuberry.kr.",
+        "Type": "A",
+        "TTL": 300,
+        "ResourceRecords": [
+          { "Value": "185.199.108.153" },
+          { "Value": "185.199.109.153" },
+          { "Value": "185.199.110.153" },
+          { "Value": "185.199.111.153" }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "cuberry.kr.",
+        "Type": "AAAA",
+        "TTL": 300,
+        "ResourceRecords": [
+          { "Value": "2606:50c0:8000::153" },
+          { "Value": "2606:50c0:8001::153" },
+          { "Value": "2606:50c0:8002::153" },
+          { "Value": "2606:50c0:8003::153" }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "www.cuberry.kr.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          { "Value": "hanahchafilmaker.github.io" }
+        ]
+      }
+    }
+  ]
+}

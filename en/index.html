@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,follow" />
+    <meta name="theme-color" content="#0e0e0e" />
+    <!-- 언어 진입용 별칭 페이지 — 실제 영문 화면은 /?lang=en 하나로 관리한다(중복 콘텐츠 방지).
+         상대경로(../)라 Render 루트(/)와 GitHub Pages 서브경로(…/Landing_Cuberry/) 양쪽에서 동작한다. -->
+    <link rel="canonical" href="https://cuberry.kr/?lang=en" />
+    <link rel="alternate" hreflang="ko" href="https://cuberry.kr/" />
+    <link rel="alternate" hreflang="en" href="https://cuberry.kr/?lang=en" />
+    <link rel="alternate" hreflang="x-default" href="https://cuberry.kr/" />
+    <title>CUBEBERRY — English</title>
+    <meta http-equiv="refresh" content="0; url=../?lang=en" />
+    <script>
+      // meta refresh 를 못 쓰는 환경(일부 브라우저·크롤러)을 위한 이중화. 해시(#contact)는 그대로 넘긴다.
+      location.replace("../?lang=en" + location.hash);
+    </script>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0e0e0e;
+        color: #edeae2;
+        font-family: "Pretendard", "Apple SD Gothic Neo", ui-sans-serif, system-ui, sans-serif;
+      }
+      main { max-width: 30rem; padding: 2rem; text-align: center; }
+      p.eyebrow { margin: 0 0 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #f4b400; }
+      h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.03em; }
+      p.copy { margin: 0.75rem 0 1.75rem; font-size: 0.9rem; line-height: 1.7; color: #a9a59b; }
+      a { display: inline-block; border: 1px solid #3a3934; padding: 0.7rem 1.1rem; color: #f4b400; text-decoration: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+      a:hover { border-color: #f4b400; background: #f4b400; color: #140f00; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">CUBEBERRY / English</p>
+      <h1>Taking you to the English page…</h1>
+      <p class="copy">If nothing happens, use the button below. 한국어 화면은 <a href="../">여기</a>에서 볼 수 있습니다.</p>
+      <a href="../?lang=en">Open the English site</a>
+    </main>
+  </body>
+</html>

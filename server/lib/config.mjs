@@ -19,12 +19,22 @@ export const HOST = "0.0.0.0";
 //
 // DEFAULT_ALLOWED_ORIGINS 는 환경변수와 무관하게 항상 허용되는 주소입니다.
 // Render 서비스를 Blueprint(render.yaml)가 아니라 대시보드에서 수동으로 만들면 환경변수가
-// 하나도 적용되지 않아 allowedOrigins 가 비고, 그 결과 Pages 화면의 사전요청이 403 으로
-// 거부되어 주소가 맞아도 로그인이 되지 않습니다. Pages 주소는 이미 저장소에 공개된 값이므로
+// 하나도 적용되지 않아 allowedOrigins 가 비고, 그 결과 랜딩 화면의 사전요청이 403 으로
+// 거부되어 주소가 맞아도 로그인이 되지 않습니다. 아래 주소는 모두 공개된 값이므로
 // 기본값으로 넣어 "재배포만 하면 되는" 상태로 만듭니다.
+//   · cuberry.kr (공식 도메인) — 랜딩을 커스텀 도메인으로 서빙할 때 사용. docs/domain-setup.md
+//   · www.cuberry.kr — apex/www 어느 주소로 들어와도 동작하게 (Pages 가 www → apex 로 301)
+//   · hanahchafilmaker.github.io — GitHub Pages 미러(서브경로) 배포. 도메인 연결 뒤에도 남겨
+//     두면 미러에서 디버깅할 때 그대로 쓸 수 있습니다.
 // ADMIN_ALLOWED_ORIGINS 는 이 목록을 대체하지 않고 **추가**로 합쳐집니다.
+//
+// 2026-10-14: 공식 도메인 cuberry.kr 를 기본 목록에 넣었습니다. 랜딩/어드민을 cuberry.kr 로
+// 서빙해도(권장 구성 — 정적 화면은 GitHub Pages, API 는 이 서버) 사전요청이 403 으로 막히지
+// 않습니다. www 도 함께 넣어 apex/www 어느 쪽으로 들어와도 동작하게 합니다.
 export const DEFAULT_ALLOWED_ORIGINS = [
-  "https://hanahchafilmaker.github.io",
+  "https://hanahchafilmaker.github.io", // GitHub Pages 미러(서브경로 배포)
+  "https://cuberry.kr", // 공식 도메인(정본)
+  "https://www.cuberry.kr",
 ];
 export const ENV_ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
   .split(/[\s,]+/)

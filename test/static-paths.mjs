@@ -12,8 +12,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const BASE = "/Landing_Cuberry"; // GitHub Pages 에서의 저장소 경로
+const BASE = "/Landing_Cuberry"; // GitHub Pages 미러에서의 저장소 경로
 const PORT = Number(process.env.PAGES_PORT || 9099);
+// 커스텀 도메인(cuberry.kr)은 저장소가 **루트**에 놓인다. 같은 파일을 루트에서도 흉내내
+// /en/ · /kr/ 별칭 페이지와 상대경로 자산이 그대로 해결되는지 확인한다.
+const APEX_PORT = PORT + 1;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -28,16 +31,17 @@ const MIME = {
   ".mp4": "video/mp4",
 };
 
-// GitHub Pages 동작 모사: 디렉터리 → index.html, 슬래시 없으면 301, 없으면 404
-const pages = createServer((req, res) => {
+// GitHub Pages 동작 모사: 디렉터리 → index.html, 슬래시 없으면 301, 없으면 404.
+// base 는 저장소가 놓이는 접두 경로 — 미러는 "/Landing_Cuberry", 공식 도메인은 "" (루트).
+const makePages = (base) => createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   let pathname = decodeURIComponent(url.pathname);
-  if (!pathname.startsWith(`${BASE}/`) && pathname !== BASE) {
+  if (!pathname.startsWith(`${base}/`) && pathname !== base && base !== "") {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("Not found"); // 저장소 경로 밖은 Pages 에 없다
     return;
   }
-  let relative = pathname.slice(BASE.length).replace(/^\//, "") || "index.html";
+  let relative = pathname.slice(base.length).replace(/^\//, "") || "index.html";
   let filePath = path.join(ROOT, relative);
   if (!filePath.startsWith(ROOT)) {
     res.writeHead(403); res.end("Forbidden"); return;
@@ -59,6 +63,7 @@ const pages = createServer((req, res) => {
   createReadStream(filePath).pipe(res);
 });
 
+const pages = makePages(BASE);
 let failures = 0;
 let checks = 0;
 const show = (value) => (typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value));
@@ -76,13 +81,13 @@ function expect(label, actual, wanted) {
 // 걷어내지 않으면 플레이스홀더를 경로로 오해해 404 라고 잘못 보고한다.
 const stripDynamic = (html) => html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
 
-const get = async (pathname) => {
-  const response = await fetch(`http://localhost:${PORT}${pathname}`, { redirect: "manual" });
+const get = async (pathname, port = PORT) => {
+  const response = await fetch(`http://localhost:${port}${pathname}`, { redirect: "manual" });
   return { status: response.status, location: response.headers.get("location"), body: response.ok ? await response.text() : "" };
 };
 // 29MB 짜리 mp4 까지 본문으로 받을 필요는 없으므로 존재 확인은 HEAD 로 한다.
-const head = async (pathname) => {
-  const response = await fetch(`http://localhost:${PORT}${pathname}`, { method: "HEAD", redirect: "manual" });
+const head = async (pathname, port = PORT) => {
+  const response = await fetch(`http://localhost:${port}${pathname}`, { method: "HEAD", redirect: "manual" });
   return { status: response.status };
 };
 
@@ -152,6 +157,35 @@ try {
   expect("번들 자산 참조가 있다", bundleAssets.length > 0, true);
   expect("번들 자산 깨진 참조", missingAssets, []);
   expect("번들에 루트 절대경로 /images/ 참조 없음", /["'`]\/images\//.test(landing), false);
+
+  console.log("\n[7] 공식 도메인(cuberry.kr = 저장소가 루트) 시뮬레이션");
+  // 커스텀 도메인을 붙이면 Pages 는 저장소를 도메인 루트에서 서빙한다.
+  // 별칭 페이지(/en/ · /kr/)는 상대경로(../)만 쓰므로 여기서도 그대로 풀려야 한다.
+  const apex = makePages("");
+  await new Promise((resolve) => apex.listen(APEX_PORT, "127.0.0.1", resolve));
+  try {
+    for (const [pathname, wanted] of [["/", 200], ["/en/", 200], ["/en/index.html", 200], ["/kr/", 200], ["/kr/index.html", 200], ["/admin/", 200], ["/sitemap.xml", 200], ["/robots.txt", 200]]) {
+      expect(`apex ${pathname} → ${wanted}`, (await get(pathname, APEX_PORT)).status, wanted);
+    }
+    expect("별칭 페이지가 참조하는 정본(/) 도 200", (await head("/", APEX_PORT)).status, 200);
+
+    const aliasRefs = (html) => [...html.matchAll(/\s(?:src|href)\s*=\s*"([^"]+)"/gi)].map((match) => match[1]);
+    for (const pathname of ["/en/", "/kr/"]) {
+      const { body } = await get(pathname, APEX_PORT);
+      const refs = aliasRefs(body.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ""));
+      expect(`${pathname} 참조가 전부 상대경로`, refs.every((value) => !value.startsWith("/")), true);
+      const brokenAlias = [];
+      for (const value of refs) {
+        const target = new URL(value, `http://localhost:${APEX_PORT}${pathname}`);
+        if ((await head(target.pathname, APEX_PORT)).status !== 200) brokenAlias.push(value);
+      }
+      expect(`${pathname} 깨진 참조`, brokenAlias, []);
+      expect(`${pathname} 가 정본(/?lang=…)으로 연결`, refs.some((value) => value.includes("?lang=")), true);
+    }
+    expect("apex 랜딩이 참조하는 자산이 루트에서 해결", (await head("/images/og-cover.jpg", APEX_PORT)).status, 200);
+  } finally {
+    apex.close();
+  }
 
   console.log(`\n결과: ${checks - failures}/${checks} 통과`);
   if (failures) process.exitCode = 1;
