@@ -20,7 +20,7 @@ const ADMIN_PATHS = ["/admin", "/admin/portfolio", "/admin/services", "/admin/fa
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
           <Switch>
