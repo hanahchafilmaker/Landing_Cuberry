@@ -1,6 +1,7 @@
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { notifyInquiry, listNotifications, retryNotification, notificationStatusMap, lastNotification } from "./lib/notify.mjs";
 import { formTokenMode, mintFormToken, validateFormToken, verifyTurnstile } from "./lib/form-token.mjs";
+import { LAST_BACKUP_AT_KEY, LAST_BACKUP_HASH_KEY, cronSecret, safeSecretEqual, seedHash } from "./lib/backup.mjs";
 import { createServer } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -49,6 +50,8 @@ const GITHUB_TOKEN = String(process.env.GITHUB_TOKEN || "").trim();
 const GITHUB_REPOSITORY = String(process.env.GITHUB_REPOSITORY || "hanahchafilmaker/Landing_Cuberry").trim();
 const GITHUB_BRANCH = String(process.env.GITHUB_BRANCH || "main").trim();
 const GITHUB_SEED_PATH = "server/seed.json";
+// GitHub API 주소. 테스트가 로컬 목 서버를 가리키게 하는 오버라이드다(운영은 기본값 사용).
+const GITHUB_API_BASE = String(process.env.GITHUB_API_BASE || "https://api.github.com").replace(/\/+$/, "");
 const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 // ── 클라이언트 IP 판별 ────────────────────────────────────────────────
@@ -494,7 +497,7 @@ async function backupSeedToGitHub() {
   if (!GITHUB_TOKEN) throw Object.assign(new Error("GitHub 백업이 설정되지 않았습니다. Render에 GITHUB_TOKEN을 등록해 주세요."), { status: 503 });
   if (!/^[^/]+\/[^/]+$/.test(GITHUB_REPOSITORY)) throw Object.assign(new Error("GITHUB_REPOSITORY 설정이 올바르지 않습니다."), { status: 503 });
 
-  const apiPath = `https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/${GITHUB_SEED_PATH}`;
+  const apiPath = `${GITHUB_API_BASE}/repos/${GITHUB_REPOSITORY}/contents/${GITHUB_SEED_PATH}`;
   const headers = {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -530,6 +533,52 @@ async function backupSeedToGitHub() {
     commitUrl: result.commit?.html_url || "",
     commitSha: result.commit?.sha || "",
     message: "GitHub 백업을 완료했습니다. Render 자동 배포가 곧 시작됩니다.",
+    // 아래 둘은 Phase 3(변경 감지)이 meta 에 기록해 두는 값이다. 어드민 화면은 무시한다.
+    hash: seedHash(seed),
+    changedAt: seed.exportedAt,
+  };
+}
+
+// ── Phase 3: 백업 상태 (meta 테이블) ────────────────────────────────────
+// meta 는 key/value 한 줄짜리 표다. last_backup_hash/last_backup_at 을 남겨
+// ① 크론이 "내용이 그대로면 커밋하지 않는" 판단을 하고 ② 어드민 개요가 마지막 백업을 보여준다.
+function metaGet(key) {
+  return db.prepare("SELECT value FROM meta WHERE key = ?").get(key)?.value ?? null;
+}
+
+function metaSet(key, value) {
+  db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)").run(key, String(value));
+}
+
+function backupStatus() {
+  return { lastBackupAt: metaGet(LAST_BACKUP_AT_KEY), lastBackupHash: metaGet(LAST_BACKUP_HASH_KEY) };
+}
+
+function recordBackup(result) {
+  if (result?.hash) metaSet(LAST_BACKUP_HASH_KEY, result.hash);
+  metaSet(LAST_BACKUP_AT_KEY, result?.changedAt || nowIso());
+}
+
+// 크론(GitHub Actions)이 부르는 백업. 내용이 그대로면 GitHub 을 아예 호출하지 않는다.
+// 무변경인데도 커밋하면 Render 가 6시간마다 재배포되어 무료 플랜에서 콜드 스타트만 늘어난다.
+async function runSeedBackup() {
+  const seed = exportSeed();
+  const hash = seedHash(seed);
+  const lastHash = metaGet(LAST_BACKUP_HASH_KEY);
+  if (lastHash && lastHash === hash) {
+    return { ok: true, skipped: "no-change", hash, changedAt: metaGet(LAST_BACKUP_AT_KEY) };
+  }
+  const result = await backupSeedToGitHub();
+  recordBackup({ ...result, hash, changedAt: seed.exportedAt });
+  return {
+    ok: true,
+    skipped: null,
+    hash,
+    changedAt: seed.exportedAt,
+    repository: result.repository,
+    branch: result.branch,
+    commitUrl: result.commitUrl,
+    commitSha: result.commitSha,
   };
 }
 
@@ -545,6 +594,8 @@ function summary() {
     newInquiries: count("SELECT COUNT(*) AS n FROM inquiries WHERE status = 'new'"),
     // 개요 화면의 "마지막 문의 알림" 한 줄. 알림 행이 없으면 null.
     lastNotification: lastNotification(db),
+    // 개요 화면의 "마지막 백업" 한 줄(Phase 3). 백업을 한 번도 안 했으면 둘 다 null.
+    ...backupStatus(),
   };
 }
 
@@ -1233,6 +1284,20 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // Phase 3: GitHub Actions cron 이 부르는 seed.json 백업. 세션이 아니라 공유 시크릿 헤더로 인증한다.
+  // CRON_SECRET 미설정이면 503 — 실수로 열린 크론 엔드포인트를 만들지 않기 위해.
+  if (req.method === "POST" && pathname === "/api/cron/backup") {
+    const secret = cronSecret();
+    if (!secret) return send(res, 503, { error: "CRON_SECRET 이 설정되지 않아 크론 백업이 비활성 상태입니다." });
+    if (!safeSecretEqual(req.headers["x-cron-secret"], secret)) {
+      console.warn("[cron] 잘못된 x-cron-secret 로 백업을 시도했습니다.");
+      return send(res, 401, { error: "x-cron-secret 이 올바르지 않습니다." });
+    }
+    const result = await runSeedBackup();
+    console.log(result.skipped ? `[cron] 백업 건너뜀(변경 없음) ${result.hash.slice(0, 12)}` : `[cron] 백업 완료 ${String(result.commitSha || "").slice(0, 7)}`);
+    return send(res, 200, result);
+  }
+
   const user = requireAdmin(req, res);
   if (!user) return;
   if (req.method === "POST" && pathname === "/api/auth/password") {
@@ -1259,7 +1324,10 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/admin/export") return send(res, 200, exportSeed());
   if (req.method === "POST" && pathname === "/api/admin/github-backup") {
+    // 수동 버튼은 "지금 백업해줘" 라는 명시적 요청이므로 변경이 없어도 커밋한다.
+    // 다만 크론이 곧바로 같은 내용을 다시 커밋하지 않도록 성공한 백업의 해시는 함께 기록한다.
     const result = await backupSeedToGitHub();
+    recordBackup(result);
     console.log(`GitHub 백업 완료: ${result.repository}@${result.branch} ${result.commitSha.slice(0, 7)}`);
     return send(res, 200, result);
   }
@@ -1424,6 +1492,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  └ 기본값 ${JSON.stringify(DEFAULT_ALLOWED_ORIGINS)} + ADMIN_ALLOWED_ORIGINS ${JSON.stringify(ENV_ALLOWED_ORIGINS)}`);
   console.log(`클라이언트 IP: ${BEHIND_PROXY ? `X-Forwarded-For 오른쪽 ${PROXY_HOPS} hop (프록시 신뢰)` : "소켓 주소 (프록시 비신뢰, TRUST_PROXY=1 로 전환 가능)"}`);
   console.log(`CSP: ${CONTENT_SECURITY_POLICY ? "적용" : "꺼짐 (CONTENT_SECURITY_POLICY 미설정)"}`);
+  console.log(`크론 백업: ${cronSecret() ? "활성 — POST /api/cron/backup (x-cron-secret)" : "비활성 (CRON_SECRET 미설정 → 503)"}`);
   if (!adminAccount.hasAdmin) {
     console.log("경고: 관리자 계정이 없습니다. 서버를 재시작하면 초기 계정이 생성됩니다.");
   } else if (adminAccount.initialPasswordInUse) {

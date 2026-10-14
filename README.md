@@ -14,11 +14,11 @@ https://landing-cuberry-admin.onrender.com/admin     ← 레거시 어드민
 ```bash
 npm start              # http://localhost:8080/  ,  http://localhost:8080/admin
 PORT=3000 npm start    # 포트 변경
-npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙·보안 회귀 + 한영 사전 + 문의 알림 233건)
+npm test               # 의존성 없이 도는 검증 (주소 결정·Pages 경로·서버 저장/CORS/서빙·보안 회귀 + 한영 사전 + 문의 알림 + 백업 자동화 318건)
 npm i -D jsdom         # 아래 DOM 테스트를 돌리려면 한 번만 (선택)
 npm run test:dom       # 어드민 로그인·내비게이션 종단 테스트 (79건, 서버 필요)
-npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (43건)
-npm run test:i18n      # 한영 자동 번역 (51건 — 자동 감지·KO/EN 토글·CMS 값 번역)
+npm run test:cms       # React 랜딩에 관리자 저장값 반영·문의 폼·포커스 갱신 테스트 (46건)
+npm run test:i18n      # 한영 자동 번역 (55건 — 자동 감지·KO/EN 토글·CMS 값 번역)
 npm run build          # landing/ 소스 → 루트 index.html (아래 "랜딩 디자인 소스" 참고)
 npm run build:admin    # admin-v2/app 소스 → admin-v2/index.html (새 어드민 한 파일)
 npm run test:admin     # 새 어드민 로그인 → Team 수정 저장 종단 테스트 (jsdom, 서버 필요)
@@ -193,6 +193,30 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 공개 콘텐츠만 가져와도 되면(비공개 초안·문의 제외) `npm run sync:seed` 한 줄로 운영 서버의 내용을
 `server/seed.json` 에 바로 기록합니다. 로그인이 필요 없어 자잘한 배포 후 정리에 편합니다.
 
+### 자동 백업 (GitHub Actions cron · Phase 3)
+
+버튼을 누르는 것을 잊어도 콘텐츠가 Git 에 남도록, **6시간마다** 백업을 자동으로 시도합니다.
+서버 안의 타이머가 아니라 저장소의 GitHub Actions 에서 돌기 때문에 무료 플랜이 잠들어 있어도(`15분 무요청 → Sleep`)
+재개 시점에 그대로 실행됩니다.
+
+등록은 두 곳입니다 — **같은 시크릿 값을 양쪽에** 넣습니다.
+
+| 위치 | 키 | 값 |
+| --- | --- | --- |
+| Render 환경변수 | `CRON_SECRET` | 길고 무작위한 문자열 (`openssl rand -hex 32`). 비워두면 크론 엔드포인트는 503 으로 잠깁니다 |
+| GitHub → Settings → Secrets and variables → Actions | `CRON_SECRET` | 위와 **같은 값** |
+| GitHub → Settings → Secrets and variables → Actions | `APP_URL` | `https://landing-cuberry-admin.onrender.com` (운영 서버 주소) |
+
+- 워크플로: `.github/workflows/backup-seed.yml` — `POST ${APP_URL}/api/cron/backup` 에 `x-cron-secret` 헤더로 1회 호출합니다.
+  `200` 이 아니면 워크플로가 실패하고, **GitHub 이 저장소 소유자에게 메일로 알려줍니다** — 별도 모니터링 없이 백업 중단을 감지합니다.
+- 무변경이면 커밋하지 않습니다. 현재 콘텐츠의 **SHA-256 해시**(`exportedAt` 제외)를 DB `meta` 에 남겨두고 비교하므로, 내용이 그대로면 GitHub 을
+  아예 호출하지 않고 `{ ok: true, skipped: "no-change" }` 로 끝납니다 — 6시간마다 재배포가 도는 것을 막는 장치입니다.
+- 어드민 개요에는 **"마지막 백업 · 3시간 전 · a1b2c3d"** 한 줄이, Settings → Backup 카드에는 자동 백업 안내가 표시됩니다.
+- 수동 "GitHub에 백업 및 배포" 버튼은 명시적 요청이므로 **무변경이어도 커밋**합니다(대신 성공한 해시를 기록해 다음 크론은 건너뜁니다).
+- 시크릿이 틀리면 `401`, `CRON_SECRET` 이 없으면 `503`, GitHub 커밋이 실패하면 `502` 입니다. 어떤 경우에도 성공으로 기록되지 않아 다음 실행이 다시 시도합니다.
+
+`CRON_SECRET` 을 등록하지 않아도 서버는 지금과 똑같이 동작합니다(크론만 503 으로 꺼져 있음).
+
 > 무료 인스턴스는 **업로드 이미지**(`data/uploads/`)도 잃습니다. 무료 구성에서는 이미지 URL을
 > Google Drive 썸네일이나 CDN 같은 외부 절대주소로 넣는 편이 안전합니다.
 
@@ -366,12 +390,13 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 233건 (client-origin 44 + static-paths 18 + server-wiring 64 + i18n-coverage 5 + team-profile + security 39 + notify 63)
-npm run test:security # 보안 회귀 39건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟)
+npm test           # 의존성 없음 · 318건 (client-origin 44 + static-paths 18 + server-wiring 64 + i18n-coverage 5 + team-profile + security 63 + notify 63 + cron-backup 61)
+npm run test:security # 보안 회귀 63건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟·폼 토큰/Turnstile)
 npm run test:notify  # 문의 알림 63건 (웹훅 성공·백오프 재시도·실패 보존·UNIQUE 재발송·마스킹·킬 스위치, 외부 요청 0)
+npm run test:cron    # 자동 백업 61건 (시크릿 503/401·무변경 skip·내용 변경 재커밋·목 GitHub API, 외부 요청 0)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
-npm run test:cms   # jsdom 필요 · 43건 (서버 없이 React 랜딩 + mock API)
-npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS 값 번역)
+npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
+npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS 값 번역)
 ```
 
 `main` 브랜치와 모든 PR 에서는 `.github/workflows/ci.yml` 이 typecheck → `npm test` → build →
@@ -381,8 +406,9 @@ npm run test:i18n  # jsdom 필요 · 51건 (한영 자동 감지·토글·CMS �
 | --- | --- |
 | `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
-| `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 |
+| `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 ⑪ 폼 토큰·Turnstile — `off`/`flag`/`strict` 3단 정책, 3초 미만·만료·위조 토큰이 저장은 되되 `review` 로 잡히는지, 검증 실패가 500 을 만들지 않는지 |
 | `test/notify.mjs` | Phase 1 문의 알림. 로컬 목 웹훅·목 Resend 서버로 **외부 요청 없이** 실제 서버를 띄워 ① 성공 → `sent`·`attempts 1` ② 500 1회 → 백오프 재시도 후 `sent`·`attempts 2`·호출 간격 준수 ③ 계속 실패 → `failed` + `last_error` (문의 접수는 200 유지) ④ UNIQUE — 재발송을 여러 번 해도 행은 1개·시도만 증가 ⑤ env 미설정 → 알림 행 0 ⑥ `NOTIFY_DISABLED=1` → 발송 0 ⑦ `NOTIFY_MASK_CONTACT=1` → 원본 연락처 평문 없음 · 이메일(Resend) 채널·인증 401·`status` 필터·`summary.lastNotification` |
+| `test/cron-backup.mjs` | Phase 3 자동 백업. **목 GitHub Contents API** 를 로컬에 띄우고(`GITHUB_API_BASE` 오버라이드) 실제 서버로 확인 — ① `CRON_SECRET` 미설정 `503`·GitHub 호출 0 ② 틀린 시크릿(헤더 없음·짧은 값·아주 긴 값) `401`·호출 0 ③ 올바른 시크릿 → 커밋 1회(경로·branch·base64 디코드 내용·메시지까지) ④ 즉시 재호출 → `skipped: "no-change"` + **GitHub 요청 0건** ⑤ 콘텐츠 변경 → 재커밋 ⑥ 수동 백업 뒤 크론 skip ⑦ `GITHUB_TOKEN` 미설정 `503`·실패는 해시를 남기지 않음 ⑧ `GET` 으로는 백업이 돌지 않음 · `summary.lastBackupAt/Hash` · 해시 정규화(키 순서·`exportedAt`)·상수시간 비교 단위 검증 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |

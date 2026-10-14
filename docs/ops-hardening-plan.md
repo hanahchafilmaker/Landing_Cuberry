@@ -12,8 +12,14 @@
 > - **Phase 2 (스팸 2차 방어) 구현 완료** — `server/lib/form-token.mjs`(새 파일) · `GET /api/form-token` ·
 >   `FORM_TOKEN_MODE` 3단 정책(기본 `flag`) · Turnstile siteverify(선택) · 어드민 `review` 상태/배지 ·
 >   `test/security.mjs` [11]. 기본 `flag` 에서는 정상 문의도 발급 후 3초 안이면 `review` 로 남지만 **저장은 되고**
->   알림만 보류되므로 리드를 잃지 않습니다. 검증 실패가 응답 500 을 만들지 않음도 테스트로 고정했습니다.
-> - Phase 3~4: 대기.
+> 알림만 보류되므로 리드를 잃지 않습니다. 검증 실패가 응답 500 을 만들지 않음도 테스트로 고정했습니다.
+> - **Phase 3 (seed.json 백업 자동화) 구현 완료** — `server/lib/backup.mjs`(새 파일: 시크릿 상수시간 비교 ·
+>   `exportedAt` 제외 SHA-256 해시) · `POST /api/cron/backup`(CRON_SECRET 미설정 503 / 불일치 401) ·
+>   무변경이면 `{ ok, skipped: "no-change" }` 로 끝나 **GitHub 호출 0건**(무한 재배포 방지) · `meta` 에
+>   `last_backup_hash`/`last_backup_at` 기록 · 어드민 개요의 "마지막 백업" 줄 · `test/cron-backup.mjs`(61건,
+>   목 GitHub API) · `.github/workflows/backup-seed.yml`(6시간 cron). 수동 백업 버튼은 명시적 요청이라
+>   무변경이어도 커밋하되 해시를 기록해 다음 크론이 건너뜁니다. `CRON_SECRET` 미등록 시 동작 변화 0.
+> - Phase 4: 대기.
 
 ---
 
