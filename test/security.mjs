@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
+const OFFICIAL_ORIGIN = "https://cuberry.kr"; // 공식 도메인(커스텀 도메인 연결 후 기본 허용)
 const EVIL_ORIGIN = "https://evil.example.com";
 const PASSWORD = "cuberry2026";
 const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -149,6 +150,20 @@ await withServer({ label: "목록모드" }, async ({ origin }) => {
     headers: { origin: PAGES_ORIGIN, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
   });
   expect("허용 목록 Origin 에는 자격증명 유지", preflight.headers.get("access-control-allow-credentials"), "true");
+
+  // 공식 도메인도 같은 규칙으로 허용되고, 목록에 없는 Origin 은 그대로 거부되는지 함께 본다.
+  const official = await fetch(`${origin}/api/auth/login`, {
+    method: "OPTIONS",
+    headers: { origin: OFFICIAL_ORIGIN, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+  });
+  expect("공식 도메인 사전요청 → 204", official.status, 204);
+  expect("공식 도메인 Allow-Origin", official.headers.get("access-control-allow-origin"), OFFICIAL_ORIGIN);
+
+  const evil = await fetch(`${origin}/api/auth/login`, {
+    method: "OPTIONS",
+    headers: { origin: EVIL_ORIGIN, "access-control-request-method": "POST", "access-control-request-headers": "content-type" },
+  });
+  expect("목록에 없는 Origin 은 여전히 거부", evil.status, 403);
 });
 
 console.log("\n[4] 기본 보안 헤더 · CSP");

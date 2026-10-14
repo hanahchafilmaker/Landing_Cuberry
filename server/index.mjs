@@ -128,6 +128,14 @@ const server = createServer(async (req, res) => {
       serveClientFile(req, res, path.join(ROOT, "cms-bridge.js"));
       return;
     }
+    if (/^\/(en|kr)(\/index\.html)?\/?$/.test(url.pathname)) {
+      // 언어 진입용 별칭 페이지 — /en/ → /?lang=en, /kr/ → /?lang=ko 로 넘긴다.
+      // 실제 화면은 / 하나로 관리하므로 언어별 중복 페이지를 만들지 않는다(docs/domain-setup.md).
+      // GitHub Pages 는 같은 파일을 디렉터리 index 로 그대로 서빙한다.
+      const langDir = url.pathname.startsWith("/kr") ? "kr" : "en";
+      serveClientFile(req, res, path.join(ROOT, langDir, "index.html"));
+      return;
+    }
     if (url.pathname === "/robots.txt" || url.pathname === "/sitemap.xml") {
       // 저장소 루트의 정적 파일을 그대로 서빙한다(GitHub Pages 도 같은 파일을 본다).
       serveFile(req, res, path.join(ROOT, url.pathname === "/robots.txt" ? "robots.txt" : "sitemap.xml"));

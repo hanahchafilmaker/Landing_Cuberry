@@ -89,14 +89,18 @@ GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행
 | 조각 | 역할 | 호스팅 |
 | --- | --- | --- |
 | Node 서버 | `/api/*` (로그인·콘텐츠 저장) + 랜딩 + 어드민 화면 | Render 등 (아래 참고) |
-| GitHub Pages | 랜딩/어드민 **정적 사본** | `hanahchafilmaker.github.io/Landing_Cuberry/` |
+| 정적 화면 | 랜딩/어드민 **정적 사본** (CDN) | **공식 도메인 `cuberry.kr`** ← GitHub Pages 커스텀 도메인 |
 
-현재 배포 주소 (둘 다 소스에 커밋되어 있어 방문자가 주소를 입력할 필요가 없습니다)
+**공식 주소는 `https://cuberry.kr/` 입니다.** 화면은 GitHub Pages(커스텀 도메인), 데이터·로그인·문의는 Render API 가 담당합니다.
+도메인·DNS·컷오버 절차와 `cubeberry.ai` 정리 방향은 [`docs/domain-setup.md`](docs/domain-setup.md) 에 정리되어 있습니다.
+(`hanahchafilmaker.github.io/Landing_Cuberry/` 는 커스텀 도메인 연결 뒤 공식 주소로 301 되며, 서버 CORS 기본 허용목록에는 미러 주소로 남아 있습니다.)
 
 | 조각 | 주소 |
 | --- | --- |
+| 화면(공식 도메인) | `https://cuberry.kr/` (루트) — canonical·OG·사이트맵의 정본. 언어 진입 별칭 `/en/` · `/kr/`, 어드민 `/admin-v2` |
+| 화면(미러) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — 디버깅용. 커스텀 도메인 연결 후에는 공식 주소로 리다이렉트 |
 | Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` 과 `admin-v2/index.html` 의 `<meta name="cuberry-api-origin">` (서버는 자기 주소로 볼 때 이 값을 비워서 본다) |
-| GitHub Pages (화면) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — `server/lib/config.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` |
+| 허용 Origin | `server/lib/config.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` = `cuberry.kr` · `www.cuberry.kr` · `hanahchafilmaker.github.io` (`render.yaml`·`render.free.yaml` 에도 동일하게 명시) |
 
 ### A. Node 서버 배포 (Render Blueprint)
 
@@ -445,10 +449,11 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 318건 (client-origin 44 + static-paths 18 + server-wiring 64 + i18n-coverage 5 + team-profile + security 63 + notify 63 + cron-backup 61)
+npm test           # 의존성 없음 · 411건 (client-origin 51 + static-paths 34 + server-wiring 71 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 60)
 npm run test:security # 보안 회귀 63건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟·폼 토큰/Turnstile)
 npm run test:notify  # 문의 알림 63건 (웹훅 성공·백오프 재시도·실패 보존·UNIQUE 재발송·마스킹·킬 스위치, 외부 요청 0)
 npm run test:cron    # 자동 백업 61건 (시크릿 503/401·무변경 skip·내용 변경 재커밋·목 GitHub API, 외부 요청 0)
+npm run test:domain  # 도메인 컷오버 60건 (canonical/OG/사이트맵/robots·/en/·/kr/ 별칭·서버 허용목록·Route 53 레코드 파일)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
 npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS 값 번역)
@@ -464,7 +469,8 @@ npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS �
 | `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 ⑪ 폼 토큰·Turnstile — `off`/`flag`/`strict` 3단 정책, 3초 미만·만료·위조 토큰이 저장은 되되 `review` 로 잡히는지, 검증 실패가 500 을 만들지 않는지 |
 | `test/notify.mjs` | Phase 1 문의 알림. 로컬 목 웹훅·목 Resend 서버로 **외부 요청 없이** 실제 서버를 띄워 ① 성공 → `sent`·`attempts 1` ② 500 1회 → 백오프 재시도 후 `sent`·`attempts 2`·호출 간격 준수 ③ 계속 실패 → `failed` + `last_error` (문의 접수는 200 유지) ④ UNIQUE — 재발송을 여러 번 해도 행은 1개·시도만 증가 ⑤ env 미설정 → 알림 행 0 ⑥ `NOTIFY_DISABLED=1` → 발송 0 ⑦ `NOTIFY_MASK_CONTACT=1` → 원본 연락처 평문 없음 · 이메일(Resend) 채널·인증 401·`status` 필터·`summary.lastNotification` |
 | `test/cron-backup.mjs` | Phase 3 자동 백업. **목 GitHub Contents API** 를 로컬에 띄우고(`GITHUB_API_BASE` 오버라이드) 실제 서버로 확인 — ① `CRON_SECRET` 미설정 `503`·GitHub 호출 0 ② 틀린 시크릿(헤더 없음·짧은 값·아주 긴 값) `401`·호출 0 ③ 올바른 시크릿 → 커밋 1회(경로·branch·base64 디코드 내용·메시지까지) ④ 즉시 재호출 → `skipped: "no-change"` + **GitHub 요청 0건** ⑤ 콘텐츠 변경 → 재커밋 ⑥ 수동 백업 뒤 크론 skip ⑦ `GITHUB_TOKEN` 미설정 `503`·실패는 해시를 남기지 않음 ⑧ `GET` 으로는 백업이 돌지 않음 · `summary.lastBackupAt/Hash` · 해시 정규화(키 순서·`exportedAt`)·상수시간 비교 단위 검증 |
-| `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)를 띄우고, 랜딩이 참조하는 경로 27건이 전부 해결되는지·루트 절대경로(`/…`)가 남아있지 않은지 확인 |
+| `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버를 띄운다. ① 미러(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)에서 참조 경로가 전부 해결되고 루트 절대경로(`/…`)가 없는지 ② **공식 도메인처럼 저장소가 루트에 놓인 상태**에서 `/`·`/en/`·`/kr/`·`/admin/`·`/sitemap.xml`·`/robots.txt` 가 200 이고 별칭 페이지의 상대경로가 그대로 풀리는지 확인 |
+| `test/domain.mjs` | 도메인 컷오버 점검. ① 원본(`landing/index.html`)과 빌드 산출물(`index.html`)의 canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 가 모두 `https://cuberry.kr/` 인지(미러 주소가 남아 있으면 실패) ② 빌드가 넣는 hreflang 3종이 절대주소인지 ③ `robots.txt`·`sitemap.xml` 의 Sitemap/loc/hreflang ④ `/en/`·`/kr/` 별칭 페이지가 `noindex` + 상대경로 전용인지 ⑤ 서버 기본 허용목록·`render*.yaml` 에 `cuberry.kr`·`www` 가 있는지 ⑥ `docs/domain/` 의 CNAME·Route 53 변경 파일이 GitHub Pages 공식 IP 4+4 와 www CNAME 만 담고 **MX/TXT 는 담고 있지 않은지**(메일 보존) |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |
 | `test/landing-i18n.mjs` | 실제 번들을 jsdom 에서 돌려 ①한국어 브라우저→한국어, ②영어 브라우저→자동 영어(화면·`alt`·`aria-label`·`placeholder` 에 한국어가 한 글자도 남지 않는지 전수 확인), ③KO/EN 토글이 화면·`<html lang>`·제목·`?lang=`·저장값을 함께 바꾸는지, ④`?lang=` > 저장값 > 브라우저 언어 우선순위, ⑤어드민 저장값(사전 등록분은 번역·미등록분은 원문 유지)까지 확인한다 |

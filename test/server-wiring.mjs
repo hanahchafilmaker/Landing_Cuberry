@@ -17,6 +17,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
+// 공식 도메인(cuberry.kr) — 커스텀 도메인 연결 뒤 랜딩이 이 Origin 으로 API 를 호출한다.
+const OFFICIAL_ORIGIN = "https://cuberry.kr";
+const WWW_ORIGIN = "https://www.cuberry.kr";
 const EVIL_ORIGIN = "https://evil.example.com";
 const EXTRA_ORIGIN = "https://cuberry.com";
 const PASSWORD = "cuberry2026";
@@ -110,12 +113,28 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   const config = await (await fetch(`${origin}/api/config`)).json();
   expect("/api/config ok", config.ok, true);
   expect("기본 허용 목록에 Pages 주소", config.allowedOrigins.includes(PAGES_ORIGIN), true);
-  expect("기본값 출처를 함께 알려줌", config.defaultAllowedOrigins, [PAGES_ORIGIN]);
+  expect("기본 허용 목록에 공식 도메인", config.allowedOrigins.includes(OFFICIAL_ORIGIN), true);
+  expect("기본 허용 목록에 www 주소", config.allowedOrigins.includes(WWW_ORIGIN), true);
+  expect("기본값 출처를 함께 알려줌", config.defaultAllowedOrigins, [PAGES_ORIGIN, OFFICIAL_ORIGIN, WWW_ORIGIN]);
   expect("publicOrigin 채워짐(요청 Host 기준)", config.publicOrigin, origin);
 
   const allowed = await preflight(origin, PAGES_ORIGIN);
   expect("Pages 사전요청 → 204", allowed.status, 204);
   expect("Pages 에 Allow-Origin 부여", allowOrigin(allowed), PAGES_ORIGIN);
+
+  // 커스텀 도메인으로 옮긴 뒤에도 환경변수 없이(수동 생성한 Render 서비스에서도) 로그인이 되어야 한다.
+  // 주의: 여기서 origin(테스트 서버 주소)을 가리지 않도록 변수 이름을 from 으로 둔다.
+  for (const from of [OFFICIAL_ORIGIN, WWW_ORIGIN]) {
+    const response = await preflight(origin, from);
+    expect(`${from} 사전요청 → 204`, response.status, 204);
+    expect(`${from} 에 Allow-Origin 부여`, allowOrigin(response), from);
+  }
+  const officialLogin = await fetch(`${origin}/api/auth/login`, {
+    method: "POST",
+    headers: { origin: OFFICIAL_ORIGIN, "content-type": "application/json" },
+    body: JSON.stringify({ password: PASSWORD }),
+  });
+  expect("공식 도메인 Origin 에서 로그인 → 200", officialLogin.status, 200);
 
   const denied = await preflight(origin, EVIL_ORIGIN);
   expect("목록에 없는 Origin 사전요청 → 403", denied.status, 403);
