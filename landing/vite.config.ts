@@ -28,9 +28,9 @@ function injectLanguageAlternates(): Plugin {
       order: "post",
       handler(html) {
         const links = [
-          '    <link rel="alternate" hreflang="ko" href="https://cuberry.kr/?lang=ko" />',
-          '    <link rel="alternate" hreflang="en" href="https://cuberry.kr/?lang=en" />',
-          '    <link rel="alternate" hreflang="x-default" href="https://cuberry.kr/" />',
+          '    <link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/?lang=ko" />',
+          '    <link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />',
+          '    <link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />',
           "  </head>",
         ].join("\n");
         return html.replace("  </head>", links);

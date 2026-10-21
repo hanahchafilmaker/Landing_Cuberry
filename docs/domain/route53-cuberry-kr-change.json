@@ -1,34 +1,6 @@
 {
-  "Comment": "cuberry.kr -> GitHub Pages (커스텀 도메인). apex A/AAAA 를 Pages 주소로 교체하고 www 를 CNAME 으로 연결합니다. MX/TXT(구글 워크스페이스)는 건드리지 않습니다. 되돌리려면 docs/domain-setup.md 8장(롤백) 참고.",
+  "Comment": "www.cuberry.kr -> GitHub Pages (커스텀 도메인 = www.cuberry.kr, 프로토콜 없이 등록). www 레코드 1건만 바꿉니다. apex(cuberry.kr) A 레코드는 그대로 두면 기존 AWS 리다이렉트(apex -> www)가 새 랜딩으로 이어집니다. MX/TXT(구글 워크스페이스)는 건드리지 않습니다. www 에 A 레코드가 남아 있으면 CNAME 과 공존할 수 없으므로 콘솔에서 먼저 삭제하세요. 되돌리려면 docs/domain-setup.md 8장(롤백) 참고.",
   "Changes": [
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "cuberry.kr.",
-        "Type": "A",
-        "TTL": 300,
-        "ResourceRecords": [
-          { "Value": "185.199.108.153" },
-          { "Value": "185.199.109.153" },
-          { "Value": "185.199.110.153" },
-          { "Value": "185.199.111.153" }
-        ]
-      }
-    },
-    {
-      "Action": "UPSERT",
-      "ResourceRecordSet": {
-        "Name": "cuberry.kr.",
-        "Type": "AAAA",
-        "TTL": 300,
-        "ResourceRecords": [
-          { "Value": "2606:50c0:8000::153" },
-          { "Value": "2606:50c0:8001::153" },
-          { "Value": "2606:50c0:8002::153" },
-          { "Value": "2606:50c0:8003::153" }
-        ]
-      }
-    },
     {
       "Action": "UPSERT",
       "ResourceRecordSet": {

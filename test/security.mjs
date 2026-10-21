@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
-const OFFICIAL_ORIGIN = "https://cuberry.kr"; // 공식 도메인(커스텀 도메인 연결 후 기본 허용)
+const OFFICIAL_ORIGIN = "https://www.cuberry.kr"; // 공식 도메인 = 커스텀 도메인(연결 후 기본 허용)
 const EVIL_ORIGIN = "https://evil.example.com";
 const PASSWORD = "cuberry2026";
 const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
