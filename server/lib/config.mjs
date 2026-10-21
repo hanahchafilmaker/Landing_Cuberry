@@ -22,19 +22,22 @@ export const HOST = "0.0.0.0";
 // 하나도 적용되지 않아 allowedOrigins 가 비고, 그 결과 랜딩 화면의 사전요청이 403 으로
 // 거부되어 주소가 맞아도 로그인이 되지 않습니다. 아래 주소는 모두 공개된 값이므로
 // 기본값으로 넣어 "재배포만 하면 되는" 상태로 만듭니다.
-//   · cuberry.kr (공식 도메인) — 랜딩을 커스텀 도메인으로 서빙할 때 사용. docs/domain-setup.md
-//   · www.cuberry.kr — apex/www 어느 주소로 들어와도 동작하게 (Pages 가 www → apex 로 301)
+//   · www.cuberry.kr (공식 도메인 = GitHub Pages 커스텀 도메인, 프로토콜 없이 등록) — 정본 주소.
+//     docs/domain-setup.md
+//   · cuberry.kr (apex) — apex 로 들어와도 동작하게. apex 는 기존 AWS 자원이 www 로 301 합니다
 //   · hanahchafilmaker.github.io — GitHub Pages 미러(서브경로) 배포. 도메인 연결 뒤에도 남겨
 //     두면 미러에서 디버깅할 때 그대로 쓸 수 있습니다.
 // ADMIN_ALLOWED_ORIGINS 는 이 목록을 대체하지 않고 **추가**로 합쳐집니다.
 //
-// 2026-10-14: 공식 도메인 cuberry.kr 를 기본 목록에 넣었습니다. 랜딩/어드민을 cuberry.kr 로
-// 서빙해도(권장 구성 — 정적 화면은 GitHub Pages, API 는 이 서버) 사전요청이 403 으로 막히지
-// 않습니다. www 도 함께 넣어 apex/www 어느 쪽으로 들어와도 동작하게 합니다.
+// 2026-10-14: 공식 도메인 cuberry.kr 를 기본 목록에 넣었습니다. 랜딩/어드민을 공식 도메인으로
+// 서빙해도(권장 구성 — 정적 화면은 GitHub Pages, API 는 이 서버) 사전요청이 403 으로 막히지 않습니다.
+// 2026-10-21: 커스텀 도메인을 **www.cuberry.kr** 로 확정했습니다(AWS 에서 apex 등록이 안 된다는 회신).
+// 정본 주소가 https://www.cuberry.kr/ 로 바뀌었고, apex(cuberry.kr)는 301 진입 경로로 남아
+// 두 주소 모두 허용 목록에 둡니다 — 어느 쪽으로 들어와도 로그인·문의가 동작합니다.
 export const DEFAULT_ALLOWED_ORIGINS = [
   "https://hanahchafilmaker.github.io", // GitHub Pages 미러(서브경로 배포)
-  "https://cuberry.kr", // 공식 도메인(정본)
-  "https://www.cuberry.kr",
+  "https://cuberry.kr", // apex — AWS 가 www 로 301
+  "https://www.cuberry.kr", // 공식 도메인(정본) = 커스텀 도메인
 ];
 export const ENV_ALLOWED_ORIGINS = String(process.env.ADMIN_ALLOWED_ORIGINS || "")
   .split(/[\s,]+/)

@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = "/Landing_Cuberry"; // GitHub Pages 미러에서의 저장소 경로
 const PORT = Number(process.env.PAGES_PORT || 9099);
-// 커스텀 도메인(cuberry.kr)은 저장소가 **루트**에 놓인다. 같은 파일을 루트에서도 흉내내
+// 커스텀 도메인(www.cuberry.kr)은 저장소가 **루트**에 놓인다. 같은 파일을 루트에서도 흉내내
 // /en/ · /kr/ 별칭 페이지와 상대경로 자산이 그대로 해결되는지 확인한다.
 const APEX_PORT = PORT + 1;
 
@@ -158,7 +158,7 @@ try {
   expect("번들 자산 깨진 참조", missingAssets, []);
   expect("번들에 루트 절대경로 /images/ 참조 없음", /["'`]\/images\//.test(landing), false);
 
-  console.log("\n[7] 공식 도메인(cuberry.kr = 저장소가 루트) 시뮬레이션");
+  console.log("\n[7] 공식 도메인(www.cuberry.kr = 저장소가 루트) 시뮬레이션");
   // 커스텀 도메인을 붙이면 Pages 는 저장소를 도메인 루트에서 서빙한다.
   // 별칭 페이지(/en/ · /kr/)는 상대경로(../)만 쓰므로 여기서도 그대로 풀려야 한다.
   const apex = makePages("");

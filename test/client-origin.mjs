@@ -22,9 +22,11 @@ const serverSource = [path.join("server", "index.mjs"), path.join("server", "lib
 
 // 이 저장소의 실제 배포 주소. 바뀌면 네 곳(어드민·랜딩·서버 기본값·Blueprint)을 함께 바꿔야 한다.
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
-// 공식 도메인(커스텀 도메인). 랜딩은 apex(https://cuberry.kr/)에서, 미러는 서브경로에서 서빙된다.
-const OFFICIAL_ORIGIN = "https://cuberry.kr";
+// 커스텀 도메인 = www.cuberry.kr(프로토콜 없이 등록). 랜딩은 www 루트에서 서빙되고,
+// apex(cuberry.kr)는 기존 AWS 자원이 www 로 301 시킨다 — 두 주소 모두 서버 허용 목록에 남는다.
 const WWW_ORIGIN = "https://www.cuberry.kr";
+const APEX_ORIGIN = "https://cuberry.kr";
+const OFFICIAL_ORIGIN = WWW_ORIGIN; // 정본 = 커스텀 도메인
 const PROD_API = "https://landing-cuberry-admin.onrender.com";
 
 function between(source, startMarker, endMarker, label) {
@@ -274,20 +276,20 @@ expect(
   run({ pathname: "/", origin: LOCAL, baked: null, stored: PROD_API, blocks: [bridgeOriginBlock], extra: probe() }).result,
   SAME_ORIGIN_PROBE,
 );
-// 커스텀 도메인 연결(cuberry.kr) 후의 실제 조건: apex 루트에서 서빙되고, API 는 Render 를 바라본다.
+// 커스텀 도메인 연결(www.cuberry.kr) 후의 실제 조건: www 루트에서 서빙되고, API 는 Render 를 바라본다.
 // (빌드가 base:"./" 라 서브경로/루트 어디서든 상대경로가 그대로 해결된다)
 expect(
-  "공식 도메인(apex) 랜딩은 커밋된 운영 서버 콘텐츠 사용",
+  "공식 도메인(www) 랜딩은 커밋된 운영 서버 콘텐츠 사용",
   run({ pathname: "/", origin: OFFICIAL_ORIGIN, baked: null, blocks: [bridgeOriginBlock], extra: probe() }).result,
   remoteProbe(PROD_API),
 );
 expect(
-  "공식 도메인(apex)에서 어드민도 같은 서버로 연결",
+  "공식 도메인(www)에서 어드민도 같은 서버로 연결",
   run({ pathname: "/admin/", origin: OFFICIAL_ORIGIN, baked: null, blocks: [adminOriginBlock], extra: probe() }).result,
   remoteProbe(PROD_API),
 );
 expect(
-  "공식 도메인(apex)에서 어드민 하위 경로 라우팅",
+  "공식 도메인(www)에서 어드민 하위 경로 라우팅",
   run({ pathname: "/admin/portfolio", origin: OFFICIAL_ORIGIN, blocks: [adminBaseBlock], extra: baseProbe }).result,
   { adminBase: "/admin", siteRoot: "/", page: "portfolio" },
 );
@@ -328,8 +330,8 @@ expect("어드민과 랜딩이 같은 서버를 가리킴", adminBaked === bridg
 expect("굽힌 주소는 https 절대주소", /^https:\/\/[^/\s]+$/i.test(adminBaked), true);
 expect("굽힌 주소는 로컬이 아님", /localhost|127\.0\.0\.1|\[::1\]/i.test(adminBaked), false);
 expect("서버 기본 허용 목록에 Pages 주소", defaults.includes(PAGES_ORIGIN), true);
-expect("서버 기본 허용 목록에 공식 도메인", defaults.includes(OFFICIAL_ORIGIN), true);
-expect("서버 기본 허용 목록에 www 주소", defaults.includes(WWW_ORIGIN), true);
+expect("서버 기본 허용 목록에 공식 도메인(www)", defaults.includes(OFFICIAL_ORIGIN), true);
+expect("서버 기본 허용 목록에 apex 주소(301 전 진입)", defaults.includes(APEX_ORIGIN), true);
 expect("서버가 기본 허용 목록을 환경변수와 합침", /new Set\(\[\.\.\.DEFAULT_ALLOWED_ORIGINS, \.\.\.ENV_ALLOWED_ORIGINS\]\)/.test(serverSource), true);
 expect("서버가 화면을 직접 서빙할 때 굽힌 주소를 비움", /serveClientFile\(req, res, path\.join\(ROOT, "admin-v2", "index\.html"\)\)/.test(serverSource)
   && /serveClientFile\(req, res, path\.join\(ROOT, "cms-bridge\.js"\)\)/.test(serverSource), true);

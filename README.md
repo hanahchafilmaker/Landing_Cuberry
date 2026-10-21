@@ -89,18 +89,19 @@ GitHub Pages는 HTML/CSS/JS 파일만 제공하고 `server/index.mjs` 를 실행
 | 조각 | 역할 | 호스팅 |
 | --- | --- | --- |
 | Node 서버 | `/api/*` (로그인·콘텐츠 저장) + 랜딩 + 어드민 화면 | Render 등 (아래 참고) |
-| 정적 화면 | 랜딩/어드민 **정적 사본** (CDN) | **공식 도메인 `cuberry.kr`** ← GitHub Pages 커스텀 도메인 |
+| 정적 화면 | 랜딩/어드민 **정적 사본** (CDN) | **공식 도메인 `www.cuberry.kr`** ← GitHub Pages 커스텀 도메인(프로토콜 없이 등록) |
 
-**공식 주소는 `https://cuberry.kr/` 입니다.** 화면은 GitHub Pages(커스텀 도메인), 데이터·로그인·문의는 Render API 가 담당합니다.
+**공식 주소는 `https://www.cuberry.kr/` 입니다.** 화면은 GitHub Pages(커스텀 도메인 `www.cuberry.kr`), 데이터·로그인·문의는 Render API 가 담당합니다.
+apex `cuberry.kr` 은 기존 AWS 자원이 받아 `www.cuberry.kr` 로 301 합니다(2026-10-21 확정 — AWS 에서 apex 커스텀 도메인 등록이 불가하다는 회신).
 도메인·DNS·컷오버 절차와 `cubeberry.ai` 정리 방향은 [`docs/domain-setup.md`](docs/domain-setup.md) 에 정리되어 있습니다.
 (`hanahchafilmaker.github.io/Landing_Cuberry/` 는 커스텀 도메인 연결 뒤 공식 주소로 301 되며, 서버 CORS 기본 허용목록에는 미러 주소로 남아 있습니다.)
 
 | 조각 | 주소 |
 | --- | --- |
-| 화면(공식 도메인) | `https://cuberry.kr/` (루트) — canonical·OG·사이트맵의 정본. 언어 진입 별칭 `/en/` · `/kr/`, 어드민 `/admin-v2` |
+| 화면(공식 도메인) | `https://www.cuberry.kr/` (루트) — canonical·OG·사이트맵의 정본. 언어 진입 별칭 `/en/` · `/kr/`, 어드민 `/admin-v2`. apex `https://cuberry.kr/` 은 이 주소로 301 |
 | 화면(미러) | `https://hanahchafilmaker.github.io/Landing_Cuberry/` — 디버깅용. 커스텀 도메인 연결 후에는 공식 주소로 리다이렉트 |
 | Node 서버 (API) | `https://landing-cuberry-admin.onrender.com` — `admin/index.html`·`cms-bridge.js` 의 `BAKED_API_ORIGIN` 과 `admin-v2/index.html` 의 `<meta name="cuberry-api-origin">` (서버는 자기 주소로 볼 때 이 값을 비워서 본다) |
-| 허용 Origin | `server/lib/config.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` = `cuberry.kr` · `www.cuberry.kr` · `hanahchafilmaker.github.io` (`render.yaml`·`render.free.yaml` 에도 동일하게 명시) |
+| 허용 Origin | `server/lib/config.mjs` 의 `DEFAULT_ALLOWED_ORIGINS` = `www.cuberry.kr`(정본) · `cuberry.kr`(apex 301) · `hanahchafilmaker.github.io` (`render.yaml`·`render.free.yaml` 에도 동일하게 명시) |
 
 ### A. Node 서버 배포 (Render Blueprint)
 
@@ -335,7 +336,7 @@ npm run typecheck      # TypeScript 검사
   탭 이름은 상단 메뉴와 같은 문구를 쓰고, `landing/src/data/content.ts` 의 `navLinks` 도 이 정의에서 파생됩니다.
 - 화면은 **패널을 `hidden` 으로 감출 뿐 DOM 에서 지우지 않습니다.** 그래서 검색엔진이 모든 문구를 읽고,
   어드민 CMS 값·기존 테스트·`/en/` 별칭이 그대로 동작합니다(탭을 켜야만 내용이 생기는 구조가 아님).
-- 주소에 해시가 남습니다 — `cuberry.kr/#works`(스튜디오) · `#lab`(엑스콘다) · `#contact`(문의) · `#history`(회사소개).
+- 주소에 해시가 남습니다 — `www.cuberry.kr/#works`(스튜디오) · `#lab`(엑스콘다) · `#contact`(문의) · `#history`(회사소개).
   그 주소로 바로 들어오면 해당 탭이 켜지고, **뒤로가기·공유 링크도 그대로 동작**합니다.
 - 상단 메뉴·섹터 CTA·푸터 등 **본문 안의 앵커 링크**를 누르면 그 섹션이 있는 탭을 켜고 그 자리로 이동합니다.
 - 키보드 `←/→`·`Home/End` 로 탭 이동(ARIA 탭 패턴), 켜진 탭은 gold 밑줄로 표시합니다.
@@ -489,7 +490,7 @@ npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS �
 | `test/cron-backup.mjs` | Phase 3 자동 백업. **목 GitHub Contents API** 를 로컬에 띄우고(`GITHUB_API_BASE` 오버라이드) 실제 서버로 확인 — ① `CRON_SECRET` 미설정 `503`·GitHub 호출 0 ② 틀린 시크릿(헤더 없음·짧은 값·아주 긴 값) `401`·호출 0 ③ 올바른 시크릿 → 커밋 1회(경로·branch·base64 디코드 내용·메시지까지) ④ 즉시 재호출 → `skipped: "no-change"` + **GitHub 요청 0건** ⑤ 콘텐츠 변경 → 재커밋 ⑥ 수동 백업 뒤 크론 skip ⑦ `GITHUB_TOKEN` 미설정 `503`·실패는 해시를 남기지 않음 ⑧ `GET` 으로는 백업이 돌지 않음 · `summary.lastBackupAt/Hash` · 해시 정규화(키 순서·`exportedAt`)·상수시간 비교 단위 검증 |
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버를 띄운다. ① 미러(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)에서 참조 경로가 전부 해결되고 루트 절대경로(`/…`)가 없는지 ② **공식 도메인처럼 저장소가 루트에 놓인 상태**에서 `/`·`/en/`·`/kr/`·`/admin/`·`/sitemap.xml`·`/robots.txt` 가 200 이고 별칭 페이지의 상대경로가 그대로 풀리는지 확인 |
 | `test/landing-tabs.mjs` | 콘텐츠 탭 동작. 실제 번들을 jsdom 에서 돌려 ① 첫 화면은 회사소개 탭(히어로부터) ② 탭 클릭 → 패널 전환 + 주소 해시 ③ `#works`·`#lab`·`#contact` 로 바로 열면 그 탭 ④ 상단 메뉴·본문 앵커를 누르면 그 섹션의 탭이 켜짐 ⑤ 영어 화면 탭 이름(Company/Studio/XCONDA/Contact) ⑥ 키보드 ←/→·End ⑦ **탭을 꺼도 내용이 DOM 에 남는지**(검색엔진·CMS 대응) ⑧ role/aria 배선 ⑨ 헤더 아래 고정 배치(`--header-height`·`--tab-top`·`--anchor-offset` 배선) |
-| `test/domain.mjs` | 도메인 컷오버 점검. ① 원본(`landing/index.html`)과 빌드 산출물(`index.html`)의 canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 가 모두 `https://cuberry.kr/` 인지(미러 주소가 남아 있으면 실패) ② 빌드가 넣는 hreflang 3종이 절대주소인지 ③ `robots.txt`·`sitemap.xml` 의 Sitemap/loc/hreflang ④ `/en/`·`/kr/` 별칭 페이지가 `noindex` + 상대경로 전용인지 ⑤ 서버 기본 허용목록·`render*.yaml` 에 `cuberry.kr`·`www` 가 있는지 ⑥ `docs/domain/` 의 CNAME·Route 53 변경 파일이 GitHub Pages 공식 IP 4+4 와 www CNAME 만 담고 **MX/TXT 는 담고 있지 않은지**(메일 보존) |
+| `test/domain.mjs` | 도메인 컷오버 점검. ① 원본(`landing/index.html`)과 빌드 산출물(`index.html`)의 canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 가 모두 `https://www.cuberry.kr/` 인지(미러 주소·apex 주소가 남아 있으면 실패) ② 빌드가 넣는 hreflang 3종이 절대주소인지 ③ `robots.txt`·`sitemap.xml` 의 Sitemap/loc/hreflang ④ `/en/`·`/kr/` 별칭 페이지가 `noindex` + 상대경로 전용인지 ⑤ 서버 기본 허용목록·`render*.yaml` 에 `www.cuberry.kr`(정본)·`cuberry.kr`(apex) 가 있는지 ⑥ `docs/domain/` 의 CNAME 이 `www.cuberry.kr`(프로토콜 없이) 인지, Route 53 변경 파일이 **www CNAME 1건만** 담는지(apex 는 그대로 두므로 A/AAAA 없음), **MX/TXT 는 담고 있지 않은지**(메일 보존) |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |
 | `test/landing-i18n.mjs` | 실제 번들을 jsdom 에서 돌려 ①한국어 브라우저→한국어, ②영어 브라우저→자동 영어(화면·`alt`·`aria-label`·`placeholder` 에 한국어가 한 글자도 남지 않는지 전수 확인), ③KO/EN 토글이 화면·`<html lang>`·제목·`?lang=`·저장값을 함께 바꾸는지, ④`?lang=` > 저장값 > 브라우저 언어 우선순위, ⑤어드민 저장값(사전 등록분은 번역·미등록분은 원문 유지)까지 확인한다 |

@@ -11,6 +11,6 @@ Disallow: /team_portraits/
 
 # 레거시 어드민(admin/)은 admin-v2/로 통합되어 리다이렉트됩니다.
 # /en · /kr 은 언어 진입용 별칭(→ /?lang=en · /?lang=ko)이며 페이지 자체는 noindex 입니다.
-# GitHub Pages 미러 주소도 canonical 이 cuberry.kr 이므로 검색엔진에는 공식 주소만 남습니다.
+# GitHub Pages 미러 주소도 canonical 이 www.cuberry.kr 이므로 검색엔진에는 공식 주소만 남습니다.
 
-Sitemap: https://cuberry.kr/sitemap.xml
+Sitemap: https://www.cuberry.kr/sitemap.xml

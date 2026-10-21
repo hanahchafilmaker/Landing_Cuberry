@@ -34,7 +34,7 @@ const TABS = [
   { id: "xconda", ko: "엑스콘다", en: "XCONDA", href: "#lab", sections: ["lab", "pricing"] },
   { id: "contact", ko: "문의", en: "Contact", href: "#contact", sections: ["faq", "contact"] },
 ];
-const OFFICIAL = "https://cuberry.kr/";
+const OFFICIAL = "https://www.cuberry.kr/";
 
 let failures = 0;
 let checks = 0;

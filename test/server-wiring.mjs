@@ -17,9 +17,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PAGES_ORIGIN = "https://hanahchafilmaker.github.io";
-// 공식 도메인(cuberry.kr) — 커스텀 도메인 연결 뒤 랜딩이 이 Origin 으로 API 를 호출한다.
-const OFFICIAL_ORIGIN = "https://cuberry.kr";
+// 커스텀 도메인(정본) = www.cuberry.kr — 연결 뒤 랜딩이 이 Origin 으로 API 를 호출한다.
+// apex(cuberry.kr)도 허용 목록에 남긴다: AWS 가 apex → www 로 301 하기 전에 들어와도 막히지 않게.
 const WWW_ORIGIN = "https://www.cuberry.kr";
+const APEX_ORIGIN = "https://cuberry.kr";
+const OFFICIAL_ORIGIN = WWW_ORIGIN;
 const EVIL_ORIGIN = "https://evil.example.com";
 const EXTRA_ORIGIN = "https://cuberry.com";
 const PASSWORD = "cuberry2026";
@@ -113,9 +115,9 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   const config = await (await fetch(`${origin}/api/config`)).json();
   expect("/api/config ok", config.ok, true);
   expect("기본 허용 목록에 Pages 주소", config.allowedOrigins.includes(PAGES_ORIGIN), true);
-  expect("기본 허용 목록에 공식 도메인", config.allowedOrigins.includes(OFFICIAL_ORIGIN), true);
-  expect("기본 허용 목록에 www 주소", config.allowedOrigins.includes(WWW_ORIGIN), true);
-  expect("기본값 출처를 함께 알려줌", config.defaultAllowedOrigins, [PAGES_ORIGIN, OFFICIAL_ORIGIN, WWW_ORIGIN]);
+  expect("기본 허용 목록에 공식 도메인(www)", config.allowedOrigins.includes(OFFICIAL_ORIGIN), true);
+  expect("기본 허용 목록에 apex 주소", config.allowedOrigins.includes(APEX_ORIGIN), true);
+  expect("기본값 출처를 함께 알려줌", config.defaultAllowedOrigins, [PAGES_ORIGIN, APEX_ORIGIN, WWW_ORIGIN]);
   expect("publicOrigin 채워짐(요청 Host 기준)", config.publicOrigin, origin);
 
   const allowed = await preflight(origin, PAGES_ORIGIN);
@@ -124,7 +126,7 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
 
   // 커스텀 도메인으로 옮긴 뒤에도 환경변수 없이(수동 생성한 Render 서비스에서도) 로그인이 되어야 한다.
   // 주의: 여기서 origin(테스트 서버 주소)을 가리지 않도록 변수 이름을 from 으로 둔다.
-  for (const from of [OFFICIAL_ORIGIN, WWW_ORIGIN]) {
+  for (const from of [OFFICIAL_ORIGIN, APEX_ORIGIN]) {
     const response = await preflight(origin, from);
     expect(`${from} 사전요청 → 204`, response.status, 204);
     expect(`${from} 에 Allow-Origin 부여`, allowOrigin(response), from);
