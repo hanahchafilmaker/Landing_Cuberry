@@ -14,7 +14,7 @@
 | 항목 | 결정/권장 | 비고 |
 | --- | --- | --- |
 | `www.cuberry.kr` (공식) | **이 저장소의 새 랜딩을 www 에 연결** — 화면은 GitHub Pages, API/어드민 데이터는 Render | 커스텀 도메인 입력값은 **`www.cuberry.kr`** (프로토콜 `https://` 없이). 무료·무중단·콜드스타트 없음 |
-| `cuberry.kr` (apex) | 기존 AWS 자원(`3.39.143.82`, `54.116.236.216`)이 받아 `www.cuberry.kr` 로 301 | **apex 레코드는 건드리지 않음.** AWS 가 이미 apex→www 리다이렉트를 하고 있음 |
+| `cuberry.kr` (apex) | 기존 AWS 자원(`3.37.244.46`, `52.79.73.176`)이 받아 `www.cuberry.kr` 로 301 | **apex 레코드는 건드리지 않음.** AWS 가 이미 apex→www 리다이렉트를 하고 있음 |
 | 구 회사 사이트 | **`old.cuberry.kr` 로 보존** (2026-10-14 대표님 방침) | 기존 링크 유지. 자원에 별칭만 추가하면 됨 → `docs/domain/handoff-dns.md` 3-4 |
 | 어드민 | `www.cuberry.kr/admin-v2` (같은 도메인, 비밀번호 보호 + noindex) | `admin.cuberry.kr` 로 분리도 가능 |
 | `cubeberry.ai` | **안 A+B 결합 추천**: 영문 사이트가 필요하면 `301 → https://www.cuberry.kr/en/`, 별도 사이트를 유지할 거면 지금 그대로 둠 | 4장 참고 |
@@ -29,13 +29,17 @@
 
 | 도메인 | DNS | A 레코드 | MX | 지금 서비스 중인 사이트 |
 | --- | --- | --- | --- | --- |
-| `cuberry.kr` | Route 53 (`ns-209/1033/931/1618.awsdns-*.…`) | `3.39.143.82`, `54.116.236.216` (AWS, apex→www 리다이렉트) | Google Workspace (`aspmx.l.google.com` 등) | **기존 회사 소개 사이트(AWS 호스팅)** |
+| `cuberry.kr` | Route 53 (`ns-209/1033/931/1618.awsdns-*.…`) | `3.37.244.46`, `52.79.73.176` (AWS, apex→www 리다이렉트) | Google Workspace (`aspmx.l.google.com` 등) | **기존 회사 소개 사이트(AWS 호스팅)** |
 | `cubeberry.ai` | Route 53 (`ns-1596/1013/328/1318.awsdns-*.…`) | `99.86.101.70/124/66/128` (**AWS CloudFront**) | Google Workspace (`smtp.google.com`) | **영문 제품 사이트(XCONDA 등)** |
 | `hanahchafilmaker.github.io/Landing_Cuberry/` | — | — | — | **새 랜딩(작업본)** ← 이걸 `www.cuberry.kr` 로 옮깁니다 |
 | `landing-cuberry-admin.onrender.com` | — | — | — | 새 랜딩 사본 + 어드민 + API(SQLite) |
 
 - **GitHub Pages 커스텀 도메인은 아직 등록되어 있지 않습니다** — 2026-10-21 저장소 기준
   `gh api repos/hanahchafilmaker/Landing_Cuberry/pages` 의 `"cname": null`. 즉 “변경”이 아니라 **신규 등록**입니다.
+- **2026-10-21 실측(8.8.8.8)** — `cuberry.kr`·`www.cuberry.kr` 모두 **A 레코드 2개**(`3.37.244.46`, `52.79.73.176`),
+  `www` 에는 **CNAME 이 아직 없습니다**(조회 시 NODATA/SOA). MX(Google Workspace 5건)·`google-site-verification` TXT 는 그대로 살아 있습니다.
+  → AWS 담당이 “`www.cuberry.kr` 이 등록된 도메인으로 조회되지 않는다”고 한 것은 **정상**입니다(아직 만든 적이 없음).
+  자세한 설명과 회신 초안은 [`docs/domain/handoff-dns.md`](./domain/handoff-dns.md) **0-1장**.
 - `cuberry.kr`·`cubeberry.ai` 어디에도 GitHub Pages 도메인 검증용 TXT(`_github-pages-challenge-…`) 는 **없습니다** → 3-3 에서 새로 추가하게 됩니다.
 - 즉, **`cuberry.kr` 은 새로 사는 도메인이 아니라 “이미 구 사이트가 돌고 있는 도메인”** 입니다. 연결 = **교체(cutover)** 입니다.
 
@@ -114,7 +118,7 @@ Route 53 → Hosted zones → `cuberry.kr` → **Create record** 로 아래를 �
 | 이름 | 유형 | 값 | TTL |
 | --- | --- | --- | --- |
 | `www` | **CNAME** | `hanahchafilmaker.github.io` | 300 |
-| `cuberry.kr`(apex) | — | **변경 없음** (기존 A `3.39.143.82` / `54.116.236.216` 유지 → apex→www 301) | — |
+| `cuberry.kr`(apex) | — | **변경 없음** (기존 A `3.37.244.46` / `52.79.73.176` 유지 → apex→www 301) | — |
 
 - `www` 는 지금 A 레코드 2개로 되어 있습니다. **DNS 규칙상 CNAME 은 같은 이름의 다른 레코드와 공존할 수 없으므로**, 먼저 `www` 의 A 레코드를 삭제한 뒤 CNAME 을 만드세요.
 - **apex A 레코드는 그대로 둡니다.** 기존 AWS 자원이 apex 요청을 `www` 로 301 하므로, apex 로 들어온 방문자는 그대로 새 랜딩에 도착합니다.
@@ -157,7 +161,7 @@ DNS 가 퍼진 뒤(수 분~최대 24시간) Settings → Pages → **Enforce HTT
 
 ```bash
 dig +short www.cuberry.kr CNAME    # hanahchafilmaker.github.io. 이 나오면 정상
-dig +short cuberry.kr A            # 3.39.143.82 / 54.116.236.216 그대로(변경 없음)
+dig +short cuberry.kr A            # 3.37.244.46 / 52.79.73.176 그대로(변경 없음)
 dig +short cuberry.kr MX           # ★ Google Workspace 그대로인지 확인
 curl -sI https://www.cuberry.kr | head -3
 curl -sI https://cuberry.kr | head -3                      # 301 → https://www.cuberry.kr/
@@ -287,6 +291,6 @@ curl -s https://www.cuberry.kr | grep -o 'rel="canonical" href="[^"]*"'   # http
 
 1. GitHub → Settings → Pages → Custom domain 을 비우고 **Save** (또는 `git revert` 로 `CNAME` 제거)
    — `gh api -X PUT repos/hanahchafilmaker/Landing_Cuberry/pages -f cname=""`
-2. Route 53 에서 `www` CNAME 을 지우고 원래 **A 레코드 2개**(`3.39.143.82`, `54.116.236.216`)로 되돌립니다.
+2. Route 53 에서 `www` CNAME 을 지우고 원래 **A 레코드 2개**(`3.37.244.46`, `52.79.73.176`)로 되돌립니다.
    (apex 는 애초에 바꾸지 않았으므로 손댈 것이 없습니다.)
 3. TTL 이 300초이므로 수 분 내 원상복구됩니다. (따라서 **교체 직전 TTL 을 낮춰두는 것**이 안전합니다.)

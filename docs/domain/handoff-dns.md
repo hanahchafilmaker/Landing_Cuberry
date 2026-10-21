@@ -10,6 +10,9 @@
 > 2. **API 서버 주소는 `https://landing-cuberry-admin.onrender.com` 그대로**이며, 화면이 `https://www.cuberry.kr` 에서
 >    이 서버를 직접 호출합니다. 서버 쪽 허용 Origin 에 `https://www.cuberry.kr` 이 **이미 들어 있어** 별도 설정 변경·재배포 없이 동작합니다.
 >    (만약 `www.cuberry.kr/api` 로 한 Origin 으로 묶는 구성을 원하시면 알려주세요 — 저장소 쪽 값 수정 + 재배포가 필요합니다.)
+>
+> **2026-10-21 추가 — “AWS 에서 `www.cuberry.kr` 이 등록된 도메인으로 조회되지 않는다”는 회신에 대한 답**
+> 결론: **정상입니다. 아직 등록한 적이 없습니다(GitHub 쪽도, DNS 쪽도).** 등록 **순서**만 맞추면 됩니다 → 아래 **0-1장**.
 
 ---
 
@@ -26,11 +29,64 @@
 - ✋ **MX 레코드 삭제·변경 금지** — 구글 워크스페이스 메일이 즉시 끊깁니다.
 - ✋ **TXT(google-site-verification) 삭제 금지** — 검색엔진 소유확인 유지.
 - ✋ `www` 에 A 레코드와 CNAME 을 동시에 두지 마세요(DNS 규칙 위반) → **A 를 먼저 지우고 CNAME 신규**.
-- ✋ **apex(`cuberry.kr`) A 레코드(`3.39.143.82` / `54.116.236.216`)를 바꾸지 마세요.** 기존 AWS 가 apex→www 301 을 하므로
+- ✋ **apex(`cuberry.kr`) A 레코드(`3.37.244.46` / `52.79.73.176`)를 바꾸지 마세요.** 기존 AWS 가 apex→www 301 을 하므로
   apex 로 들어온 방문자는 그대로 새 랜딩에 도착합니다. (apex 를 GitHub Pages IP 로 바꾸면 apex 가 404 가 됩니다.)
 - ✋ apex 에 와일드카드(`*`) CNAME 을 만들지 마세요(GitHub 가 거부·충돌).
 
 **되돌리기**: 6장. TTL 300초라 **몇 분이면 원상복구**됩니다. 단계마다 원래 값을 기록해 두세요.
+
+---
+
+## 0-1. “`www.cuberry.kr` 이 등록된 도메인으로 조회되지 않습니다” — 답변 (2026-10-21)
+
+> AWS 쪽 회신에 대한 답입니다. **결론: 정상입니다. 아직 아무도 등록하지 않았습니다.** 고장이 아니라 **순서** 문제입니다.
+
+### 왜 그렇게 보이나 — “등록”이라는 말이 세 곳을 가리켜서입니다
+
+| “등록” | 어디서 보나 | 지금(2026-10-21) 상태 |
+| --- | --- | --- |
+| 도메인 소유(등록기관) | Route 53 **Domains → Registered domains** | `cuberry.kr` 만 있음. **`www` 는 도메인이 아니라 이름(레코드)이라 여기에 안 나오는 게 정상** |
+| GitHub Pages 커스텀 도메인 | 저장소 **Settings → Pages → Custom domain** | **미등록** (`pages` API `"cname": null`) — 우리 쪽에서 아직 누르지 않음 |
+| DNS 레코드 | Route 53 **Hosted zones → cuberry.kr** | `www` 에 **A 레코드 2개**(기존 구 사이트)가 남아 있고 **CNAME 은 없음** |
+
+실측값(2026-10-21, 리졸버 8.8.8.8):
+
+```
+cuberry.kr      A       3.37.244.46 / 52.79.73.176    ← 구 사이트. 변경 없음
+www.cuberry.kr  A       3.37.244.46 / 52.79.73.176    ← CNAME 이 아니라 A. 이게 “조회 안 됨”의 실체
+www.cuberry.kr  CNAME   (없음 — NODATA/SOA 응답)
+cuberry.kr      MX      aspmx.l.google.com 등 5건       ← 유지
+cuberry.kr      TXT     google-site-verification=…      ← 유지
+```
+
+→ `www` **CNAME** 을 조회하면 “없음”이 나오는 게 당연합니다(아직 안 만듦). 반면 **이름 자체(`www` A 레코드)는 이미 존재**합니다.
+→ Route 53 **Domains** 화면에서 `www` 를 찾으면 안 보이는 것도 정상입니다. 확인은 **Hosted zones** 에서 하셔야 합니다.
+
+### 순서 — GitHub 먼저, DNS 나중 (순서를 바꾸면 안 되는 이유)
+
+1. **GitHub** 저장소 → Settings → Pages → Custom domain 에 `www.cuberry.kr` 입력(프로토콜 없이) → Save
+   * 이 순간 저장소 루트에 `CNAME` 파일이 생기고, GitHub 이 이 도메인의 소유 확인을 시작합니다.
+2. **Route 53** → `cuberry.kr` 호스팅 영역 → `www` 의 **A 레코드 2건 삭제** → **CNAME 1건 신규**(`hanahchafilmaker.github.io`, TTL 300)
+3. 전파(수 분~24시간) 후 Settings → Pages → **Enforce HTTPS** 체크
+
+> ⚠️ DNS 를 먼저 바꾸면 그 사이 `www.cuberry.kr` 이 “There isn't a GitHub Pages site here” 로 뜨고,
+> GitHub 쪽 도메인 소유 확인 전이라 **서브도메인 탈취 검사**도 통과하지 못합니다. 그래서 1 → 2 순서입니다.
+> 자세한 절차·값은 **3장**, 롤백은 **6장**.
+
+### “조회되지 않는다”고 다시 올 때, 함께 보내주시면 바로 확인됩니다
+
+- Route 53 → Hosted zones → `cuberry.kr` → **`www` 로 시작하는 레코드 스크린샷**
+- `dig +short www.cuberry.kr` 와 `dig +short www.cuberry.kr CNAME` 출력
+- 어느 화면에서 조회했는지 (**Domains** 인지 **Hosted zones** 인지)
+
+### 회신 초안 (그대로 복사해서 보내셔도 됩니다)
+
+> `www.cuberry.kr` 은 **아직 아무도 등록하지 않은 상태가 맞습니다.** 고장이 아니라 순서 문제이고, **GitHub 등록이 먼저**입니다.
+> ① 저장소 `Landing_Cuberry` → Settings → Pages → Custom domain 에 `www.cuberry.kr`(프로토콜 없이) 등록
+> ② 그다음 Route 53 `cuberry.kr` 호스팅 영역에서 `www` 의 **A 레코드 2건을 삭제**하고 `hanahchafilmaker.github.io` 로 가는 **CNAME 1건** 추가(TTL 300)
+> ③ 전파 후 Enforce HTTPS 체크
+> 참고로 Route 53 **Domains(도메인 등록)** 목록에는 `cuberry.kr` 만 보이는 게 정상입니다 — `www` 는 별도 도메인이 아니라 이름(레코드)이라서요. 확인은 **Hosted zones → cuberry.kr** 에서 하시면 되고, 지금 `www` 에는 A 레코드 2개(`3.37.244.46`, `52.79.73.176`)만 있고 CNAME 은 없는 상태입니다.
+> apex(`cuberry.kr`) A 레코드와 **MX·TXT 는 절대 건드리지 마세요**(구글 워크스페이스 메일·검색 소유확인 유지).
 
 ---
 
@@ -112,7 +168,7 @@ Route 53 → Hosted zones → `cuberry.kr` → 레코드를 아래 표대로 수
 | 이름 | 유형 | 값 (TTL 300 권장) | 비고 |
 | --- | --- | --- | --- |
 | `www` | **CNAME** | `hanahchafilmaker.github.io` | 기존 `www` **A 레코드 2개 삭제 후** 신규 |
-| `cuberry.kr` (apex) | — | **변경 없음** | 기존 A(`3.39.143.82` / `54.116.236.216`) 유지 → apex→www 301 |
+| `cuberry.kr` (apex) | — | **변경 없음** | 기존 A(`3.37.244.46` / `52.79.73.176`) 유지 → apex→www 301 |
 | *그 외* | — | **변경 없음** | MX · TXT(google-site-verification) 등은 손대지 않음 |
 
 **방법 A — 콘솔 JSON 편집기 (가장 쉬움)**
@@ -163,7 +219,7 @@ DNS 전파 후(수 분~최대 24시간) Settings → Pages → **Enforce HTTPS**
 
 ```bash
 dig +short www.cuberry.kr CNAME  # hanahchafilmaker.github.io.
-dig +short cuberry.kr A          # 3.39.143.82 / 54.116.236.216 그대로(변경 없음)
+dig +short cuberry.kr A          # 3.37.244.46 / 52.79.73.176 그대로(변경 없음)
 dig +short cuberry.kr MX         # ★ Google Workspace 그대로 (aspmx.l.google.com 등)
 dig +short cuberry.kr TXT        # google-site-verification 그대로
 
@@ -193,7 +249,7 @@ curl -sI https://cuberry.kr | head -3                                   # 301 �
 | `www.cuberry.kr` 이 아직 구 사이트 | DNS 캐시. `dig +short www.cuberry.kr CNAME` 으로 확인, 최대 24시간 대기(브라우저·OS DNS 캐시도 확인) |
 | 커스텀 도메인 저장 시 “domain is already in use / invalid” | 값을 `https://www.cuberry.kr` 처럼 **프로토콜과 함께** 넣은 경우 → `www.cuberry.kr` 만 입력. 다른 GitHub 저장소가 같은 도메인을 쓰고 있어도 이 메시지가 나옵니다 |
 | “There isn’t a GitHub Pages site here” | 3-1(Custom domain 등록) 누락 또는 `CNAME` 파일 미생성 → Settings → Pages 재확인 |
-| apex(`cuberry.kr`)가 404/에러 | apex A 레코드를 GitHub Pages IP 로 바꾼 경우 → 원래 값(`3.39.143.82` / `54.116.236.216`)으로 복원. apex 는 AWS 301 로 두는 구성입니다 |
+| apex(`cuberry.kr`)가 404/에러 | apex A 레코드를 GitHub Pages IP 로 바꾼 경우 → 원래 값(`3.37.244.46` / `52.79.73.176`)으로 복원. apex 는 AWS 301 로 두는 구성입니다 |
 | HTTPS 경고/연결 안 됨 | 인증서 발급 대기 중. Enforce HTTPS 체크 후 시간 경과 필요(보통 수십 분, 최대 24시간) |
 | `www` 가 안 열림 | 남아 있는 `www` A 레코드와 CNAME 충돌 → A 삭제 후 CNAME 만 유지 |
 | 랜딩에서 로그인·문의가 안 됨 | 서버 CORS 허용목록 문제일 가능성 → 서버는 이미 `www.cuberry.kr`·`cuberry.kr` 을 **기본 허용**하도록 커밋되어 있음(재배포 없이 동작). `https://landing-cuberry-admin.onrender.com/api/config` 에서 `allowedOrigins` 확인 |
@@ -204,7 +260,7 @@ curl -sI https://cuberry.kr | head -3                                   # 301 �
 ## 6. 롤백 (5분)
 
 1. GitHub: **Custom domain 을 비우고 Save** — `gh api -X PUT repos/hanahchafilmaker/Landing_Cuberry/pages -f cname=""`
-2. Route 53: `www` CNAME 을 삭제하고 **원래 A 레코드 2개**(`3.39.143.82`, `54.116.236.216`)로 복원 — apex 는 바꾸지 않았으므로 그대로
+2. Route 53: `www` CNAME 을 삭제하고 **원래 A 레코드 2개**(`3.37.244.46`, `52.79.73.176`)로 복원 — apex 는 바꾸지 않았으므로 그대로
 3. TTL 을 300 으로 낮춰 두었다면 수 분 내 원상복구
 
 ---
