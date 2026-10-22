@@ -243,14 +243,17 @@ curl -s https://www.cuberry.kr | grep -o 'rel="canonical" href="[^"]*"'   # http
 | 문서 | `README.md`, 이 문서 | 배포 표에 공식 주소(`https://www.cuberry.kr/`)와 도메인 문서 링크 반영 |
 | 문서 | `docs/domain/handoff-dns.md` | DNS 담당자 전달용 실행 문서(사전 확인·단계·확인·롤백·증상별 조치) |
 | 문서 | `docs/domain/ceo-decision.md` | 대표님 판단용 1장 요약(결정 3가지 + 추천안 + 일정) |
-| 컷오버 자산 | `docs/domain/CNAME`(= `www.cuberry.kr`), `docs/domain/route53-cuberry-kr-change.json` | 복사해서 쓰는 값(루트 `CNAME` 은 DNS 변경 시점에 함께 켜야 하므로 아직 넣지 않음) |
+| 컷오버 자산 | `docs/domain/CNAME`(= `www.cuberry.kr`), `docs/domain/route53-cuberry-kr-change.json` | 복사해서 쓰는 값(루트 `CNAME` 은 2026-10-21 에 활성화됨 — 아래 완료 항목 참고) |
 
 **아직 코드로 하지 않은 것(의도적)**
 
 - 진짜 경로 기반 영문 페이지(`/en/` 이 리다이렉트가 아니라 실제 페이지) — 랜딩의 이미지 경로가 상대경로라 `/en/` 아래에서 그대로 두면 깨집니다. 하려면 “앱이 자신의 기준 경로를 계산해 자산 주소를 붙이는” 작업이 필요합니다(반나절 규모). **대표님이 안 B 를 확정하면 진행**하는 것을 권합니다.
 - `cubeberry.ai` 실제 301 — 대표님 의도 확정 + AWS 콘솔/Cloudflare 작업 필요.
-- 루트 `CNAME` 파일 활성화(= 커스텀 도메인 스위치 ON) — DNS 변경과 동시에. `git mv docs/domain/CNAME CNAME` 후 커밋하거나
-  `gh api -X PUT repos/hanahchafilmaker/Landing_Cuberry/pages -f cname=www.cuberry.kr` (되돌리기: `-f cname=""`)
+- ~~루트 `CNAME` 파일 활성화(= 커스텀 도메인 스위치 ON)~~ — **완료(2026-10-21)**: 커밋 `e781411` "Create CNAME" 으로
+  루트 `CNAME`(= `www.cuberry.kr`, 프로토콜 없이)이 들어갔고, Pages 상태도 `cname: www.cuberry.kr` 로 확인됨.
+  `test/domain.mjs` 가 이제 "루트 CNAME 이 있고 `docs/domain/CNAME` 과 일치"하는지 검사한다(전환 전 안전장치의 반대 방향).
+  되돌리기: `gh api -X PUT repos/hanahchafilmaker/Landing_Cuberry/pages -f cname=""` (루트 `CNAME` 파일도 함께 제거).
+  ※ 파일 활성화 = Pages 쪽 스위치 ON 일 뿐이며, `www` DNS(Route 53) 변경 완료와는 별개다.
 - API 를 `https://www.cuberry.kr/api`(한 Origin)로 프록시하는 구성 — AWS 쪽에서 프록시를 걸기로 하면 그때 진행(재배포 필요).
 
 ---

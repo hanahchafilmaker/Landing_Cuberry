@@ -102,9 +102,14 @@ for (const [file, label] of [["server/lib/config.mjs", "서버 기본 허용목�
 const configText = read("server/lib/config.mjs");
 expect("서버 기본 허용목록에 공식 도메인이 들어 있음", /DEFAULT_ALLOWED_ORIGINS[\s\S]*?cuberry\.kr[\s\S]*?\];/.test(configText), true);
 
-console.log("\n[6] 컷오버 자산 (docs/domain/)");
+console.log("\n[6] 컷오버 자산 (docs/domain/ + 루트 CNAME)");
 expect("docs/domain/CNAME = 커스텀 도메인(프로토콜 없이)", read("docs/domain/CNAME").trim(), "www.cuberry.kr");
-expect("CNAME 은 루트에 아직 없음(전환 전 안전)", existsSync(path.join(ROOT, "CNAME")), false);
+// 2026-10-21 에 GitHub Pages Custom domain 을 켜면서 루트 CNAME 이 커밋됐다(e781411 "Create CNAME").
+// 전환 전 안전장치였던 "루트에 아직 없음" 검사는 이제 반대가 정답이다 —
+// 파일이 사라지거나 값이 https:// 포함·apex 로 잘못 적히면 Pages 커스텀 도메인이 풀리므로 여기서 막는다.
+expect("루트 CNAME 활성화됨(Pages 커스텀 도메인 스위치 ON)", existsSync(path.join(ROOT, "CNAME")), true);
+expect("루트 CNAME = 커스텀 도메인(프로토콜 없이)", read("CNAME").trim(), "www.cuberry.kr");
+expect("루트 CNAME 과 docs/domain/CNAME 일치", read("CNAME").trim(), read("docs/domain/CNAME").trim());
 expect("docs/domain-setup.md 존재", existsSync(path.join(ROOT, "docs", "domain-setup.md")), true);
 
 const batch = JSON.parse(read("docs/domain/route53-cuberry-kr-change.json"));
