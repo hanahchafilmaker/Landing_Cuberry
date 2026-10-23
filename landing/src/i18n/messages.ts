@@ -80,11 +80,6 @@ export const en: Record<string, string> = {
   "춘천애니메이션박물관·국립중앙도서관·화성어린이문화센터 등 국공립 전시시설 20곳 이상 미디어 기술 콘텐츠 기획·제작": "Media technology content for 20+ public exhibition venues, including Chuncheon Animation Museum, National Library of Korea and Hwaseong Children’s Culture Center",
   "반려다움·슬룸·헤드스파7·인스탁스·SK매직·삼성 TV 등 50개 이상 브랜드 라이브커머스 총괄 PD": "Lead live commerce producer for 50+ brands, including Banryeodaum, Sloom, Head Spa 7, Instax, SK Magic and Samsung TV",
   "채널A 〈지붕 위의 막걸리〉 · JTBC 〈취향존중 리얼라이프 – 취존생활〉 · TV조선 〈코리아헌터〉 PD": "Entertainment producer: Channel A Makgeolli on the Roof, JTBC Chwijon Life and TV Chosun Korea Hunter",
-  "허재구": "Heo Jae-gu",
-  "광고·캠페인 PD": "Advertising & campaign producer",
-  "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0": "100+ AI commercials produced; contract ad production with 5.0-star client reviews",
-  "네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업": "Collaborated on 148 Naver Webtoon episodes: 3D layout, flats, shading and retouching",
-  "공공기관 홍보 인포그래픽 제작": "Promotional infographics for public institutions",
   // ── 브랜드 · 내비게이션 · 공통 ───────────────────────────────
   "주식회사 큐브베리": "CUBEBERRY Inc.",
   "㈜큐브베리": "CUBEBERRY Inc.",

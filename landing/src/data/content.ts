@@ -647,18 +647,6 @@ export const team: TeamMember[] = [
     ],
     "image": "team_portraits/cha-hana.webp",
     "photoPosition": 0
-  },
-  {
-    "name": "허재구",
-    "role": "ACCOUNT & CAMPAIGN PD",
-    "org": "광고·캠페인 PD",
-    "career": [
-      "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0",
-      "네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업",
-      "공공기관 홍보 인포그래픽 제작"
-    ],
-    "image": "team_portraits/heo-jaegu.webp",
-    "photoPosition": 0
   }
 ];
 
