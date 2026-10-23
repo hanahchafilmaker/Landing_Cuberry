@@ -200,8 +200,6 @@ export const en: Record<string, string> = {
     "Patent registered · multi-verification and auto-correction system for generative AI content based on inverse physics-simulation data",
   "싱가포르 Lights & Shadows, Codomo와 업무협약(MOU) 2건 체결 · Codomo 자체 IP 〈Potato Pirates〉 롱폼 애니메이션 제작 협력":
     "Signed two MOUs with Singapore's Lights & Shadows and Codomo · co-producing the long-form animation 〈Potato Pirates〉 based on Codomo's own IP",
-  "영화진흥위원회 지원사업 장편 AI 애니메이션 〈씨앗전쟁〉 선정 · 주관 용역사로 제작 참여":
-    "Selected for the Korean Film Council grant programme with the feature AI animation 〈Seed War〉 · producing as lead contractor",
   "XCONDA 베타 서비스 출시": "XCONDA beta released",
   "KBS 공사창립 대기획 4부작 다큐멘터리 〈성물〉 AI 파트 제작·방영":
     "Produced and aired the AI segments of 〈Seongmul〉, KBS's four-part founding-anniversary documentary",
@@ -314,9 +312,6 @@ export const en: Record<string, string> = {
 
   // ── 포트폴리오 (운영 CMS 시드) ───────────────────────────────
   // IR_큐브베리_2026 덱에서 추가한 플래그십 IP (2026-10-12)
-  "〈씨앗전쟁〉 — 장편 AI 애니메이션": "Seed War — Feature-Length AI Animation",
-  "경기문화재단 장편 AI 애니메이션 지원사업 선정 작품. XCONDA 파이프라인으로 컷이 바뀌어도 캐릭터와 세계관이 유지되는 장편급 제작 역량을 검증합니다.":
-    "Selected for the Gyeonggi Culture Foundation's feature-length AI animation programme — proving feature-scale craft on the XCONDA pipeline, with characters and worlds that hold across cuts.",
   "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT": "Hometown of Legends: Gumiho — KBS1 Broadcast & REBOOT",
   "KBS1 어린이날 특집으로 방영된 AI 애니메이션. K-호러 원조 설화를 AI로 재해석해 REBOOT 티저·파일럿까지 완성했습니다.":
     "AI animation aired in KBS1's Children's Day special — a classic K-horror folktale reimagined with AI, completed through the REBOOT teaser and pilot.",
@@ -343,7 +338,6 @@ export const en: Record<string, string> = {
   "콜드사이트 트레일러 · AI 영화 / Trailer": "Cold Site trailer · AI film / trailer",
   "턴_광고": "TURN_Ad",
   "TURN 광고 · XCONDA / AI 광고": "TURN commercial · XCONDA / AI ad",
-  "Seedwar · AI 웹드라마 / 콘셉트 필름": "Seedwar · AI web drama / concept film",
   "CJ대한통운 오네 시리즈 — 새벽": "CJ Logistics ONE Series — Dawn",
   "“새벽에도 오네?” CJ대한통운의 새벽 배송 서비스 오네(ONE)를 소개합니다. 달이 뜬 고요한 방과 배송지 검색 화면으로 서비스의 흐름을 표현했습니다.":
     "“ONE, even at dawn?” An introduction to ONE, CJ Logistics' early-morning delivery service, expressed through a quiet moonlit room and a delivery-address search screen.",
