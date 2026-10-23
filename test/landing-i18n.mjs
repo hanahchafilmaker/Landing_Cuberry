@@ -229,8 +229,8 @@ console.log("\n[i18n] F. 운영 CMS 기본값(server/seed.json)을 그대로 받
   expect("시드 팀 소개 번역", text(document.querySelector("#team article h3")), "Lee Jin-seo");
   expect(
     "시드 작품 제목 번역",
-    [...document.querySelectorAll("#works article h3")].map(text).find((title) => title.startsWith("Seed War")),
-    "Seed War — Feature-Length AI Animation",
+    [...document.querySelectorAll("#works article h3")].map(text).find((title) => title.startsWith("Hometown of Legends")),
+    "Hometown of Legends: Gumiho — KBS1 Broadcast & REBOOT",
   );
   expect("시드 팀 이력도 번역", text(document.querySelector("#team li")).includes("KBS"), true);
   expect("시드 전체에서 남은 한국어 없음", leftoverKorean(document), []);
