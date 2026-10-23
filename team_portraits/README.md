@@ -6,7 +6,9 @@ The 12 photograph PNG portraits were extracted from the user-provided
 - Page 6: Lee Jin-seo (`lee-jinseo.png`)
 - Page 7: Son Soo-yeong (`son-sooyeong.png`), Cho Kyu-won (`cho-kyuwon.png`), Noh Eun-joo (`noh-eunjoo.png`)
 - Page 8: Park Chan-hyuk (`park-chanhyuk.png`), Cho Min-hee (`cho-minhee.png`), Choi Jong-hyun (`choi-jonghyun.png`), Hwangbo Min-hyuk (`hwangbo-minhyuk.png`)
-- Page 9: Kim Jae-hwan (`kim-jaehwan.png`), Bae Ye-eun (`bae-yeeun.png`), Cha Ha-na (`cha-hana.png`), Heo Jae-gu (`heo-jaegu.png`)
+- Page 9: Kim Jae-hwan (`kim-jaehwan.png`), Bae Ye-eun (`bae-yeeun.png`), Cha Ha-na (`cha-hana.png`)
+  — Heo Jae-gu was originally extracted as `heo-jaegu.png`; that profile and its assets were
+  removed on 2026-10-23 (see the removal note at the end of this file).
 
 Two additional members from **cubeberry_flexboard_design_v2.html** (`#studio` CREDITS, Drive ID `1DzhpOF4RZuUXhjL4tAGRuwxoQlF2u20q`) complete the 14-person roster with dark studio silhouette placeholders until portrait photos are uploaded via `/admin-v2/team`:
 
@@ -30,7 +32,7 @@ maximum 1600 px on the long edge):
 - `lee-jinseo.webp` ← `이진서대표님.jpeg`
 - `cho-minhee.webp` ← `조민희PD.png`
 - `choi-jonghyun.webp` ← `최종현.png`
-- `heo-jaegu.webp` ← `허재구.png`
+- ~~`heo-jaegu.webp` ← `허재구.png`~~ — 2026-10-23 프로필·이미지 제거
 - `hwangbo-minhyuk.webp` ← `황보민혁.jpeg`
 
 The active image paths are synchronized in `landing/src/data/content.ts`,
@@ -66,3 +68,19 @@ roster once on startup. New databases receive the updated seed. Customized roste
 (including unpublished entries or deletions) are preserved, not overwritten; their
 team profiles must be updated via the administrator interface. Migration status is
 logged at startup. No live production database was modified during this update.
+
+## 2026-10-23 허재구 프로필 제거
+
+허재구(ACCOUNT & CAMPAIGN PD)를 로스터에서 완전히 뺐습니다.
+
+- `landing/src/data/content.ts`, `landing/src/i18n/messages.ts`, `server/seed.json` 에서는
+  이미 제거된 상태였고, 남아 있던 자산과 문서 흔적을 정리했습니다.
+- 삭제: `heo-jaegu.png`, `heo-jaegu.webp`
+- `server/migrations/team-profile-2026.mjs` 의 `heo-jaegu` PNG→WebP 별칭 제거.
+  (더 이상 어떤 시드에도 이 이름이 없으므로 별칭만 남겨두면 죽은 코드가 됩니다.)
+
+주의 — **운영 DB 는 seed.json 을 자동으로 따라가지 않습니다.** `server/lib/db.mjs` 의
+`seedContent()`/`seedTeam()` 은 DB 가 비어 있을 때만 동작하고, 이후에는 어드민에서
+편집한 값이 우선합니다. 따라서 이미 만들어진 DB 에 남아 있는 프로필은 어드민
+(`/admin/team`)에서 삭제해야 사라지고, 삭제 후 `npm run sync:seed` 로
+`server/seed.json` 을 운영 상태와 다시 맞춰 주세요.
