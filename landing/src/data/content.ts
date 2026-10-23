@@ -143,10 +143,6 @@ export const history: HistoryItem[] = [
     date: "2026.08",
     text: "싱가포르 Lights & Shadows, Codomo와 업무협약(MOU) 2건 체결 · Codomo 자체 IP 〈Potato Pirates〉 롱폼 애니메이션 제작 협력",
   },
-  {
-    date: "2026.07",
-    text: "영화진흥위원회 지원사업 장편 AI 애니메이션 〈씨앗전쟁〉 선정 · 주관 용역사로 제작 참여",
-  },
   { date: "2026.05", text: "XCONDA 베타 서비스 출시" },
   { date: "2026.03", text: "KBS 공사창립 대기획 4부작 다큐멘터리 〈성물〉 AI 파트 제작·방영" },
   { date: "2026.03", text: "XCONDA MVP 출시" },
@@ -311,15 +307,6 @@ export const driveFilms: DriveFilm[] = [
     kind: "광고",
   },
   {
-    title: "seedwar.mp4",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "Seedwar · AI 웹드라마 / 콘셉트 필름",
-    videoUrl: "https://drive.google.com/file/d/1jP4J4RbNFDlK3bZI5dWz_atj4pYMPFeo/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1jP4J4RbNFDlK3bZI5dWz_atj4pYMPFeo&sz=w1000",
-    kind: "웹드라마",
-  },
-  {
     title: "미국광고_세로숏폼",
     category: "DRIVE FILM",
     year: "2026",
@@ -387,15 +374,6 @@ export type Work = {
 };
 
 export const works: Work[] = [
-  {
-    title: "〈씨앗전쟁〉 — 장편 AI 애니메이션",
-    category: "AI FEATURE ANIMATION",
-    year: "2026",
-    description:
-      "경기문화재단 장편 AI 애니메이션 지원사업 선정 작품. XCONDA 파이프라인으로 컷이 바뀌어도 캐릭터와 세계관이 유지되는 장편급 제작 역량을 검증합니다.",
-    thumbnailUrl: "images/still-seedwar.jpg",
-    tags: ["경기문화재단", "장편 AI 애니메이션", "수행 중"],
-  },
   {
     title: "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT",
     category: "AI ANIMATION SERIES",
