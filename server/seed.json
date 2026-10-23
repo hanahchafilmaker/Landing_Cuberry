@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-10-14T04:31:54.769Z",
+  "exportedAt": "2026-10-23T00:05:38.818Z",
   "settings": {
     "brandName": "CUBEBERRY",
     "heroEyebrow": "REC · CUBEBERRY · SINCE 2023.08",
@@ -665,16 +665,6 @@
       "sortOrder": 12,
       "isPublished": true,
       "landingSlot": "profile-cha-hana"
-    },
-    {
-      "name": "허재구",
-      "role": "ACCOUNT & CAMPAIGN PD · 광고·캠페인 PD",
-      "bio": "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0\n네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업\n공공기관 홍보 인포그래픽 제작",
-      "photoUrl": "/team_portraits/heo-jaegu.webp",
-      "photoPosition": 0,
-      "sortOrder": 13,
-      "isPublished": true,
-      "landingSlot": "profile-heo-jaegu"
     }
   ],
   "inquiries": []
