@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-10-23T02:08:11.914Z",
+  "exportedAt": "2026-10-23T02:10:50.144Z",
   "settings": {
     "brandName": "CUBEBERRY",
     "heroEyebrow": "REC · CUBEBERRY · SINCE 2023.08",
@@ -148,21 +148,6 @@
       "kind": "광고",
       "source": "drive",
       "landingSlot": "drive-8"
-    },
-    {
-      "title": "〈씨앗전쟁〉 — 장편 AI 애니메이션",
-      "category": "AI FEATURE ANIMATION",
-      "year": "2026",
-      "description": "경기문화재단 장편 AI 애니메이션 지원사업 선정 작품. XCONDA 파이프라인으로 컷이 바뀌어도 캐릭터와 세계관이 유지되는 장편급 제작 역량을 검증합니다.",
-      "videoUrl": "",
-      "thumbnailUrl": "/images/still-seedwar.jpg",
-      "tags": "경기문화재단, 장편 AI 애니메이션, 수행 중",
-      "sortOrder": 19,
-      "isFeatured": true,
-      "isPublished": true,
-      "kind": "애니메이션",
-      "source": "works",
-      "landingSlot": "work-23"
     },
     {
       "title": "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT",
