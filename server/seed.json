@@ -60,21 +60,6 @@
       "landingSlot": "drive-1"
     },
     {
-      "title": "seedwar.mp4",
-      "category": "DRIVE FILM",
-      "year": "2026",
-      "description": "Seedwar · AI 웹드라마 / 콘셉트 필름",
-      "videoUrl": "https://drive.google.com/file/d/1jP4J4RbNFDlK3bZI5dWz_atj4pYMPFeo/preview",
-      "thumbnailUrl": "https://drive.google.com/thumbnail?id=1jP4J4RbNFDlK3bZI5dWz_atj4pYMPFeo&sz=w1000",
-      "tags": "GOOGLE DRIVE",
-      "sortOrder": 2,
-      "isFeatured": false,
-      "isPublished": false,
-      "kind": "광고",
-      "source": "drive",
-      "landingSlot": "drive-2"
-    },
-    {
       "title": "미국광고_세로숏폼_9x16.mp4",
       "category": "DRIVE FILM",
       "year": "2026",
@@ -650,16 +635,6 @@
       "sortOrder": 12,
       "isPublished": true,
       "landingSlot": "profile-cha-hana"
-    },
-    {
-      "name": "허재구",
-      "role": "ACCOUNT & CAMPAIGN PD · 광고·캠페인 PD",
-      "bio": "AI 광고 100편 이상 제작 · 광고 제작 대행 고객 평점 5.0\n네이버 웹툰 148화 협업 — 3D 레이아웃·밑색·명암·리터칭 후반 작업\n공공기관 홍보 인포그래픽 제작",
-      "photoUrl": "/team_portraits/heo-jaegu.webp",
-      "photoPosition": 0,
-      "sortOrder": 13,
-      "isPublished": false,
-      "landingSlot": "profile-heo-jaegu"
     }
   ],
   "inquiries": []

@@ -113,6 +113,9 @@ const collect = (value, trail) => {
   }
   if (Array.isArray(value)) value.forEach((item, index) => collect(item, `${trail}[${index}]`));
   else if (value && typeof value === "object") {
+    // 비공개(isPublished: false) 초안은 화면에 그려지지 않는다 — 어드민에서 저장만 해 둔
+    // 미번역 초안 때문에 CI 가 빨간불이 되지 않도록 검사에서 뺀다.
+    if (value.isPublished === false) return;
     Object.entries(value).forEach(([key, item]) => collect(item, trail ? `${trail}.${key}` : key));
   }
 };
