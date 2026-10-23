@@ -559,18 +559,6 @@ export const team: TeamMember[] = [
     "photoPosition": 0
   },
   {
-    "name": "유세아",
-    "role": "BROADCAST WRITER",
-    "org": "방송 작가 · 예능·교양",
-    "career": [
-      "MBC 〈나 혼자 산다〉 · 〈라디오스타〉 집필",
-      "MBC every1 〈주간아이돌〉 · 〈비디오스타〉 집필",
-      "지상파·케이블 주요 예능·토크·교양 프로그램 구성 및 스토리텔링"
-    ],
-    "image": "team_portraits/yoo-seah.webp",
-    "photoPosition": 0
-  },
-  {
     "name": "박찬혁 감독",
     "role": "AI PRODUCTION LEAD",
     "org": "AI 제작 총괄 · 감독",
