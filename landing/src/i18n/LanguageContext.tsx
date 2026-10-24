@@ -6,6 +6,7 @@ import {
   LANG_STORAGE_KEY,
   LANG_EVENT,
   browserLanguages,
+  langFromQuery,
   readStoredLang,
   resolveLanguage,
   translate,
@@ -30,6 +31,42 @@ const LanguageContext = createContext<LanguageContextValue>({
   t: (text, vars) => translate(text, "ko", vars),
 });
 
+/** 공식 도메인 — canonical·OG·사이트맵·hreflang 의 정본(docs/domain-setup.md). */
+const SITE_ORIGIN = "https://www.cuberry.kr";
+
+/**
+ * 검색엔진용 정본 주소.
+ *
+ * 국문은 `/`, 영문은 `/?lang=en` 하나로 관리한다(사이트맵·hreflang 과 같은 규칙).
+ * 판단 기준은 **주소창의 언어**이지 화면 언어가 아니다. 브라우저 언어로 영어가 된 경우에도
+ * 주소가 `/` 라면 정본은 `/` 로 남겨, 정본이 항상 자기 자신을 가리키게 한다.
+ * (화면 언어를 기준으로 삼으면 영어 브라우저로 `/` 를 방문했을 때 국문 정본이
+ *  `/?lang=en` 으로 넘어가 검색엔진에서 국문 홈이 빠질 수 있다.)
+ */
+function canonicalHref(search: string): string {
+  return langFromQuery(search) === "en" ? `${SITE_ORIGIN}/?lang=en` : `${SITE_ORIGIN}/`;
+}
+
+/**
+ * canonical · og:url · og:locale 을 지금 상태에 맞춘다.
+ *
+ * - canonical·og:url 은 **주소**를 따른다(같은 주소는 언제나 같은 정본).
+ * - og:locale 은 **화면 언어**를 따른다(바로 위에서 제목·설명을 바꾸는 것과 같은 기준).
+ */
+function syncCanonical(lang: Lang) {
+  const search = typeof window === "undefined" ? "" : window.location.search;
+  const href = canonicalHref(search);
+  document.querySelector('link[rel="canonical"]')?.setAttribute("href", href);
+  document.querySelector('meta[property="og:url"]')?.setAttribute("content", href);
+  const english = lang === "en";
+  document
+    .querySelector('meta[property="og:locale"]')
+    ?.setAttribute("content", english ? "en_US" : "ko_KR");
+  document
+    .querySelector('meta[property="og:locale:alternate"]')
+    ?.setAttribute("content", english ? "ko_KR" : "en_US");
+}
+
 /** <html lang> · <title> · meta description · 공유(OG/Twitter) 메타를 화면 언어에 맞춘다. */
 function syncDocument(lang: Lang) {
   const root = document.documentElement;
@@ -48,6 +85,7 @@ function syncDocument(lang: Lang) {
   for (const [selector, value] of shared) {
     document.querySelector(selector)?.setAttribute("content", value);
   }
+  syncCanonical(lang);
 }
 
 /** 주소창의 ?lang= 을 화면 언어와 맞춘다(공유·북마크용, 페이지는 새로 뜨지 않음). */

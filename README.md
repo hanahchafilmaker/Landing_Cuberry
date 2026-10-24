@@ -170,6 +170,8 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 - **경로 보호** — `/images/…`, `/uploads/…` 는 인코딩된 `..` 세그먼트(`%2e%2e%2f`)와 형제 폴더 접근을 모두 거부합니다.
 - **세션 정리** — 만료 세션을 기동 시와 매시간 정리합니다.
 - **검색/공유** — 루트에 `robots.txt`·`sitemap.xml` 이 있고, 랜딩에는 OG·Twitter 카드·canonical·JSON-LD(Organization)·`images/og-cover.jpg`(1200×630) 가 들어 있습니다. 링크를 메신저에 붙이면 제목·설명·이미지가 함께 표시됩니다.
+  주소는 **국문 `/`** · **영문 `/?lang=en`** 두 개가 정본이고, 사이트맵·`hreflang`·`canonical` 이 모두 이 규칙을 따릅니다.
+  언어를 바꾸면 `LanguageContext` 의 `syncCanonical` 이 `canonical`·`og:url`·`og:locale` 을 그 주소에 맞춰 갱신하므로, 영문 화면이 국문 정본으로 흡수되어 색인에서 빠지는 일이 없습니다.
 
 **2) 브라우저 쪽** — 운영 서버 주소는 이미 소스에 커밋되어 있습니다(`BAKED_API_ORIGIN`).
 `https://hanahchafilmaker.github.io/Landing_Cuberry/admin/` 를 열면 **주소를 입력하지 않아도** 로그인 화면이 그 서버에 연결됩니다.
@@ -407,6 +409,12 @@ npm run build:landing   # 루트 index.html 갱신 (결과물을 커밋)
 
 검색엔진에는 빌드할 때 `hreflang`(`ko` · `en` · `x-default`) 링크가 함께 들어갑니다
 (`landing/vite.config.ts` 의 `injectLanguageAlternates` — HTML 에 직접 쓰면 Vite 가 번들 대상으로 오해해 빌드가 깨집니다).
+
+`hreflang` 은 **각 언어의 canonical 주소**를 가리킵니다 — `ko` → `https://www.cuberry.kr/`,
+`en` → `https://www.cuberry.kr/?lang=en`, `x-default` → `https://www.cuberry.kr/`.
+`?lang=ko` 는 canonical 이 `/` 이므로 `hreflang` 에 쓰지 않습니다(같은 규칙을 `sitemap.xml`·`en/index.html`·`kr/index.html` 도 지킵니다).
+화면에서 언어를 바꾸면 `LanguageContext.syncCanonical` 이 `canonical`·`og:url`·`og:locale` 을 지금 주소에 맞춰
+다시 씁니다 — 영문(`/?lang=en`)이 국문 정본(`/`)으로 흡수되지 않게 하기 위해서입니다.
 
 ## 팀 프로필 (PD·감독 얼굴 사진 / 이력)
 

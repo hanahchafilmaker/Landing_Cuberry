@@ -16,6 +16,9 @@
          링크를 카카오톡·슬랙·링크드인에 붙였을 때 제목/설명/이미지가 나오도록 한다.
          canonical 은 공식 도메인(www.cuberry.kr)으로 고정 — GitHub Pages 미러 주소와 Render
          주소가 따로 인덱싱되지 않게 정본을 한곳으로 모아준다.
+         아래 값은 **국문 기준**(빌드 직후 상태)입니다. 영문(`/?lang=en`)으로 열면
+         landing/src/i18n/LanguageContext.tsx 의 syncCanonical 이 canonical·og:url·
+         og:locale 을 그 주소에 맞춰 바꿔 줍니다(영문 화면이 국문 정본으로 흡수되지 않게).
          도메인 연결 절차는 docs/domain-setup.md 참고. -->
     <link rel="canonical" href="https://www.cuberry.kr/" />
     <meta property="og:type" content="website" />
