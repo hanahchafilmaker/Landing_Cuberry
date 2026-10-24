@@ -231,8 +231,9 @@ curl -s https://www.cuberry.kr | grep -o 'rel="canonical" href="[^"]*"'   # http
 | 항목 | 파일 | 내용 |
 | --- | --- | --- |
 | 정본 주소 | `landing/index.html` (+ 빌드 산출물 `index.html`) | canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 를 `https://www.cuberry.kr/` 로 고정 |
-| 검색엔진 | `sitemap.xml`, `robots.txt` | 사이트맵·Sitemap 지시자를 `https://www.cuberry.kr/` 로 변경 |
-| 다국어 | `landing/vite.config.ts` | `hreflang` ko/en/x-default 를 절대주소(`https://www.cuberry.kr/…`)로 주입(미러 주소가 정본으로 오해되지 않게) |
+| 검색엔진 | `sitemap.xml`, `robots.txt` | 사이트맵·Sitemap 지시자를 `https://www.cuberry.kr/` 로 변경. 정본 두 개(`/`, `/?lang=en`)를 모두 등재 |
+| 다국어 | `landing/vite.config.ts` | `hreflang` ko/en/x-default 를 **각 언어의 canonical 주소**로 주입 — `ko` → `https://www.cuberry.kr/`, `en` → `…/?lang=en`, `x-default` → `https://www.cuberry.kr/` (미러 주소가 정본으로 오해되지 않게). `?lang=ko` 는 canonical 이 `/` 라 hreflang 에 쓰지 않음 |
+| 다국어(런타임) | `landing/src/i18n/LanguageContext.tsx` | `syncCanonical` 이 `canonical`·`og:url`·`og:locale` 을 현재 주소에 맞춰 갱신 → 영문(`/?lang=en`)이 국문 정본으로 흡수되지 않음. 판단 기준은 화면 언어가 아니라 **주소** |
 | 언어 별칭 | `en/index.html`, `kr/index.html` | `/en/` → `/?lang=en`, `/kr/` → `/?lang=ko` (noindex, canonical 지정, 상대경로라 서브경로 배포에서도 동작) |
 | 서버 | `server/index.mjs` | Render 로 서빙할 때도 `/en/`·`/kr/` 라우트 동작 |
 | API 허용 | `server/lib/config.mjs` | 기본 허용 Origin 에 `https://www.cuberry.kr`(정본) + `https://cuberry.kr`(apex 301 진입) — 어느 쪽으로 들어와도 로그인·문의 동작 |

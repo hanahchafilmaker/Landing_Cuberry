@@ -54,24 +54,38 @@ for (const [label, html] of [["landing/index.html(원본)", sourceLanding], ["in
   expect(`${label} 에 apex 정본 주소 없음`, occurrences(html, `${APEX}/`), 0);
 }
 
-console.log("\n[2] 빌드가 넣는 hreflang — 언어별 주소도 절대주소");
+console.log("\n[2] 빌드가 넣는 hreflang — 언어별 canonical 주소를 절대주소로");
+// hreflang 은 각 언어의 **canonical 주소**를 가리켜야 한다. 국문 정본은 `/` 이므로 ko 도 `/`.
+// (`/?lang=ko` 는 canonical 이 `/` 라 hreflang 과 어긋난다 — en/index.html·kr/index.html 과도 같은 규칙.)
 for (const tag of [
-  '<link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/?lang=ko" />',
+  '<link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />',
   '<link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />',
   '<link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />',
 ]) {
   expect(`빌드 산출물에 ${tag.slice(31, 64)}…`, builtLanding.includes(tag), true);
 }
-expect("vite.config.ts 가 절대주소로 주입", /hreflang="ko" href="https:\/\/www\.cuberry\.kr\/\?lang=ko"/.test(read("landing/vite.config.ts")), true);
+expect("빌드 산출물 hreflang 에 ?lang=ko 없음", builtLanding.includes('hreflang="ko" href="https://www.cuberry.kr/?lang=ko"'), false);
+expect("vite.config.ts 가 ko 를 / 로 주입", /hreflang="ko" href="https:\/\/www\.cuberry\.kr\/"/.test(read("landing/vite.config.ts")), true);
+
+console.log("\n[2b] 런타임 canonical — 영문 화면이 국문 정본으로 흡수되지 않는지");
+const i18nSource = read("landing/src/i18n/LanguageContext.tsx");
+expect("syncCanonical 이 canonical 을 갱신", /link\[rel="canonical"\]/.test(i18nSource) && i18nSource.includes("syncCanonical"), true);
+expect("og:url 도 함께 갱신", /meta\[property="og:url"\]/.test(i18nSource), true);
+expect("국문 정본은 /", i18nSource.includes('`${SITE_ORIGIN}/`'), true);
+expect("영문 정본은 /?lang=en", i18nSource.includes('`${SITE_ORIGIN}/?lang=en`'), true);
 
 console.log("\n[3] robots.txt · sitemap.xml");
 expect("robots: Sitemap 공식 주소", robots.includes(`Sitemap: ${OFFICIAL}/sitemap.xml`), true);
 expect("robots: 미러 주소 없음", occurrences(robots, MIRROR_PATH), 0);
 expect("sitemap: loc 공식 주소", /<loc>https:\/\/www\.cuberry\.kr\/<\/loc>/.test(sitemap), true);
+expect("sitemap: 영문 정본(/?lang=en) 등재", sitemap.includes(`<loc>${OFFICIAL}/?lang=en</loc>`), true);
+expect("sitemap: loc 은 국문·영문 두 개", occurrences(sitemap, "<loc>"), 2);
+expect("sitemap: lastmod 는 최신 날짜(yyyy-mm-dd)", /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(sitemap), true);
 expect("sitemap: 미러 주소 없음", occurrences(sitemap, MIRROR_PATH), 0);
-for (const [lang, href] of [["ko", `${OFFICIAL}/?lang=ko`], ["en", `${OFFICIAL}/?lang=en`], ["x-default", `${OFFICIAL}/`]]) {
+for (const [lang, href] of [["ko", `${OFFICIAL}/`], ["en", `${OFFICIAL}/?lang=en`], ["x-default", `${OFFICIAL}/`]]) {
   expect(`sitemap: hreflang ${lang}`, sitemap.includes(`hreflang="${lang}" href="${href}"`), true);
 }
+expect("sitemap: hreflang ko 에 ?lang=ko 를 쓰지 않음", sitemap.includes(`${OFFICIAL}/?lang=ko`), false);
 
 console.log("\n[4] 언어 진입 별칭 페이지 (/en/ · /kr/)");
 const alias = [

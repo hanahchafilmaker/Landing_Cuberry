@@ -20,6 +20,12 @@ const proxied = ["/api", "/cms-bridge.js", "/images", "/portfolio_thumbs", "/tea
 // (HTML 에 직접 써 두면 Vite 가 rel="alternate" 를 번들 대상으로 오해하므로 빌드 단계에서 주입한다)
 // 같은 파일이 GitHub Pages 미러(…/Landing_Cuberry/)에서도 서빙되므로 **공식 주소 절대경로**로 적는다.
 // 상대주소로 두면 크롤러가 미러 주소를 두 언어의 정본으로 오해할 수 있다(docs/domain-setup.md).
+//
+// ⚠ hreflang 은 **각 언어의 canonical 주소**를 가리켜야 한다. 국문 정본은 `/` 이므로
+//    `ko` 도 `/?lang=ko` 가 아니라 `/` 로 적는다(`/?lang=ko` 는 canonical 이 `/` 라
+//    hreflang 이 다른 주소를 가리키는 셈이 되어 검색엔진이 무시할 수 있다).
+//    같은 규칙을 sitemap.xml · en/index.html · kr/index.html ·
+//    런타임(LanguageContext 의 syncCanonical)이 함께 지킨다.
 function injectLanguageAlternates(): Plugin {
   return {
     name: "cuberry-language-alternates",
@@ -28,7 +34,7 @@ function injectLanguageAlternates(): Plugin {
       order: "post",
       handler(html) {
         const links = [
-          '    <link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/?lang=ko" />',
+          '    <link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />',
           '    <link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />',
           '    <link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />',
           "  </head>",

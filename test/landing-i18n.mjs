@@ -78,7 +78,13 @@ async function renderLanding({ language = "ko-KR", stored = null, search = "", c
     if (!/Could not load|Not implemented: navigation/.test(error.message)) console.error(error);
   });
   const dom = new JSDOM(
-    '<!doctype html><html lang="ko" data-cms-native="1"><head><meta name="description" content="" /><title>·</title></head><body><div id="root"></div></body></html>',
+    '<!doctype html><html lang="ko" data-cms-native="1"><head>' +
+      '<meta name="description" content="" />' +
+      '<link rel="canonical" href="https://www.cuberry.kr/" />' +
+      '<meta property="og:url" content="https://www.cuberry.kr/" />' +
+      '<meta property="og:locale" content="ko_KR" />' +
+      '<meta property="og:locale:alternate" content="en_US" />' +
+      "<title>·</title></head><body><div id=\"root\"></div></body></html>",
     {
       url: `https://hanahchafilmaker.github.io/Landing_Cuberry/${search}`,
       runScripts: "dangerously",
@@ -111,6 +117,14 @@ const priceDuration = (document) =>
 const footerLine = (document, needle) =>
   [...document.querySelectorAll("footer span")].map(text).find((line) => line.includes(needle)) ?? "";
 const toggle = (document) => document.querySelector("header [data-lang-toggle]");
+/** 검색엔진용 정본(canonical·og:url) 과 공유 언어권(og:locale) */
+const SITE = "https://www.cuberry.kr";
+const canonicalOf = (document) => document.querySelector('link[rel="canonical"]')?.getAttribute("href");
+const ogUrlOf = (document) => document.querySelector('meta[property="og:url"]')?.getAttribute("content");
+const ogLocaleOf = (document) => [
+  document.querySelector('meta[property="og:locale"]')?.getAttribute("content"),
+  document.querySelector('meta[property="og:locale:alternate"]')?.getAttribute("content"),
+];
 
 console.log("\n[i18n] A. 한국어 브라우저 → 한국어 화면");
 {
@@ -123,6 +137,9 @@ console.log("\n[i18n] A. 한국어 브라우저 → 한국어 화면");
   expect("제목에 국문 브랜드", document.title.includes("큐브베리"), true);
   expect("KO 버튼이 선택됨", toggle(document)?.querySelector('[lang="ko"]')?.getAttribute("aria-pressed"), "true");
   expect("EN 버튼은 미선택", toggle(document)?.querySelector('[lang="en"]')?.getAttribute("aria-pressed"), "false");
+  expect("canonical = 국문 정본", canonicalOf(document), `${SITE}/`);
+  expect("og:url = 국문 정본", ogUrlOf(document), `${SITE}/`);
+  expect("og:locale = ko_KR · en_US", ogLocaleOf(document), ["ko_KR", "en_US"]);
   dom.window.close();
 }
 
@@ -153,6 +170,10 @@ console.log("\n[i18n] B. 영어 브라우저 → 자동으로 영어 화면");
   expect("EN 버튼이 선택됨", toggle(document)?.querySelector('[lang="en"]')?.getAttribute("aria-pressed"), "true");
   expect("번역되지 않은 한국어가 없음", leftoverKorean(document), []);
   expect("주소에는 아직 언어 파라미터가 없음", dom.window.location.search, "");
+  // 브라우저 언어로 영어가 되어도 주소는 `/` 이므로 정본도 `/` 를 유지한다.
+  // (정본이 화면 언어를 따라가면 영어 브라우저로 들어온 크롤러가 국문 홈을 `/?lang=en` 으로 넘겨버린다.)
+  expect("canonical 은 주소를 따름(/)", canonicalOf(document), `${SITE}/`);
+  expect("og:locale 은 화면 언어(en_US)", ogLocaleOf(document), ["en_US", "ko_KR"]);
   dom.window.close();
 }
 
@@ -169,6 +190,10 @@ console.log("\n[i18n] C. KO/EN 토글 → 화면·언어 속성·주소·저장�
   expect("주소에 ?lang=en", dom.window.location.search, "?lang=en");
   expect("선택 저장", dom.window.localStorage.getItem("cuberry:lang"), "en");
   expect("영어 화면에 한국어 없음", leftoverKorean(document), []);
+  // 영문은 별도 정본을 가진다 — canonical 이 `/` 로 남으면 구글이 영문을 국문 중복으로 보고 색인하지 않는다.
+  expect("canonical = 영문 정본", canonicalOf(document), `${SITE}/?lang=en`);
+  expect("og:url = 영문 정본", ogUrlOf(document), `${SITE}/?lang=en`);
+  expect("og:locale = en_US · ko_KR", ogLocaleOf(document), ["en_US", "ko_KR"]);
 
   const ko = toggle(document).querySelector('[lang="ko"]');
   ko.click();
@@ -176,6 +201,9 @@ console.log("\n[i18n] C. KO/EN 토글 → 화면·언어 속성·주소·저장�
   expect("<html lang> 되돌림", document.documentElement.getAttribute("lang"), "ko");
   expect("주소 ?lang=ko", dom.window.location.search, "?lang=ko");
   expect("선택 저장", dom.window.localStorage.getItem("cuberry:lang"), "ko");
+  // 국문 정본은 `/?lang=ko` 가 아니라 `/` 하나로 모은다(사이트맵·hreflang 과 동일).
+  expect("canonical 은 국문 정본(/)으로 복귀", canonicalOf(document), `${SITE}/`);
+  expect("og:locale = ko_KR · en_US", ogLocaleOf(document), ["ko_KR", "en_US"]);
   dom.window.close();
 }
 
@@ -188,6 +216,7 @@ console.log("\n[i18n] D. 우선순위 — 주소 > 저장값 > 브라우저 언�
   const query = await renderLanding({ language: "ko-KR", stored: "ko", search: "?lang=en" });
   expect("주소의 ?lang=en 이 저장값보다 우선", navLabels(query.window.document)[0], "Company");
   expect("주소로 지정한 언어도 기억됨", query.window.localStorage.getItem("cuberry:lang"), "en");
+  expect("?lang=en 으로 들어오면 영문 정본", canonicalOf(query.window.document), `${SITE}/?lang=en`);
   query.window.close();
 
   const short = await renderLanding({ language: "en", search: "?lang=ko" });

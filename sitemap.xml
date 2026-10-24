@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 공식 주소는 https://www.cuberry.kr/ 입니다(GitHub Pages 미러·Render 주소는 canonical 로 정리).
-     언어별 주소는 쿼리 파라미터(?lang=ko · ?lang=en)를 정본으로 쓰고, /en/ · /kr/ 은 진입용 별칭입니다.
+     언어별 주소는 국문 `/` · 영문 `/?lang=en` 두 가지이며, 이 파일과 hreflang·canonical 이 모두 같은 규칙을 씁니다.
+     - 국문 canonical = https://www.cuberry.kr/   → hreflang ko 도 `/`
+     - 영문 canonical = https://www.cuberry.kr/?lang=en → hreflang en 도 `/?lang=en`
+     `/kr/`·`/en/` 은 진입용 별칭(noindex)이므로 사이트맵에 넣지 않습니다.
      도메인 연결 절차: docs/domain-setup.md -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://www.cuberry.kr/</loc>
-    <lastmod>2026-10-14</lastmod>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
-    <xhtml:link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/?lang=ko" />
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />
+  </url>
+  <url>
+    <loc>https://www.cuberry.kr/?lang=en</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <xhtml:link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />
   </url>
