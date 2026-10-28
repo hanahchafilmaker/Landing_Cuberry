@@ -331,6 +331,40 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 돌려 `design-incoming/` 에 풀어두거나, `design-incoming/` 의 원문을 읽고 `landing/src/` 에 반영하세요.
 (실행 환경에서 drive.google.com 으로 직접 나갈 수 없어 Actions 러너가 대신 내려받습니다.)
 
+### 공유 Drive **폴더** 가져오기 (`fetch-drive-folder`, 2026-10-28)
+
+파일 하나가 아니라 **폴더 전체 링크**(`https://drive.google.com/drive/folders/<id>`)를 받았을 때 쓰는 통로입니다.
+`fetch-flexboard-design`(디자인 번들 1개) · `fetch-cuberry-ir-media`(PPTX 1개)와 같은 이유로
+**Actions 러너가 대신 받고**, 목록을 먼저 확인한 뒤 필요한 파일만 씁니다.
+
+```bash
+# 목록만 (파일은 받지 않음)
+gh workflow run fetch-drive-folder -f folder_id=<폴더 id> -f mode=list
+
+# 목록을 보고 필요한 파일만 (쉼표 구분 글롭, 파일당 최대 25MB)
+gh workflow run fetch-drive-folder -f folder_id=<폴더 id> -f mode=download \
+  -f files='*.pptx,hero_*.jpg' -f out_dir=drive-incoming/_local/<이름>
+
+# 공유 설정 진단 (401·403 원인 확인)
+gh workflow run fetch-drive-folder -f folder_id=<폴더 id> -f mode=probe
+```
+
+- **폴더 ID 는 저장소 파일에 적지 않습니다**(아래 "Google Drive 포트폴리오 연동" 정책과 같은 이유).
+  실행할 때 입력으로만 넘기고, push 로 자동 실행되는 트리거도 두지 않았습니다.
+- 실행은 `scripts/drive_folder.py` 가 합니다(파이썬 표준 라이브러리만 사용). 파서는
+  `python3 scripts/drive_folder.py --self-test` 로 점검하며 CI 에서도 돕니다.
+  목록은 `embeddedfolderview` → 폴더 페이지의 `_DRIVE_ivd` JSON 순서로, 내려받기는
+  `drive.usercontent` 직접 → `gdown` 순서로 시도하고, 구글 문서는 `docs.google.com/.../export?format=` 로 내보냅니다.
+- **원본은 커밋하지 않습니다.** `FOLDER_MANIFEST.json`(폴더 ID·파일 ID·이름)·`RUN_LOG.txt`·내려받은 파일은
+  `.gitignore` 된 `drive-incoming/_local/` 에만 남고, 저장소에는 `drive-incoming/drive-reports/summary.md`
+  (폴더별 개수·용량·시각)만 커밋됩니다.
+- **전제 조건**: 폴더가 `링크가 있는 모든 사용자 · 뷰어` 로 공유되어 있어야 합니다. 비공개 폴더는
+  공유 링크가 있어도 Google 이 로그인 화면으로 돌려보내므로 러너가 읽을 수 없습니다
+  (`probe` 모드가 `401`/`accounts.google.com/v3/signin` 으로 알려줍니다). 폴더를 공개로 바꾸면
+  하위 파일도 링크로 열리므로, 공개하면 안 되는 자료는 그 폴더 밖에 두세요.
+- 안전장치: 파일당 크기 제한(`max_mb`, 기본 25MB) 초과 시 건너뛰고, Drive 확인 페이지(HTML)를
+  실제 파일로 저장하지 않으며(매직 바이트 검사), 이름은 경로에 안전하게 정리하고 중복은 `(2)` 로 구분합니다.
+
 ```
 landing/
   index.html          # Vite 입력. <html data-cms-native>, <script src="cms-bridge.js" defer> 포함
