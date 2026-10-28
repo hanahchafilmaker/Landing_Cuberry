@@ -15,6 +15,20 @@ export type Vars = Record<string, string | number>;
 
 /** 영문 화면에서 쓰는 ko → en 사전 (정적 문구 + 운영 CMS 시드 문구) */
 export const en: Record<string, string> = {
+  "기획·콘티부터 AI 실사 씬 5컷, 편집·색보정, 감독 검수까지": "Script and storyboard, five AI live-action shots, edit, grade and director review",
+  "기획 · 콘티": "Script · storyboard",
+  "AI 실사 씬 5컷": "5 AI live-action shots",
+  "편집 · 색보정 · 자막": "Edit · grade · subtitles",
+  "검수 · 9:16 세로": "Review · 9:16 vertical",
+  "스토리보드부터 캐릭터 시트, 모션그래픽·사운드까지": "Storyboard, character sheets, motion graphics and sound",
+  "캐릭터 시트 관리": "Character sheets",
+  "모션그래픽 · 트래킹": "Motion graphics · tracking",
+  "기획부터 DI·사운드·감독 검수까지 전 공정, 전담 PM 운영": "Full pipeline from planning to DI, sound and director review, with a dedicated PM",
+  "기획 · 스토리보드": "Planning · storyboard",
+  "인물 · 배경 시트 세트": "Character · background sheet set",
+  "AI 실사 씬 7컷": "7 AI live-action shots",
+  "색보정 DI · 사운드": "Colour DI · sound",
+  "감독 검수 · 전담 PM": "Director review · dedicated PM",
   "세로 숏폼": "Vertical shorts",
   "세로": "Vertical",
   "DI 플레이트": "DI plate",
@@ -471,7 +485,7 @@ export const en: Record<string, string> = {
   "후보정 · 색보정": "Retouching · colour grading",
   "전담 PM 운영": "Dedicated PM",
   "이 구성으로 상담하기": "Ask about this package",
-  "* 표기 금액은 참고용 기본 구성입니다. 영상 길이·컷 수·캐릭터 수·연출 난이도에 따라 최종 견적이 달라질 수 있습니다.":
+  "* 표기 금액은 부가세(VAT) 별도이며, 참고용 기본 구성입니다. 영상 길이·컷 수·캐릭터 수·연출 난이도에 따라 최종 견적이 달라질 수 있습니다.":
     "* Listed prices are reference starting points for the base package. Final quotes vary with length, cut count, number of characters and directorial complexity.",
 
   // ── 프로세스 · B2B ──────────────────────────────────────────
@@ -609,6 +623,19 @@ export const rules: { pattern: RegExp; replace: (match: RegExpMatchArray) => str
       if (!cuts) return `${seconds}s`;
       return `${seconds}s · ${upTo ? "up to " : ""}${cuts} cuts`;
     },
+  },
+  // 30~45초 · 최대 12컷 / 60초 · 7씬 기준
+  {
+    pattern: /^(\d+)\s*[~-]\s*(\d+)초(?: · (최대 )?(\d+)컷)?$/,
+    replace: (match) => {
+      const [, from, to, upTo, cuts] = match;
+      if (!cuts) return `${from}–${to}s`;
+      return `${from}–${to}s · ${upTo ? "up to " : ""}${cuts} cuts`;
+    },
+  },
+  {
+    pattern: /^(\d+)초 · (\d+)씬 기준$/,
+    replace: (match) => `${match[1]}s · ${match[2]} scenes`,
   },
   // 30분
   { pattern: /^(\d+)분$/, replace: (match) => `${match[1]} min` },

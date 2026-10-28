@@ -167,7 +167,7 @@ console.log("\n[i18n] B. 영어 브라우저 → 자동으로 영어 화면");
   expect("가출원 상태와 서류 날짜 번역", text(provisional).includes("Provisional application") && text(provisional).includes("Document date · 2025.02.26"), true);
   expect("증빙 이미지 확대 링크 번역", provisional?.querySelector("a")?.getAttribute("aria-label")?.startsWith("View the evidence image for "), true);
   expect("상품 이름", text(document.querySelector("#pricing article h3")), "Short-form AI ad");
-  expect("금액 규칙 변환", text(document.querySelector("#pricing article span.text-\\[38px\\]")), "from ₩290,000");
+  expect("금액 규칙 변환", text(document.querySelector("#pricing article span.text-\\[38px\\]")), "from ₩1,180,000");
   expect("길이 규칙 변환", priceDuration(document), "15s · up to 5 cuts");
   expect("FAQ 질문", text(document.querySelector("#faq button[aria-expanded] span.flex-1")), "What kind of company is CUBEBERRY?");
   expect("문의 폼 라벨", text(document.querySelector('#contact label span')), "Company / name *");
