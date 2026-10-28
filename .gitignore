@@ -12,3 +12,8 @@ landing/dist/
 admin-v2/dist/
 new-design/
 *.backup
+
+# Drive 폴더 가져오기 원본(파일 ID·폴더 ID·이름 목록)은 저장소에 남기지 않는다.
+# 공개 저장소이므로 원본은 로컬/러너에만 두고, 커밋되는 것은 요약 보고서뿐이다.
+drive-incoming/_local/
+.github/drive-request.json

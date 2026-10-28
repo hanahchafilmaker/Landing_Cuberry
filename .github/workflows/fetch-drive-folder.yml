@@ -1,0 +1,212 @@
+name: fetch-drive-folder
+
+# 공유된 Google Drive "폴더"(하위 파일 여러 개)를 읽어서
+# 매니페스트를 만들거나, 지정한 파일만 내려받아 커밋한다.
+# (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서 Actions 러너가 대신 받아온다.)
+#
+# 실행: Actions → fetch-drive-folder → Run workflow (folder_id·mode·files 입력),
+# 또는 `gh workflow run fetch-drive-folder -f folder_id=… -f mode=list`.
+#
+# 폴더 ID 는 공개 저장소 파일에 적지 않습니다(루트 README "Google Drive 포트폴리오 연동" 참고).
+# 입력값은 커밋되지 않고, 원본 목록·파일도 .gitignore 된 폴더에만 남습니다.
+#
+# mode=list 는 파일을 받지 않고 FOLDER_MANIFEST.json 만 커밋하므로 저장소가 커지지 않습니다.
+# 먼저 list 로 폴더 안을 확인한 뒤, 필요한 파일만 mode=download · files 로 받으세요.
+
+on:
+  workflow_dispatch:
+    inputs:
+      folder_id:
+        description: "Google Drive 폴더 id (또는 폴더 URL) — 저장소에 커밋되지 않습니다"
+        required: true
+      out_dir:
+        description: "저장 폴더 (원본·파일 ID 가 들어가므로 .gitignore 된 곳을 쓰세요)"
+        required: true
+        default: "drive-incoming/_local/drive-folder"
+      mode:
+        description: "list = 매니페스트만 / download = 지정한 파일 내려받기 / probe = 공유 설정 진단"
+        type: choice
+        options: [list, download, probe]
+        default: list
+      files:
+        description: "download 모드에서 받을 파일 이름 글롭 (쉼표 구분, * = 전부)"
+        required: false
+        default: "*"
+      max_mb:
+        description: "파일 하나의 최대 크기(MB)"
+        required: false
+        default: "25"
+      max_depth:
+        description: "하위 폴더를 훑는 깊이"
+        required: false
+        default: "1"
+  # push 트리거 없음 — 폴더 ID 를 저장소 파일에 두지 않기 위해서다.
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-drive-folder-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
+
+      - name: Resolve parameters
+        id: params
+        env:
+          IN_FOLDER_ID: ${{ inputs.folder_id }}
+          IN_OUT_DIR: ${{ inputs.out_dir }}
+          IN_MODE: ${{ inputs.mode }}
+          IN_FILES: ${{ inputs.files }}
+          IN_MAX_MB: ${{ inputs.max_mb }}
+          IN_MAX_DEPTH: ${{ inputs.max_depth }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+
+          raw = (os.environ.get("IN_FOLDER_ID") or "").strip()
+          match = re.search(r"folders/([A-Za-z0-9_-]{8,200})", raw) or re.search(
+              r"[?&]id=([A-Za-z0-9_-]{8,200})", raw
+          )
+          folder_id = match.group(1) if match else raw
+          if not re.fullmatch(r"[A-Za-z0-9_-]{8,200}", folder_id):
+              print("::error::folder_id 가 올바르지 않습니다", flush=True)
+              raise SystemExit(1)
+
+          values = {
+              "folder_id": folder_id,
+              "out_dir": os.environ.get("IN_OUT_DIR") or "drive-incoming/_local/drive-folder",
+              "mode": os.environ.get("IN_MODE") or "list",
+              "files": os.environ.get("IN_FILES") or "*",
+              "max_mb": os.environ.get("IN_MAX_MB") or "25",
+              "max_depth": os.environ.get("IN_MAX_DEPTH") or "2",
+              "fresh": "",
+          }
+          for key, value in values.items():
+              print(f"{key}={value}")
+          PY
+
+      - name: List or download
+        env:
+          FOLDER_ID: ${{ steps.params.outputs.folder_id }}
+          OUT_DIR: ${{ steps.params.outputs.out_dir }}
+          MODE: ${{ steps.params.outputs.mode }}
+          FILES: ${{ steps.params.outputs.files }}
+          MAX_MB: ${{ steps.params.outputs.max_mb }}
+          MAX_DEPTH: ${{ steps.params.outputs.max_depth }}
+          FRESH: ${{ steps.params.outputs.fresh }}
+        run: |
+          set -uo pipefail
+          python3 -m pip install --quiet --disable-pip-version-check gdown || true
+          args=( "$MODE" --folder-id "$FOLDER_ID" --out-dir "$OUT_DIR"
+                 --max-mb "$MAX_MB" --max-depth "$MAX_DEPTH" )
+          if [ "$MODE" = "download" ]; then args+=( --files "$FILES" ); fi
+          if [ "$FRESH" = "1" ]; then args+=( --fresh ); fi
+          mkdir -p "$OUT_DIR"
+          echo "python3 scripts/drive_folder.py ${args[*]}"
+          # 러너 로그는 저장소 밖에서만 볼 수 있으므로, 실행 기록도 함께 커밋한다.
+          python3 scripts/drive_folder.py "${args[@]}" 2>&1 | tee "$OUT_DIR/RUN_LOG.txt"
+
+      - name: Redacted summary (공개 저장소에 커밋되는 유일한 산출물)
+        if: always()
+        run: |
+          set -uo pipefail
+          OUT_DIR="${{ steps.params.outputs.out_dir }}"
+          mkdir -p drive-incoming/drive-reports
+          python3 - "$OUT_DIR" <<'PY'
+          import json, os, pathlib, sys
+
+          out_dir = pathlib.Path(sys.argv[1])
+          path = out_dir / "FOLDER_MANIFEST.json"
+          target = pathlib.Path("drive-incoming/drive-reports/summary.md")
+          if not path.exists():
+              target.write_text(
+                  "# Drive 폴더 확인 결과\n\n목록을 만들지 못했습니다. 실행 기록은 `"
+                  + str(out_dir) + "/RUN_LOG.txt` 에 있습니다(저장소에 커밋되지 않음).\n",
+                  encoding="utf-8",
+              )
+              print("매니페스트 없음 — 요약만 남깁니다")
+              sys.exit(0)
+
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          # 공개 저장소이므로 폴더 ID·파일 ID·파일 이름은 남기지 않는다.
+          def shape(entries):
+              """하위 폴더까지 합쳐서 센다."""
+              files = folders = size = ok = 0
+              for entry in entries:
+                  if entry["kind"] == "folder":
+                      folders += 1
+                      child_files, child_folders, child_size, child_ok = shape(entry.get("children") or [])
+                      files += child_files
+                      folders += child_folders
+                      size += child_size
+                      ok += child_ok
+                  else:
+                      files += 1
+                      size += int(entry.get("bytes") or 0)
+                      ok += 1 if entry.get("status") == "ok" else 0
+              return files, folders, size, ok
+
+          lines = [
+              "# Drive 폴더 확인 결과",
+              "",
+              f"- 확인 시각(UTC): {data['generated_at']}",
+              f"- 모드: `{data['mode']}` (폴더 ID·파일 ID·파일 이름은 저장소에 남기지 않습니다)",
+              "",
+              "| 구분 | 파일 | 하위 폴더 | 크기(내려받은 것) |",
+              "| --- | --- | --- | --- |",
+          ]
+          total_files, total_folders, total_size, total_ok = 0, 0, 0, 0
+          for entry in data["entries"]:
+              if entry["kind"] != "folder":
+                  continue
+              files, folders, size, ok = shape(entry.get("children") or [])
+              total_files += files
+              total_folders += folders
+              total_size += size
+              total_ok += ok
+              lines.append(
+                  f"| `{entry['name']}` | {files} | {folders} | "
+                  f"{(str(round(size / 1048576, 1)) + 'MB') if size else '-'} |"
+              )
+          lines += [
+              f"| **합계** | **{total_files}** | **{total_folders}** | "
+              f"**{(str(round(total_size / 1048576, 1)) + 'MB') if total_size else '-'}** |",
+              "",
+              f"내려받기 성공 {total_ok}건." if data["mode"] == "download" else "목록만 확인했습니다(파일은 내려받지 않음).",
+              "",
+              "> 원본(`FOLDER_MANIFEST.json`·`RUN_LOG.txt`·내려받은 파일)은 `"
+              + str(out_dir) + "/` 에만 있고 `.gitignore` 로 제외됩니다.",
+          ]
+          target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("\n".join(lines))
+          try:
+              summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
+              summary.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+          except KeyError:
+              pass
+          PY
+
+      - name: Commit summary
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add drive-incoming/drive-reports
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+          else
+            git commit -m "Drive 폴더 확인 요약 갱신 (원본·ID 는 커밋하지 않음)"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
