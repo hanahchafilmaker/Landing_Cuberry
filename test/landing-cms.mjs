@@ -173,7 +173,8 @@ expect("광고 탭 작품", text(works.querySelector("article h3")), "Turn Comme
 expect("중복 변형은 카드 한 장으로 병합", works.querySelectorAll("article").length, 1);
 expect("드라이브 썸네일·리소스 키", works.querySelector("article img")?.getAttribute("src"), "https://drive.google.com/thumbnail?id=drivevideo12345&sz=w1000&resourcekey=resourcekey123");
 expect("폴더명이 카드에 표시되지 않음", text(works).includes("Never show folder"), false);
-expect("세로 영상은 9:16 액자", Boolean(works.querySelector("article img.aspect-\\[9\\/16\\], article img")), true);
+const portraitImg = works.querySelector("article img");
+expect("세로 영상 썸네일도 액자를 꽉 채움(contain 아님)", portraitImg?.className.includes("object-cover") && !portraitImg.className.includes("object-contain"), true);
 expect("버전이 하나면 배지를 붙이지 않음", Boolean(works.querySelector("article [data-badge]")), false);
 expect("폴더 링크나 폴더 임베드 없음", Boolean(works.querySelector('a[href*="/drive/folders/"], iframe')), false);
 const videoButton = works.querySelector('article button[aria-label]');
@@ -274,6 +275,20 @@ expect("병합 배지 표시", works.querySelector("article [data-badge]")?.getA
 expect("카드에는 언어·버전 배지를 붙이지 않음", text(works.querySelector("article")).includes("KO 자막"), false);
 tabs[2].click();
 await until("작품중심 복귀", () => works.querySelectorAll("article").length === 2);
+
+// 이름이 겹치는 변형(본편 + 애니메이션판)은 group 이 달라도 카드 한 장으로 합친다.
+const beforeMerge = structuredClone(drive);
+drive = { ...drive, videos: [...drive.videos,
+  { id: "toyfarmvideo01", name: "WebDrama_ToyFarm_Trailer.mp4", category: "webdrama", categoryLabel: "웹드라마", section: "", group: "webdrama:webdrama_toyfarm", title: "Web Drama Toy Farm", variant: "트레일러" },
+  { id: "toyfarmvideo02", name: "WebDrama_ToyFarm_Animation.mp4", category: "webdrama", categoryLabel: "웹드라마", section: "", group: "webdrama:webdrama_toyfarm_animation", title: "Web Drama Toy Farm Animation" },
+] };
+dom.window.dispatchEvent(new dom.window.Event("focus"));
+await until("이름 겹침 병합", () => works.querySelectorAll("article").length === 3);
+expect("이름이 겹치는 변형은 한 장", [...works.querySelectorAll("article h3")].map(text).filter((title) => title.startsWith("Web Drama Toy Farm")), ["Web Drama Toy Farm"]);
+expect("병합된 변형 수 배지", [...works.querySelectorAll("article")].find((article) => text(article.querySelector("h3")).startsWith("Web Drama Toy Farm"))?.querySelector("[data-badge]")?.getAttribute("data-badge"), "2개 버전");
+drive = beforeMerge;
+dom.window.dispatchEvent(new dom.window.Event("focus"));
+await until("원래 목록 복귀", () => works.querySelectorAll("article").length === 2);
 const updatedDrive = structuredClone(drive);
 works.querySelector('article button[aria-label]').click();
 await until("갱신 전 개별 플레이어", () => Boolean(document.querySelector('[role="dialog"] iframe')));

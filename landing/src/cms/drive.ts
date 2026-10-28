@@ -147,7 +147,41 @@ function pickRepresentative(variants: Array<{ video: DriveVideo; variant: DriveV
   })[0];
 }
 
-/** 영상 목록 → 작품 카드 목록(같은 group 은 한 장으로 합친다) */
+/** "webdrama:webdrama_toyfarm_animation" → 카테고리 + 이름 토큰 */
+function groupParts(key: string) {
+  const index = key.indexOf(":");
+  const category = index >= 0 ? key.slice(0, index) : FALLBACK.category;
+  const name = index >= 0 ? key.slice(index + 1) : key;
+  return { category, tokens: name.split("_").filter(Boolean) };
+}
+
+/**
+ * 같은 작품의 다른 컷을 한 장으로 합친다.
+ *   WebDrama_ToyFarm  +  WebDrama_ToyFarm_Animation
+ *   WebDrama_GirlDetective  +  WebDrama_GirlDetective_Seorok_Trailer
+ * 짧은 쪽 토큰이 긴 쪽의 앞부분과 같으면 같은 작품으로 본다(카테고리는 같아야 하고,
+ * 한 단어짜리 이름은 다른 작품을 삼킬 수 있으므로 두 단어 이상일 때만 합친다).
+ */
+function canonicalGroups(keys: string[]) {
+  const canonicals: Array<{ key: string; category: string; tokens: string[] }> = [];
+  const mapping = new Map<string, string>();
+  const byLength = [...keys].sort((a, b) => groupParts(a).tokens.length - groupParts(b).tokens.length || a.localeCompare(b));
+  for (const key of byLength) {
+    const { category, tokens } = groupParts(key);
+    const parent = tokens.length >= 2
+      ? canonicals.find((entry) => entry.category === category && entry.tokens.length >= 2 && entry.tokens.every((token, i) => tokens[i] === token))
+      : undefined;
+    if (parent) {
+      mapping.set(key, parent.key);
+      continue;
+    }
+    canonicals.push({ key, category, tokens });
+    mapping.set(key, key);
+  }
+  return mapping;
+}
+
+/** 영상 목록 → 작품 카드 목록(같은 작품의 변형은 한 장으로 합친다) */
 export function toFilms(videos: DriveVideo[]): DriveFilm[] {
   const groups = new Map<string, Array<{ video: DriveVideo; variant: DriveVariant }>>();
   for (const video of videos) {
@@ -156,6 +190,16 @@ export function toFilms(videos: DriveVideo[]): DriveFilm[] {
     bucket.push({ video, variant: variantFor(video) });
     groups.set(key, bucket);
   }
+
+  // 이름이 겹치는 변형(예: 본편 + 애니메이션판)은 같은 카드로 모은다.
+  const canonical = canonicalGroups([...groups.keys()]);
+  const merged = new Map<string, Array<{ video: DriveVideo; variant: DriveVariant }>>();
+  for (const [key, bucket] of groups) {
+    const target = canonical.get(key) || key;
+    merged.set(target, [...(merged.get(target) || []), ...bucket]);
+  }
+  groups.clear();
+  for (const [key, bucket] of merged) groups.set(key, bucket);
 
   const films: DriveFilm[] = [];
   for (const [group, bucket] of groups) {
