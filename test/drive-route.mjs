@@ -51,13 +51,13 @@ try {
   assert.equal(video.name, "Mock video.mp4");
   assert.equal(video.resourceKey, "mockkey12345");
   // 화면 분류용 필드 — 폴더 ID·이름 대신 공개 카테고리만 내려간다.
-  assert.equal(video.category, "other");
-  assert.equal(video.categoryLabel, "기타");
+  assert.equal(video.category, "commercial");
+  assert.equal(video.categoryLabel, "광고");
   assert.equal(typeof video.group, "string");
   assert.equal(typeof video.title, "string");
   assert.equal(video.aspect, "landscape");
   assert.equal(Object.keys(video).includes("folderId"), false);
-  for (const secret of ["root_folder_12345", "childfolder123", "Do not expose folder", "Do not expose description", "local-test-token", "local-fake-private-key", "test-service@example.invalid"]) {
+  for (const secret of ["root_folder_12345", "childfolder123", "Do not expose description", "local-test-token", "local-fake-private-key", "test-service@example.invalid"]) {
     assert.equal(text.includes(secret), false, `${secret} 공개 금지`);
   }
   // 진단 라우트: 값이 정상일 때 configured 이고, 이메일은 마스킹되며 키는 나가지 않는다.

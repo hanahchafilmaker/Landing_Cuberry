@@ -22,6 +22,21 @@ const ROOT_FOLDERS = [
 /** 보관·중복 폴더는 공개 목록에서 통째로 뺀다(규칙 문서: "납품/공유 대상 아님"). */
 const ARCHIVE_FOLDER = /^_?(archive|보관|중복|test)/i;
 
+/**
+ * 사이트에 올릴 카테고리 — 광고(커머셜)·TV·웹드라마만 노출한다(2026-10-28 대표님 지시).
+ * 가이드·데모/쇼릴은 폴더째로 조회하지 않는다(하위 폴더도 내려가지 않음).
+ */
+const PUBLIC_CATEGORIES = new Set(["commercial", "tv", "webdrama"]);
+
+/** 공개하지 않기로 한 작품 — 파일 이름 기준으로 걸러 낸다. */
+const HIDDEN_WORKS = [/seed\s*-?\s*war/i, /씨앗\s*전쟁/];
+
+/** 이 파일을 목록에 올리지 않아야 하는가 */
+export function isHiddenWork(rawName) {
+  const name = clean(rawName);
+  return HIDDEN_WORKS.some((pattern) => pattern.test(name));
+}
+
 const COMMERCIAL_SECTIONS = [
   { test: /^kosha$/i, label: "KOSHA" },
   { test: /^xconda$/i, label: "XCONDA" },
@@ -143,9 +158,12 @@ export function rootFolder(rawName) {
   const name = clean(rawName);
   if (ARCHIVE_FOLDER.test(name)) return { category: "", label: "", order: 9999, hidden: true };
   for (const entry of ROOT_FOLDERS) {
-    if (entry.test.test(name)) return { category: entry.category, label: entry.label, order: entry.order };
+    if (!entry.test.test(name)) continue;
+    if (!PUBLIC_CATEGORIES.has(entry.category)) return { category: entry.category, label: entry.label, order: entry.order, hidden: true };
+    return { category: entry.category, label: entry.label, order: entry.order };
   }
-  return { category: "other", label: "기타", order: 90 };
+  // 분류를 모르는 최상위 폴더도 사이트에는 올리지 않는다.
+  return { category: "other", label: "기타", order: 90, hidden: true };
 }
 
 /** 카테고리 안의 하위 폴더 이름 → 섹션 라벨 (없으면 빈 문자열) */

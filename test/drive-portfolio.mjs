@@ -11,15 +11,16 @@ const TOKEN = "local-token-not-for-output";
 const PRIVATE_TITLE = "private-video-secret.mp4";
 const node = (id, name, mimeType = "video/mp4", extra = {}) => ({ id, name, mimeType, ...extra });
 const rootVideo = node("root_video_123", "Root film.mp4", "video/mp4", { visibility: "anyoneWithLink", description: "do not expose" });
-const subVideo = node("nested_video_123", "Nested_2026.mp4", "video/mp4", { visibility: "anyoneCanFind", resourceKey: "resource_key_123", description: "private description" });
+const subVideo = node("nested_video_123", "Nested_2026.mp4", "video/mp4", { visibility: "anyoneCanFind", resourceKey: "resource_key_123", description: "private description", videoMediaMetadata: { width: 1080, height: 1920, durationMillis: 61_000 } });
+const hiddenWork = node("seedwar_video_1", "WebDrama_TheSeedWar_Trailer.mp4", "video/mp4", { visibility: "anyoneWithLink" });
 const privateVideo = node("private_video_123", PRIVATE_TITLE, "video/mp4", { visibility: "limited" });
 const list = new Map([
   [ROOT, [
-    { files: [node("folder_commercial", "Internal folder name", FOLDER), rootVideo, privateVideo, node("ignored_doc_123", "notes.txt", "text/plain")], nextPageToken: "next" },
+    { files: [node("folder_commercial", "01_Commercial", FOLDER), rootVideo, privateVideo, node("ignored_doc_123", "notes.txt", "text/plain")], nextPageToken: "next" },
     { files: [node("folder_guide_123", "02_Guide", FOLDER), node("folder_archive_123", "_archive", FOLDER)] },
   ]],
   ["folder_commercial", [{ files: [node("folder_nested_123", "Confidential folder", FOLDER)] }]],
-  ["folder_nested_123", [{ files: [subVideo] }]],
+  ["folder_nested_123", [{ files: [subVideo, hiddenWork] }]],
   ["folder_guide_123", [{ files: [node("guide_video_123", "Guide_XCONDA_05_AutoAngleGenerator_KO.mp4", "video/mp4", { visibility: "anyoneWithLink", videoMediaMetadata: { width: 1080, height: 1920, durationMillis: 61_000 } })] }]],
   ["folder_archive_123", [{ files: [node("archived_video_123", "Old_Duplicate_dup.mp4", "video/mp4", { visibility: "anyoneWithLink" })] }]],
 ]);
@@ -73,27 +74,27 @@ console.log("[drive] 재귀·페이징·공개 영상 필터·동시 요청 공�
 const [first, concurrent] = await Promise.all([service.get(), service.get(), service.get()]);
 assert.deepEqual(first, concurrent);
 assert.equal(first.status, "ready");
-assert.deepEqual(first.videos.map((video) => video.id).sort(), ["guide_video_123", "nested_video_123", "root_video_123"]);
+assert.deepEqual(first.videos.map((video) => video.id).sort(), ["nested_video_123"]);
+assert.equal(first.videos.some((video) => video.id === "root_video_123"), false, "최상위에 놓인 영상은 올리지 않는다");
+assert.equal(first.videos.some((video) => video.id === "guide_video_123"), false, "가이드 폴더는 공개하지 않는다");
+assert.equal(first.videos.some((video) => video.id === "seedwar_video_1"), false, "씨앗전쟁은 올리지 않는다");
+assert.equal(calls.some((call) => call.includes("folder_guide_123")), false, "가이드 하위는 조회하지 않는다");
 const nested = first.videos.find((video) => video.id === "nested_video_123");
 assert.equal(nested.resourceKey, "resource_key_123");
-assert.equal(nested.category, "other", "루트에 바로 있는 영상은 기타로 분류된다");
-assert.equal(nested.categoryLabel, "기타");
-assert.equal(nested.group, "other:nested_2026");
+assert.equal(nested.category, "commercial", "광고 폴더 하위 영상은 광고로 분류된다");
+assert.equal(nested.categoryLabel, "광고");
+assert.equal(nested.group, "commercial:nested_2026");
 assert.equal(nested.title, "Nested 2026");
-assert.equal(nested.aspect, "landscape");
+assert.equal(nested.aspect, "portrait", "세로 영상은 portrait 로 표시한다");
+assert.equal(nested.durationMs, 61_000);
 assert.deepEqual(Object.keys(nested).sort(), [
   "aspect", "category", "categoryLabel", "durationMs", "episode", "group", "height", "id", "name",
   "resourceKey", "search", "section", "title", "variant", "version", "width",
 ]);
 assert.deepEqual(Object.keys(first).sort(), ["status", "updatedAt", "videos"]);
-const guide = first.videos.find((video) => video.id === "guide_video_123");
-assert.equal(guide.category, "guide", "02_Guide 폴더는 가이드로 분류된다");
-assert.equal(guide.categoryLabel, "가이드");
-assert.equal(guide.aspect, "portrait", "세로 영상은 portrait 로 표시한다");
-assert.equal(guide.durationMs, 61_000);
 assert.equal(first.videos.some((video) => video.id === "archived_video_123"), false, "_archive 는 공개 목록에서 뺀다");
 assert.equal(calls.some((call) => call.includes("folder_archive_123")), false, "_archive 하위는 조회하지 않는다");
-for (const secret of [ROOT, TOKEN, PRIVATE_TITLE, "private_video_123", "Internal folder name", "Confidential folder", "private description", "folder_commercial", "02_Guide", "_archive"]) {
+for (const secret of [ROOT, TOKEN, PRIVATE_TITLE, "private_video_123", "private description", "folder_commercial", "folder_guide_123", "02_Guide", "03_Demo", "_archive"]) {
   assert.equal(JSON.stringify(first).includes(secret), false, `${secret} 공개 금지`);
 }
 assert.equal(calls.filter((call) => new URL(call).pathname.endsWith(`/files/${ROOT}`)).length, 1);
@@ -162,7 +163,9 @@ const deepTree = createDrivePortfolio({ folderId: ROOT, getAuthHeaders: auth, lo
   if (url.pathname.endsWith(`/files/${ROOT}`)) return { ok: true, json: async () => ({ id: ROOT, mimeType: FOLDER }) };
   const parent = url.searchParams.get("q").match(/^'([^']+)'/)[1];
   const depth = parent === ROOT ? 1 : Number(parent.replace("depth_folder_", "")) + 1;
-  return { ok: true, json: async () => ({ files: depth <= 21 ? [node(`depth_folder_${depth}`, `level ${depth}`, FOLDER)] : [] }) };
+  // 1단계는 공개 카테고리 폴더여야 탐색이 시작된다.
+  const name = depth === 1 ? "01_Commercial" : `level ${depth}`;
+  return { ok: true, json: async () => ({ files: depth <= 21 ? [node(`depth_folder_${depth}`, name, FOLDER)] : [] }) };
 } });
 assert.equal((await deepTree.get()).status, "unavailable", "깊이 제한 초과 시 부분 결과를 공개하지 않는다");
 const logs = [];

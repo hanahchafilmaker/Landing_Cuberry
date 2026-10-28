@@ -24,7 +24,7 @@ globalThis.fetch = async (input, init) => {
     if (!q.includes("visibility = 'anyoneWithLink' or visibility = 'anyoneCanFind'")) return new Response("{}", { status: 400 });
     const parent = q.match(/^'([^']+)' in parents/)?.[1];
     body = parent === root
-      ? { files: [{ id: "childfolder123", name: "Do not expose folder", mimeType: folderMime }] }
+      ? { files: [{ id: "childfolder123", name: "01_Commercial", mimeType: folderMime }] }
       : parent === "childfolder123"
         ? { files: [{ id: "mockvideo1234", name: "Mock video.mp4", mimeType: "video/mp4", resourceKey: "mockkey12345", description: "Do not expose description" }] }
         : { files: [] };

@@ -165,13 +165,12 @@ export function toFilms(videos: DriveVideo[]): DriveFilm[] {
     const categorySlug = first.category || FALLBACK.category;
     const categoryLabel = first.categoryLabel || FALLBACK.categoryLabel;
     const section = first.section || "";
+    // 카드 배지는 한 개만 — 여러 변형이 있다는 사실만 알려주고, 언어·버전·자막은
+    // 플레이어의 버전 선택 줄에서 고른다(카드에 다 붙이면 지저분해진다).
     const episodeCount = sorted.filter((entry) => (entry.video.episode || 0) > 0).length;
     const badges: string[] = [];
     if (episodeCount > 1) badges.push(`${episodeCount}편 시리즈`);
     else if (sorted.length > 1) badges.push(`${sorted.length}개 버전`);
-    if (sorted.some((entry) => entry.variant.aspect === "portrait")) badges.push("9:16");
-    const label = representative.variant.label;
-    if (label && label !== representative.variant.name) badges.push(label);
 
     const year = first.name.match(/(?:^|\D)((?:19|20)\d{2})(?!\d)/)?.[1] ?? "";
     const searchText = [
@@ -202,7 +201,7 @@ export function toFilms(videos: DriveVideo[]): DriveFilm[] {
       searchText,
       aspect: representative.variant.aspect,
       durationMs: representative.variant.durationMs,
-      badges: badges.filter(Boolean),
+      badges,
       variants: sorted.map((entry) => entry.variant),
     });
   }

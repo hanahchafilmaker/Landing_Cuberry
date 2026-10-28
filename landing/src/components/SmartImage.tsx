@@ -10,6 +10,8 @@ interface SmartImageProps {
   fallbackSrc?: string;
   /** 어드민 "사진 위치"처럼 object-position 을 지정할 때 */
   objectPosition?: string;
+  /** 세로 영상처럼 잘라내면 안 되는 이미지는 contain (기본 cover) */
+  fit?: "cover" | "contain";
 }
 
 /** 이미지 로드에 실패하면 폴백 이미지 → 그라디언트 플레이스홀더 순으로 대체합니다. */
@@ -20,6 +22,7 @@ export function SmartImage({
   imgClassName,
   fallbackSrc,
   objectPosition,
+  fit = "cover",
 }: SmartImageProps) {
   // 어드민에서 주소를 바꾸면 src 가 달라지므로, "실패한 주소"를 기억해 새 주소는 다시 시도한다.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -64,7 +67,7 @@ export function SmartImage({
         if (activeSrc === src) setFailedSrc(src ?? null);
         else setFailedFallback(activeSrc ?? null);
       }}
-      className={cn("object-cover", imgClassName, className)}
+      className={cn(fit === "contain" ? "object-contain" : "object-cover", imgClassName, className)}
     />
   );
 }

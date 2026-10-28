@@ -10,6 +10,7 @@ import {
   describeName,
   describeVideo,
   humanize,
+  isHiddenWork,
   rootFolder,
   sectionLabel,
 } from "../server/lib/drive-grouping.mjs";
@@ -22,16 +23,28 @@ const roots = {
   "04_TV": ["tv", "TV"],
   "05_Web_Drama": ["webdrama", "웹드라마"],
 };
+// 사이트에 올리는 카테고리는 광고·TV·웹드라마 3개뿐이다.
+const PUBLIC = new Set(["commercial", "tv", "webdrama"]);
 for (const [name, [category, label]] of Object.entries(roots)) {
   const result = rootFolder(name);
   assert.equal(result.category, category, name);
   assert.equal(result.label, label, name);
   assert.equal(CATEGORY_LABELS[category], label);
+  assert.equal(Boolean(result.hidden), !PUBLIC.has(category), `${name} 공개 여부`);
 }
+assert.equal(rootFolder("02_Guide").hidden, true, "가이드는 사이트에 올리지 않는다");
+assert.equal(rootFolder("03_Demo").hidden, true, "데모/쇼릴은 사이트에 올리지 않는다");
 for (const name of ["_archive", "Archive", "보관함", "test-folder"]) {
   assert.equal(rootFolder(name).hidden, true, `${name} 은 공개 대상이 아니다`);
 }
-assert.deepEqual(rootFolder("기타자료"), { category: "other", label: "기타", order: 90 });
+assert.deepEqual(rootFolder("기타자료"), { category: "other", label: "기타", order: 90, hidden: true });
+assert.equal(rootFolder("기타자료").hidden, true, "분류 밖 폴더도 올리지 않는다");
+
+// 공개하지 않기로 한 작품(씨앗전쟁)
+assert.equal(isHiddenWork("WebDrama_TheSeedWar_Trailer.mp4"), true);
+assert.equal(isHiddenWork("WebDrama_TheSeedWar_PilotTest.mp4"), true);
+assert.equal(isHiddenWork("씨앗전쟁_예고편.mp4"), true);
+assert.equal(isHiddenWork("WebDrama_ToyFarm_Trailer.mp4"), false);
 
 // ── 2. 섹션(칩) ─────────────────────────────────────────────────────
 assert.equal(sectionLabel("commercial", "Kosha"), "KOSHA");

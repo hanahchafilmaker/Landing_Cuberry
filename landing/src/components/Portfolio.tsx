@@ -175,31 +175,41 @@ export function Portfolio() {
           {cards.slice(0, visibleCount).map((card, i) => (
             <Reveal key={card.key} delay={(i % 3) + 1} className="h-full">
               <article className="group flex h-full flex-col overflow-hidden rounded-[4px] border border-line bg-ink-3 transition-colors duration-200 hover:border-line-4">
-                <div className="relative bg-void">
+                {/* 썸네일은 모든 카드가 같은 16:9 액자 — 세로 영상은 안쪽에 담아 여백만 남긴다.
+                    (예전처럼 카드마다 높이가 달라지면 줄이 어긋나 지저분해 보인다.) */}
+                <div className="relative aspect-video w-full overflow-hidden bg-void">
                   <SmartImage
                     src={card.thumbnailUrl}
                     alt={t(card.title)}
                     fallbackSrc={card.fallbackUrl}
-                    className={cn("w-full", card.aspect === "portrait" ? "aspect-[9/16] max-h-[420px]" : "aspect-video")}
-                    imgClassName={cn("transition-transform duration-700 group-hover:scale-[1.03]", card.aspect === "portrait" && "object-contain")}
+                    fit={card.aspect === "portrait" ? "contain" : "cover"}
+                    className="absolute inset-0 h-full w-full"
+                    imgClassName="transition-transform duration-500 group-hover:scale-[1.02]"
                   />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0"
-                    style={{ background: "linear-gradient(to top, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0) 42%)" }}
-                  />
-                  <span className="absolute left-3 top-3 rounded-[3px] bg-void/80 px-2 py-1 font-mono text-[9px] tracking-[0.16em] text-brand">
-                    {t(card.category)}
-                  </span>
-                  <span className="absolute right-3 top-3 font-mono text-[10px] text-body">{card.year}</span>
+
+                  {/* 왼쪽 위: 지금 보고 있는 분류(전체 탭에서만) / 오른쪽 위: 버전 수 안내 */}
+                  {activeTab === "ALL" && card.category && (
+                    <span className="absolute left-2.5 top-2.5 rounded-[2px] bg-void/75 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.12em] text-body backdrop-blur">
+                      {t(card.category)}
+                    </span>
+                  )}
+                  {card.badges?.length ? (
+                    <span data-badge={card.badges[0]} className="absolute right-2.5 top-2.5 rounded-[2px] bg-void/75 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-brand backdrop-blur">
+                      {t(card.badges[0])}
+                    </span>
+                  ) : null}
+
+                  {/* 재생 버튼은 가운데 — 호버할 때만 나타난다 */}
                   {card.videoUrl && (
                     <>
-                      <span aria-hidden="true" className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full border border-paper/40 bg-void/70 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                        {card.playable ? (
-                          <svg viewBox="0 0 24 24" fill="currentColor" className="ml-0.5 h-4 w-4 text-paper"><path d="M8 5v14l11-7z" /></svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4 text-paper"><path d="M7 17 17 7M9 7h8v8" /></svg>
-                        )}
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-paper/50 bg-void/70">
+                          {card.playable ? (
+                            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-0.5 h-4 w-4 text-paper"><path d="M8 5v14l11-7z" /></svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4 text-paper"><path d="M7 17 17 7M9 7h8v8" /></svg>
+                          )}
+                        </span>
                       </span>
                       {card.driveVideo ? (
                         <button
@@ -220,16 +230,22 @@ export function Portfolio() {
                     </>
                   )}
                 </div>
-                <div className="flex flex-1 flex-col gap-2 p-5">
-                  <h3 className="m-0 text-base font-semibold leading-snug tracking-[-0.01em] text-paper">{t(card.title)}</h3>
-                  {card.description && <p className="m-0 flex-1 text-[13px] leading-relaxed text-mute">{t(card.description)}</p>}
-                  {(card.badges?.length || card.tags.length > 0) && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {(card.badges || []).map((badge) => (
-                        <span key={badge} className="rounded-[2px] border border-brand/40 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-brand">{t(badge)}</span>
-                      ))}
+
+                {/* 제목은 두 줄 고정 — 카드마다 높이가 달라지지 않게 한다. */}
+                <div className="flex flex-1 flex-col gap-1.5 px-4 py-3.5">
+                  <h3 className="m-0 line-clamp-2 min-h-[2.6em] text-[15px] font-semibold leading-snug tracking-[-0.01em] text-paper">
+                    {t(card.title)}
+                  </h3>
+                  {card.description && (
+                    <p className="m-0 line-clamp-2 text-[12.5px] leading-relaxed text-mute">{t(card.description)}</p>
+                  )}
+                  {/* 어드민에서 직접 등록한 작품의 태그만 노출한다(Drive 카드는 배지로 대신). */}
+                  {card.tags.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1.5">
                       {card.tags.map((tag) => (
-                        <span key={tag} className="rounded-[2px] border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-faint">{t(tag).toUpperCase()}</span>
+                        <span key={tag} className="rounded-[2px] border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-faint">
+                          {t(tag).toUpperCase()}
+                        </span>
                       ))}
                     </div>
                   )}
