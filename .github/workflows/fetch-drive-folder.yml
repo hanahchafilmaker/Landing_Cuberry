@@ -4,11 +4,13 @@ name: fetch-drive-folder
 # 매니페스트를 만들거나, 지정한 파일만 내려받아 커밋한다.
 # (이 샌드박스는 drive.google.com 으로 직접 나갈 수 없어서 Actions 러너가 대신 받아온다.)
 #
-# 실행: Actions → fetch-drive-folder → Run workflow (folder_id·mode·files 입력),
-# 또는 `gh workflow run fetch-drive-folder -f folder_id=… -f mode=list`.
+# 실행: Actions → fetch-drive-folder → Run workflow, 또는 권한이 있는 토큰으로
+#   gh workflow run fetch-drive-folder -f folder_id=… -f mode=list
+# (workflow_dispatch 는 Actions 쓰기 권한이 필요합니다. GitHub App 설치 토큰으로는 403 이 납니다.)
 #
 # 폴더 ID 는 공개 저장소 파일에 적지 않습니다(루트 README "Google Drive 포트폴리오 연동" 참고).
-# 입력값은 커밋되지 않고, 원본 목록·파일도 .gitignore 된 폴더에만 남습니다.
+# 입력을 비우면 저장소 변수 vars.DRIVE_FOLDER_ID 를 씁니다(소유자가 Settings → Variables 에서 설정).
+# 원본 목록·파일은 .gitignore 된 폴더에만 남고, 커밋되는 것은 공개 가능한 요약뿐입니다.
 #
 # mode=list 는 파일을 받지 않고 FOLDER_MANIFEST.json 만 커밋하므로 저장소가 커지지 않습니다.
 # 먼저 list 로 폴더 안을 확인한 뒤, 필요한 파일만 mode=download · files 로 받으세요.
@@ -17,8 +19,8 @@ on:
   workflow_dispatch:
     inputs:
       folder_id:
-        description: "Google Drive 폴더 id (또는 폴더 URL) — 저장소에 커밋되지 않습니다"
-        required: true
+        description: "Google Drive 폴더 id (또는 폴더 URL) — 비우면 vars.DRIVE_FOLDER_ID"
+        required: false
       out_dir:
         description: "저장 폴더 (원본·파일 ID 가 들어가므로 .gitignore 된 곳을 쓰세요)"
         required: true
@@ -62,7 +64,7 @@ jobs:
       - name: Resolve parameters
         id: params
         env:
-          IN_FOLDER_ID: ${{ inputs.folder_id }}
+          IN_FOLDER_ID: ${{ inputs.folder_id || vars.DRIVE_FOLDER_ID }}
           IN_OUT_DIR: ${{ inputs.out_dir }}
           IN_MODE: ${{ inputs.mode }}
           IN_FILES: ${{ inputs.files }}
@@ -79,7 +81,11 @@ jobs:
           )
           folder_id = match.group(1) if match else raw
           if not re.fullmatch(r"[A-Za-z0-9_-]{8,200}", folder_id):
-              print("::error::folder_id 가 올바르지 않습니다", flush=True)
+              print(
+                  "::error::folder_id 가 없습니다 — 실행 입력에 넣거나 저장소 변수 "
+                  "DRIVE_FOLDER_ID(Settings → Secrets and variables → Actions → Variables)를 설정하세요",
+                  flush=True,
+              )
               raise SystemExit(1)
 
           values = {
