@@ -335,6 +335,70 @@ expect("작품 다시 공개", document.querySelectorAll("#works article").lengt
 expect("팀 다시 공개", document.querySelectorAll("#team article").length, 1);
 expect("FAQ 다시 공개", document.querySelectorAll("#faq button[aria-expanded]").length, 2);
 
+// ── 검은 썸네일 대체 카드 ───────────────────────────────────────────────
+// Drive 썸네일 API 는 영상의 특정 시점을 고를 수 없어, 첫 장면이 검은 영상은 카드가
+// 새까맣게 나온다. 판정이 되면 브랜드 톤 카드로 대신 그리고, 판정이 안 되면 원본을 쓴다.
+console.log("\n[landing Drive] 첫 장면이 검은 영상은 검은 사각형 대신 브랜드 카드");
+{
+  const blankDrive = {
+    status: "ready",
+    updatedAt: "2026-10-28T00:00:00.000Z",
+    videos: [
+      { id: "blankvideo1234", name: "Black_Opening_Commercial.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", group: "commercial:black_opening", title: "Black Opening" },
+    ],
+  };
+  const blankDom = new JSDOM('<!doctype html><html lang="ko" data-cms-native="1"><head></head><body><div id="root"></div></body></html>', {
+    url: "https://hanahchafilmaker.github.io/Landing_Cuberry/",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+    virtualConsole,
+    beforeParse(window) {
+      Object.defineProperty(window.navigator, "language", { value: "ko-KR", configurable: true });
+      Object.defineProperty(window.navigator, "languages", { value: ["ko-KR", "ko"], configurable: true });
+      window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+      window.scrollTo = () => {};
+      window.fetch = async (url) => ({ ok: true, json: async () => structuredClone(String(url).endsWith("/api/public/drive-portfolio") ? blankDrive : { ok: true }) });
+      // 이미지는 즉시 로드된 것으로, 캔버스 픽셀은 전부 검정으로 흉내 낸다.
+      window.Image = class {
+        set src(value) { this._src = value; setTimeout(() => this.onload?.(), 0); }
+        get src() { return this._src; }
+      };
+      window.HTMLCanvasElement.prototype.getContext = function () {
+        return {
+          drawImage() {},
+          // 실제 썸네일처럼 불투명한 검정 픽셀
+          getImageData: () => ({ data: new Uint8ClampedArray(48 * 48 * 4).fill(0).map((_, i) => (i % 4 === 3 ? 255 : 0)) }),
+        };
+      };
+    },
+  });
+  blankDom.window.eval(bundle);
+  const blankDoc = blankDom.window.document;
+  // 기본 CMS 작품이 앞을 차지하므로 광고 탭으로 좁혀 드라이브 카드만 본다.
+  const startedAt = Date.now();
+  while (!blankDoc.querySelector("#works article")) {
+    if (Date.now() - startedAt > 5000) break;
+    await sleep(25);
+  }
+  [...blankDoc.querySelectorAll("#works button[aria-pressed]")][1]?.click();
+  {
+    // 판정은 이미지 로드 뒤 비동기로 끝나므로 결과가 반영될 때까지 기다린다.
+    const waitStart = Date.now();
+    while (!blankDoc.querySelector("#works article [data-blank-thumb]")) {
+      if (Date.now() - waitStart > 3000) break;
+      await sleep(25);
+    }
+  }
+  while (!blankDoc.querySelector("#works article [data-blank-thumb]")) {
+    if (Date.now() - startedAt > 5000) break;
+    await sleep(25);
+  }
+  expect("검은 썸네일 카드가 그려짐", blankDoc.querySelectorAll("#works article").length, 1);
+  expect("검은 썸네일 대체 카드", Boolean(blankDoc.querySelector("#works article [data-blank-thumb]")), true);
+  expect("검은 썸네일에는 사진을 그리지 않음", Boolean(blankDoc.querySelector("#works article img")), false);
+  blankDom.window.close();
+}
+
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
 dom.window.close();
 if (failures) process.exitCode = 1;

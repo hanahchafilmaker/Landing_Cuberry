@@ -49,6 +49,8 @@ export type PortfolioCard = {
   section?: string;
   /** 검색에 쓰는 소문자 문자열(제목·파일명·한글 별칭·언어) */
   searchText?: string;
+  /** 드라이브 썸네일이 새까만 프레임이라 사진 대신 브랜드 카드로 그린다 */
+  thumbnailBlank?: boolean;
 };
 
 export type SiteService = Service & { key: string };
