@@ -189,7 +189,9 @@ export function Portfolio() {
                     src={card.thumbnailUrl}
                     alt={t(card.title)}
                     fallbackSrc={card.fallbackUrl}
-                    fit={card.aspect === "portrait" ? "contain" : "cover"}
+                    // 세로 영상도 액자를 꽉 채운다(여백 없이). 잘리는 부분은 위쪽으로 조금 당겨
+                    // 인물 얼굴이 프레임 밖으로 나가지 않게 한다.
+                    objectPosition={card.aspect === "portrait" ? "50% 35%" : undefined}
                     className="absolute inset-0 h-full w-full"
                     imgClassName="transition-transform duration-500 group-hover:scale-[1.02]"
                   />
