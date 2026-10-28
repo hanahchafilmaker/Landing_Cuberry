@@ -1,5 +1,4 @@
 import {
-  driveFilms,
   faqs as defaultFaqs,
   services as defaultServices,
   settings as defaultSettings,
@@ -37,6 +36,8 @@ export type PortfolioCard = {
   fallbackUrl?: string;
   /** 드라이브 영상·mp4 처럼 바로 재생되는 링크인지 (아니면 외부 링크 아이콘) */
   playable: boolean;
+  /** Drive 자동 동기화 영상은 사이트 안에서 개별 파일의 플레이어를 연다. */
+  driveVideo?: boolean;
 };
 
 export type SiteService = Service & { key: string };
@@ -46,7 +47,6 @@ export type SiteFaq = Faq & { key: string };
 export type SiteContent = {
   settings: SiteSettings;
   services: SiteService[];
-  films: PortfolioCard[];
   works: PortfolioCard[];
   team: SiteTeamMember[];
   faqs: SiteFaq[];
@@ -66,17 +66,6 @@ const splitTags = (value?: string) =>
 export const defaultContent: SiteContent = {
   settings: { ...defaultSettings },
   services: defaultServices.map((s) => ({ ...s, key: s.slug })),
-  films: driveFilms.map((f) => ({
-    key: `drive-${f.title}`,
-    title: f.title,
-    category: "DRIVE FILM",
-    year: f.year,
-    description: f.description,
-    thumbnailUrl: f.thumbnailUrl,
-    tags: ["GOOGLE DRIVE", f.kind.toUpperCase()],
-    videoUrl: f.videoUrl,
-    playable: true,
-  })),
   works: defaultWorks.map((w) => ({
     key: `work-${w.title}`,
     title: w.title,
@@ -103,23 +92,29 @@ function toAccent(value: string | undefined, index: number): Accent {
   return ACCENTS[index % ACCENTS.length];
 }
 
-function driveThumb(url?: string) {
-  const id = String(url || "").match(/\/file\/d\/([^/?#]+)/)?.[1];
-  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : "";
+function isDriveFolderUrl(value?: string): boolean {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.hostname.toLowerCase() === "drive.google.com" &&
+      /^\/(?:drive\/(?:u\/\d+\/)?folders|folderview|embeddedfolderview)(?:\/|$)/i.test(decodeURIComponent(url.pathname));
+  } catch {
+    return false;
+  }
 }
 
-function portfolioCard(item: CmsPortfolio, drive: boolean): PortfolioCard {
-  const videoUrl = item.videoUrl ? assetUrl(item.videoUrl) : undefined;
-  const tags = splitTags(item.tags);
-  if (drive && item.kind && !tags.some((t) => t.toUpperCase() === item.kind!.toUpperCase())) tags.push(item.kind);
+function portfolioCard(item: CmsPortfolio): PortfolioCard {
+  const rawVideoUrl = item.videoUrl ? assetUrl(item.videoUrl) : undefined;
+  const thumbnailUrl = assetUrl(item.thumbnailUrl);
+  const videoUrl = isDriveFolderUrl(rawVideoUrl) ? undefined : rawVideoUrl;
   return {
     key: `p-${item.id}`,
     title: item.title,
-    category: drive ? "DRIVE FILM" : item.category || "WORK",
+    category: item.category || "WORK",
     year: item.year || "",
     description: item.description || "",
-    thumbnailUrl: assetUrl(item.thumbnailUrl) || (drive ? driveThumb(item.videoUrl) : ""),
-    tags: tags.map((t) => t.toUpperCase()),
+    thumbnailUrl: isDriveFolderUrl(thumbnailUrl) ? "" : thumbnailUrl,
+    tags: splitTags(item.tags).map((t) => t.toUpperCase()),
     videoUrl,
     playable: isPlayable(videoUrl),
   };
@@ -176,12 +171,10 @@ export function mapCmsContent(data: CmsContent | null | undefined): SiteContent 
     };
   });
 
-  const films: PortfolioCard[] = [];
-  const works: PortfolioCard[] = [];
-  data.portfolio?.forEach((item) => {
-    const drive = item.source === "drive" || String(item.landingSlot || "").startsWith("drive-");
-    (drive ? films : works).push(portfolioCard(item, drive));
-  });
+  // 예전 Drive 시드/DB 행은 삭제하지 않되 랜딩에선 쓰지 않는다. Drive 영상은 별도 폴더 연동이 정본이다.
+  const works = data.portfolio
+    ?.filter((item) => item.source !== "drive" && !String(item.landingSlot || "").startsWith("drive-"))
+    .map(portfolioCard);
 
   const rawTeam = isStaleSeedTeam(data.team)
     ? defaultTeam.map((m, idx) => ({
@@ -219,8 +212,7 @@ export function mapCmsContent(data: CmsContent | null | undefined): SiteContent 
   return {
     settings,
     services: services ?? base.services,
-    films: data.portfolio ? films : base.films,
-    works: data.portfolio ? works : base.works,
+    works: works ?? base.works,
     team: team ?? base.team,
     faqs: faqs ?? base.faqs,
     fromCms: true,

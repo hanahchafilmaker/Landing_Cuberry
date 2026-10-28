@@ -20,6 +20,7 @@ type ServiceDraft = typeof emptyService & { id?: number };
 type FaqDraft = typeof emptyFaq & { id?: number };
 const emptyTeam = { name: "", role: "", bio: "", photoUrl: "", photoPosition: 0, sortOrder: 1, isPublished: true, removePhoto: false };
 type TeamDraft = typeof emptyTeam & { id?: number };
+const isLegacyDrive = (item: any) => item.source === "drive" || String(item.landingSlot || "").startsWith("drive-");
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -112,12 +113,13 @@ function backupLine(summary: { lastBackupAt?: string | null; lastBackupHash?: st
 }
 
 function Overview({ summary, content, go }: { summary: { portfolio: number; published: number; inquiries: number; newInquiries: number; lastNotification?: { inquiryCode: string; channel: string; status: string } | null; lastBackupAt?: string | null; lastBackupHash?: string | null }; content: any; go: (path: string) => void }) {
+  const regularPortfolio = (content?.portfolio ?? []).filter((item: any) => !isLegacyDrive(item));
   const cards = [
-    { label: "포트폴리오", value: summary.portfolio, note: `${summary.published}개 공개`, icon: Film, path: "/admin/portfolio", color: "bg-[#f4b400]" },
+    { label: "포트폴리오", value: regularPortfolio.length, note: `${regularPortfolio.filter((item: any) => item.isPublished).length}개 공개 · Drive 별도`, icon: Film, path: "/admin/portfolio", color: "bg-[#f4b400]" },
     { label: "새 문의", value: summary.newInquiries, note: `전체 ${summary.inquiries}건`, icon: Mail, path: "/admin/inquiries", color: summary.newInquiries > 0 ? "bg-[#f4b400]" : "bg-[#24231f]" },
     { label: "서비스 · 가격", value: content?.services?.length ?? 0, note: "랜딩의 서비스 섹션", icon: Settings2, path: "/admin/services", color: "bg-[#24231f]" },
   ];
-  const recentPortfolio = (content?.portfolio ?? []).slice(0, 4);
+  const recentPortfolio = regularPortfolio.slice(0, 4);
   const recentInquiries = (content?.inquiries ?? []).slice(0, 4);
 
   return (
@@ -199,6 +201,34 @@ function Overview({ summary, content, go }: { summary: { portfolio: number; publ
     </div>
   );
 }
+type DriveSync = { status: string; videos: unknown[] };
+
+function DriveSyncBanner() {
+  const [sync, setSync] = useState<DriveSync | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    get<DriveSync>("/api/public/drive-portfolio")
+      .then((data) => { if (active) setSync(data); })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, []);
+  const status = failed ? "연결 상태를 확인할 수 없습니다."
+    : sync?.status === "ready" ? `공개 영상 ${Array.isArray(sync.videos) ? sync.videos.length : 0}개 · 최대 1분 간격으로 갱신`
+    : sync?.status === "unconfigured" ? "자동 동기화에 서버의 읽기 전용 서비스 계정 설정이 필요합니다."
+    : sync?.status === "unavailable" ? "드라이브 연결에 실패했습니다. 서버 설정과 서비스 계정의 폴더 권한을 확인해 주세요."
+    : "드라이브 연결 상태 확인 중…";
+  return (
+    <aside className="mb-6 flex flex-col gap-4 border border-[#3a3934] bg-[#161614] p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-mono text-[10px] tracking-[0.15em] text-[#f4b400]">GOOGLE DRIVE / PORTFOLIO</p>
+        <p className="mt-2 text-sm text-[#edeae2]">DRIVE FILM 영상은 연결된 드라이브 폴더에서 관리합니다. 폴더는 비공개로 유지하고 공개할 영상만 개별 공유해 주세요.</p>
+        <p className="mt-1 text-xs leading-5 text-[#a9a59b]">{status} 기존 Drive 항목은 보존되지만 랜딩에는 표시되지 않습니다.</p>
+      </div>
+    </aside>
+  );
+}
+
 function PortfolioPage({ content }: { content: any }) {
   const [draft, setDraft] = useState<PortfolioDraft | null>(null);
   const [search, setSearch] = useState("");
@@ -209,7 +239,7 @@ function PortfolioPage({ content }: { content: any }) {
   const normalizedSearch = search.trim().toLocaleLowerCase();
   const filteredRows = rows.filter((item: any) => {
     const matchesSearch = !normalizedSearch || [item.title, item.category, item.year, item.description, item.tags].some((value) => String(value ?? "").toLocaleLowerCase().includes(normalizedSearch));
-    const matchesVisibility = visibility === "all" || (visibility === "published" ? Boolean(item.isPublished) : !item.isPublished);
+    const matchesVisibility = visibility === "all" || (!isLegacyDrive(item) && (visibility === "published" ? Boolean(item.isPublished) : !item.isPublished));
     return matchesSearch && matchesVisibility;
   });
 
@@ -222,6 +252,7 @@ function PortfolioPage({ content }: { content: any }) {
         action={<Button onClick={() => setDraft({ ...emptyPortfolio, sortOrder: rows.length + 1 })} className="h-10 rounded-sm bg-[#f4b400] px-4 font-mono text-[10px] uppercase tracking-[0.1em] text-[#140f00] hover:bg-[#ffce3a]"><Plus className="mr-2 h-4 w-4" />작품 등록</Button>}
       />
       <div className="mx-auto max-w-[1440px] px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+        <DriveSyncBanner />
         {draft && <PortfolioEditor draft={draft} onCancel={() => setDraft(null)} onSaved={() => setDraft(null)} />}
         <div className="mb-4 flex flex-col gap-3 border-y border-[#2a2a26] py-3 sm:flex-row sm:items-center">
           <div className="relative min-w-0 flex-1">
@@ -248,9 +279,9 @@ function PortfolioPage({ content }: { content: any }) {
               <div className="min-w-0"><p className="truncate text-sm font-medium text-[#edeae2]">{item.title}</p><p className="mt-1 line-clamp-1 text-xs text-[#8a867d]">{item.description || "설명이 없습니다."}</p><p className="mt-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[#8a867d] md:hidden">{item.category} · {item.year}</p></div>
               <span className="hidden truncate font-mono text-[9px] uppercase tracking-[0.12em] text-[#a9a59b] md:block">{item.category}</span>
               <span className="hidden font-mono text-xs text-[#a9a59b] md:block">{item.year}</span>
-              <Badge variant="outline" className={`w-fit ${item.isPublished ? "border-[#f4b400]/50 text-[#f4b400]" : "border-[#3a3934] text-[#8a867d]"}`}>{item.isPublished ? "공개 중" : "임시 저장"}</Badge>
+              <Badge variant="outline" className={`w-fit ${!isLegacyDrive(item) && item.isPublished ? "border-[#f4b400]/50 text-[#f4b400]" : "border-[#3a3934] text-[#8a867d]"}`}>{isLegacyDrive(item) ? "이전 Drive · 미노출" : item.isPublished ? "공개 중" : "임시 저장"}</Badge>
               <div className="flex items-center justify-end gap-1">
-                <Button size="sm" variant="ghost" onClick={() => setDraft({ ...item, isFeatured: Boolean(item.isFeatured), isPublished: Boolean(item.isPublished), thumbnailUrl: item.thumbnailUrl ?? "" })} className="rounded-sm text-xs text-[#c9c5bb] hover:bg-[#24231f] hover:text-[#f4b400]">수정</Button>
+                <Button size="sm" variant="ghost" disabled={isLegacyDrive(item)} title={isLegacyDrive(item) ? "Drive 폴더에서 관리해 주세요." : undefined} onClick={() => setDraft({ ...item, isFeatured: Boolean(item.isFeatured), isPublished: Boolean(item.isPublished), thumbnailUrl: item.thumbnailUrl ?? "" })} className="rounded-sm text-xs text-[#c9c5bb] hover:bg-[#24231f] hover:text-[#f4b400]">수정</Button>
                 <Button size="icon" variant="ghost" aria-label={`${item.title} 삭제`} title="삭제" onClick={() => { if (window.confirm(`'${item.title}' 작품을 삭제할까요?`)) remove.mutate({ id: item.id }); }} disabled={remove.isPending} className="rounded-sm text-[#8a867d] hover:bg-[#241718] hover:text-[#e5484d]"><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>

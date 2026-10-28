@@ -124,7 +124,7 @@ export const en: Record<string, string> = {
   " 건": " patents",
   " 편": " titles",
   " 곳": " partners",
-  "특허 등록 · 출원 1건 별도": "Patents registered · 1 application pending",
+  "특허 등록 · 가출원 자료 1건 별도": "Patents registered · 1 provisional application document",
   "KIPO 특허증 기준": "Per KIPO patent certificates",
   "KBS 지상파 방영작": "KBS terrestrial broadcasts",
   "2026 공사창립 대기획 〈성물〉 · 2025 6.25 특집, 어린이날 특집":
@@ -184,6 +184,8 @@ export const en: Record<string, string> = {
   "{count}건 표시 중": "{count} entries shown",
   "ACE Fair 2026에서 홍콩·중국 기업 4곳과 업무협약 체결":
     "Signed MOUs with four Hong Kong and Chinese companies at ACE Fair 2026",
+  "특허 등록 · 온톨로지 제약 기반 시퀀스형 콘텐츠 생성 기법":
+    "Patent registered · sequence content generation using ontology-constrained verification",
   "특허 등록 · 물리 시뮬레이션 데이터 역산 기반 생성형 AI 콘텐츠 다중 검증·자동 보정 시스템":
     "Patent registered · multi-verification and auto-correction system for generative AI content based on inverse physics-simulation data",
   "싱가포르 Lights & Shadows, Codomo와 업무협약(MOU) 2건 체결 · Codomo 자체 IP 〈Potato Pirates〉 롱폼 애니메이션 제작 협력":
@@ -205,13 +207,21 @@ export const en: Record<string, string> = {
 
   // ── 특허 ────────────────────────────────────────────────────
   "기술 · 특허": "Technology · Patents",
+  "증빙은 문서의 첫 페이지이며, 개인정보 보호를 위해 일부 내용을 가렸습니다.": "The evidence shows the first page of each document; some details have been redacted for privacy.",
+  "{title} 증빙 이미지 크게 보기": "View the evidence image for {title} at full size",
+  "이미지 크게 보기": "View full image",
   "등록": "Registered",
   "출원": "Filed",
+  "가출원": "Provisional application",
+  "가출원서": "Provisional application document",
+  "서류 표기일": "Document date",
   "물리 시뮬레이션 데이터의 역산을 이용한 생성형 인공지능 콘텐츠의 다중 검증 및 자동 보정 시스템":
     "System for multi-verification and auto-correction of generative AI content using inversion of physics-simulation data",
   "온톨로지 제약 기반 위반 검증 및 상태 전이 전파를 이용한 시퀀스형 콘텐츠 생성 기법":
     "Method for generating sequential content using ontology-constrained violation checks and state-transition propagation",
   "인공지능 기반 커플 매칭 시스템": "AI-based couple matching system",
+  "인공지능을 활용한 동영상의 다자 립싱크 더빙 시스템 및 방법":
+    "Multi-character lip-sync dubbing system and method for videos using artificial intelligence",
   "2D 영상 내 3D 요소 추출·삽입 기반 미디어 콘텐츠 제작 방법 및 시스템":
     "Method and system for producing media content by extracting and inserting 3D elements in 2D video",
 
@@ -231,6 +241,12 @@ export const en: Record<string, string> = {
     "Corporate films, brand films, commercials, motion graphics and AI content — see the intent and the scope behind each project.",
   "{title} 영상 보기": "Watch {title}",
   "{title} 새 창에서 보기": "Open {title} in a new window",
+  "드라이브 영상 목록을 불러오는 중입니다.": "Loading videos from Google Drive.",
+  "드라이브 영상 목록을 불러올 수 없습니다.": "The Google Drive video list could not be loaded.",
+  "공개된 드라이브 영상이 없습니다.": "There are no publicly shared Drive videos.",
+  "Google Drive에서 이 영상을 재생합니다.": "This video plays from Google Drive.",
+  "Google Drive에서 영상 열기": "Open video in Google Drive",
+  "닫기": "Close",
   "광고": "Commercial",
   "숏폼": "Short-form",
   "애니메이션": "Animation",

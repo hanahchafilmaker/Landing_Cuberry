@@ -101,10 +101,31 @@ export function rowInquiry(row) {
   };
 }
 
+function isDriveFolderUrl(value) {
+  try {
+    const url = new URL(value);
+    const pathname = decodeURIComponent(url.pathname);
+    return url.hostname.toLowerCase() === "drive.google.com" &&
+      /^\/(?:drive\/(?:u\/\d+\/)?folders|folderview|embeddedfolderview)(?:\/|$)/i.test(pathname);
+  } catch {
+    return false;
+  }
+}
+
 export function publicContent() {
   const settings = rowSettings(db.prepare("SELECT * FROM settings WHERE id = 1").get());
   const services = db.prepare("SELECT * FROM services WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowService);
-  const portfolio = db.prepare("SELECT * FROM portfolio WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowPortfolio);
+  // 예전 Drive 시드/DB 행은 관리자에게 남기되, 현재 공유 여부를 확인할 수 없는
+  // 영상 메타데이터가 별도 공개 콘텐츠 API로 우회 노출되지 않도록 한다.
+  const portfolio = db.prepare("SELECT * FROM portfolio WHERE is_published = 1 AND source != 'drive' AND COALESCE(landing_slot, '') NOT LIKE 'drive-%' ORDER BY sort_order, id").all().map((row) => {
+    const item = rowPortfolio(row);
+    // 일반 작품 카드는 보존하되, 실수로 저장된 Drive 폴더 링크는 공개하지 않는다.
+    return {
+      ...item,
+      videoUrl: isDriveFolderUrl(item.videoUrl) ? "" : item.videoUrl,
+      thumbnailUrl: isDriveFolderUrl(item.thumbnailUrl) ? "" : item.thumbnailUrl,
+    };
+  });
   const faqs = db.prepare("SELECT * FROM faqs WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowFaq);
   const team = db.prepare("SELECT * FROM team WHERE is_published = 1 ORDER BY sort_order, id").all().map(rowTeam);
   return { settings, services, portfolio, faqs, team };

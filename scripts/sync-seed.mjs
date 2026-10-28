@@ -4,8 +4,8 @@
 //   node scripts/sync-seed.mjs http://localhost:8080 → 다른 서버에서
 //   npm run sync:seed
 //
-// 주의: /api/public/content 는 "공개(isPublished)" 항목만 준다.
-// 비공개 초안과 문의함까지 포함한 완전한 백업은 어드민(Settings → Backup)의 "콘텐츠 JSON 내려받기"를 쓴다
+// 주의: /api/public/content 는 공개 일반 항목만 주며 이전 Drive 행과 Drive 폴더 링크를 제외한다.
+// 비공개 초안·이전 Drive 행과 문의함까지 포함한 완전한 백업은 어드민(Settings → Backup)의 "콘텐츠 JSON 내려받기"를 쓴다
 // (로그인이 필요한 /api/admin/export 결과를 그대로 server/seed.json 으로 저장하면 된다).
 import { writeFileSync } from "node:fs";
 import path from "node:path";

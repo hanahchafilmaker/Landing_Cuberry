@@ -54,10 +54,27 @@ npm run sync:seed      # 운영 서버의 공개 콘텐츠를 server/seed.json �
 | 랜딩/어드민 **코드**(`main` 에 push) | Render 자동 배포(BluePrint 의 Auto-Deploy)가 켜져 있으면 재배포, GitHub Pages 는 `main` 에서 자동 빌드 | Render 1~3분 · Pages 1분 내외 |
 | 백업(seed) | 어드민 Settings → **GitHub에 백업 및 배포**(수동) 또는 GitHub Actions `backup-seed.yml`(6시간마다, 변경 없으면 커밋 생략) | 누르면 즉시 |
 | 업로드한 **이미지** | 무료 플랜은 재시작하면 사라집니다 — 외부 URL(Drive 썸네일·CDN) 사용 권장 | (영구 디스크 플랜이면 유지) |
+| Google Drive 포트폴리오 | 비공개 폴더를 서버의 읽기 전용 서비스 계정으로 조회하고 개별 링크 공개된 영상만 재생 | 카드 목록은 서버에서 1분 캐시 |
 
 - Render **Auto-Deploy 는 저장소·서비스 설정**(Settings → Build & Deploy → Auto-Deploy)이라 저장소 코드로는 켤 수 없습니다. 대시보드에서 `main` 브랜치가 `Yes` 로 되어 있는지 한 번만 확인해 두세요.
 - Pages 랜딩(`hanahchafilmaker.github.io/Landing_Cuberry/`)도 어드민 저장값을 그대로 읽습니다 — 정적 사본이라 화면을 다시 만들 필요가 없습니다.
 - 위 동작은 `npm run test:cms`(포커스 갱신) · `npm run test:admin`(저장 후 공개 API 반영) · `npm test`(백업/크론) 로 검증됩니다.
+
+### Google Drive 포트폴리오 연동
+
+`DRIVE FILM`에는 비공개 Drive 폴더에서 **개별 링크 공개된 영상만** 표시합니다. 폴더 자체나 하위 폴더의 링크·구조는 랜딩과 공개 API에 내보내지 않습니다. 기존 일반 작품은 그대로 두고, 예전 Drive 시드/DB 항목은 삭제하지 않지만 랜딩과 일반 공개 콘텐츠 API에는 표시하지 않습니다. 어드민에서는 예전 항목을 볼 수 있습니다.
+
+영상 카드 자동 동기화를 활성화하려면 폴더 소유자가 다음을 설정해야 합니다. Arena 대화에 연결한 Google Drive 권한은 운영 서버에 전달되지 않습니다. **비공개 폴더는 API 키만으로 조회할 수 없습니다.**
+
+1. 폴더의 일반 액세스는 `제한됨`으로 유지합니다. 기존에 하위 파일·폴더에 별도로 부여한 공유 권한은 부모 폴더의 공개를 해제해도 자동으로 없어지지 않을 수 있으므로 소유자가 검토해야 합니다.
+2. Google Cloud Console에서 Drive API를 활성화하고 전용 서비스 계정을 만듭니다. 폴더 소유자가 그 **서비스 계정 이메일**을 폴더에 `뷰어`로 초대합니다. 하위 폴더의 액세스가 별도로 제한되어 있다면 서비스 계정에 필요한 읽기 권한을 추가합니다. 서비스 계정에 편집 권한은 필요하지 않습니다.
+3. 웹에 보여줄 **개별 영상만** Drive에서 `링크가 있는 모든 사용자 · 뷰어`로 공유합니다. 폴더를 공개하거나 편집자로 공유하지 마세요. 영상 공유는 소유자가 직접 결정하며 앱은 권한을 변경하지 않습니다. 비공개 영상은 자동 목록과 재생에서 제외됩니다. Drive 바로가기는 따라가지 않습니다.
+4. 서비스 계정 JSON 키를 안전하게 발급한 뒤 Render의 **Environment**에만 다음 두 값을 설정하고 재배포합니다. 키를 Git·클라이언트 코드·채팅에 올리지 말고 접근 권한을 최소화하세요. 서비스 계정 키 발급이 정책상 금지된 조직이라면 별도의 인증 방식이 필요합니다.
+   - `GOOGLE_DRIVE_FOLDER_ID`: 조회할 폴더 링크의 폴더 ID 부분. 공개 코드에 적지 않습니다.
+   - `GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON`: 서비스 계정의 JSON 키 전체. 인증에는 읽기 전용 `drive.metadata.readonly` 범위만 사용합니다.
+5. 관리자 포트폴리오의 연결 상태나 `/api/public/drive-portfolio`에서 `status: "ready"`를 확인합니다. 실제 공개할 영상을 로그아웃 또는 시크릿 창에서 재생해 보고, 폴더와 다른 비공개 영상은 열 수 없는지 별도로 확인하세요. Google의 공유 제한·영상 처리·임베드·트래픽 제한에 따라 재생이나 썸네일이 거부될 수 있습니다.
+
+서버는 하위 폴더를 탐색할 때도 Drive의 `visibility` 검색을 적용해 링크 공개된 `video/*`만 가져옵니다. **이 검색에는 공개 하위 폴더에서 권한을 상속받은 영상도 포함될 수 있으므로**, 개별 영상만 공개하려면 하위 폴더들의 링크 공개도 제한해야 합니다. 이름, 파일 ID와 필요한 경우 리소스 키만 응답하며 설명·폴더명·폴더 ID는 내보내지 않습니다. 영상 파일은 서버에 저장하지 않고 개별 파일의 Google Drive 플레이어에서 직접 재생합니다. 추가·이동·이름 변경·삭제·공유 변경은 다음 성공적인 조회에 반영됩니다. 조회 결과는 서버에서 1분 캐시하고 랜딩은 로드·포커스 복귀·1분 간격으로 확인합니다. 공유 해제 후 카드 제거는 서버와 브라우저의 갱신 시점에 따라 지연될 수 있습니다. 조회·인증 실패나 안전 제한(폴더 200개·깊이 20단계·영상 2,000개) 초과 시 이전 목록과 열린 플레이어를 비우고, 폴더 링크로 대체하지 않습니다.
 
 ### 서버 모듈 (Phase 4: 1,508줄 단일 파일 → 11개)
 
@@ -69,6 +86,7 @@ npm run sync:seed      # 운영 서버의 공개 콘텐츠를 server/seed.json �
 | `server/lib/http.mjs` | `send`·`readBody`·CORS 적용·압축/ETag/캐시 헤더·`serveFile`·`serveClientFile` |
 | `server/lib/auth.mjs` | 비밀번호 해시(scrypt)·세션·`requireAdmin`·로그인/문의 시도 게이트 |
 | `server/lib/content.mjs` | 행 ↔ 응답 매핑·공개/관리자 콘텐츠·`exportSeed`·`summary`·upsert·업로드 검증 |
+| `server/lib/drive-portfolio.mjs` | 서비스 계정으로 비공개 폴더 재귀 조회·공개 영상만 필터·1분 캐시·실패 시 목록 삭제 |
 | `server/lib/inquiries.mjs` | 문의 코드 발급·저장·상태 변경 |
 | `server/lib/notify.mjs` | Phase 1 문의 알림(웹훅·이메일) |
 | `server/lib/form-token.mjs` | Phase 2 서명 폼 토큰·Turnstile |
@@ -307,6 +325,8 @@ Pages는 저장소 이름이 경로 앞에 붙는 서브경로 배포라, 루트
 **아래 표의 어드민 입력란은 아직 히어로·상품·포트폴리오·팀·FAQ·연락처 6개 항목뿐이라,
 연혁·특허·숫자는 디자인 파일과 같이 이 TS 값을 고쳐 배포합니다.**
 
+상단의 **XCONDA 시작하기** 버튼(데스크톱·모바일)은 `https://www.xconda.ai/`를 새 창으로 열고, 엑스콘다 메뉴·콘텐츠 탭은 사이트 안의 `#lab`으로 이동합니다. 특허 영역의 `images/patent-*.webp`는 전달받은 서류의 첫 페이지에서 개인정보 등을 가려 만든 공개용 이미지입니다. 원본 PDF는 저장소에 넣거나 직접 링크하지 않습니다. 문서를 교체할 때도 개인정보·식별번호를 확인해 실제 이미지에서 제거하고, 특허 상태·번호와 상단 등록 건수를 함께 갱신하세요. 가출원 자료에는 출원번호가 표시되어 있지 않아 별도로 추정하지 않았습니다.
+
 새 디자인 파일이 Drive 에 올라오면 GitHub Actions `fetch-flexboard-design` 을 `workflow_dispatch` 로
 돌려 `design-incoming/` 에 풀어두거나, `design-incoming/` 의 원문을 읽고 `landing/src/` 에 반영하세요.
 (실행 환경에서 drive.google.com 으로 직접 나갈 수 없어 Actions 러너가 대신 내려받습니다.)
@@ -353,7 +373,7 @@ npm run typecheck      # TypeScript 검사
 | --- | --- |
 | 사이트 문구 | 내비 브랜드명, 히어로 eyebrow·제목(마지막 단어 강조)·설명, 연락처(문의 섹션·푸터) |
 | 상품 | AI 광고 가격 카드 (히어로와 가격 노출을 중복하지 않음; slug 가 standard/deluxe/premium 이면 상세 구성 목록 사용) |
-| 포트폴리오 | Portfolio 섹션 — `source=drive` 는 DRIVE FILM 탭, 나머지는 WORKS 탭; 처음 6건만 그리고 필요하면 더 보기 |
+| 포트폴리오 | Portfolio 섹션 — 일반 작품은 WORKS 탭에 유지; DRIVE FILM은 개별 공유 영상의 Drive 자동 목록을 사용. 예전 `source=drive` 행은 관리자에 보존; 처음 6건만 그리고 필요하면 더 보기 |
 | 팀 프로필 | Team 섹션 — 역할은 `역할 · 소속` 으로 나눠 표시, 이력은 카드별로 펼쳐 확인, `[텍스트](https://…)` 는 링크, 사진 위치 반영 |
 | FAQ | FAQ 아코디언 |
 | 상담 문의 | 랜딩 문의 폼 → `POST /api/partnership` (회사/이름·이메일 필수) |
@@ -493,6 +513,7 @@ npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS �
 | --- | --- |
 | `test/client-origin.mjs` | `admin/index.html`·`cms-bridge.js` 의 **실제 소스에서** Origin 결정 코드와 서브경로 라우팅 코드를 그대로 뽑아 실행. `?api=` / localStorage / `BAKED_API_ORIGIN` 우선순위, `javascript:` 같은 잘못된 값 거부, `?api=same` 초기화, `/Landing_Cuberry/admin/…` 에서의 `adminBase`·`siteRoot`·`pageFromPath`, **로컬 개발 가드**(localhost·127.0.0.1·`[::1]`). 마지막 절에서는 어드민·랜딩(`index.html` 의 `cms-bridge.js` 로드와 문의 폼 호출 포함)·서버 기본값·`render.yaml`·`render.free.yaml` **여러 곳에 적힌 배선이 어긋나면 실패**한다 |
 | `test/server-wiring.mjs` | 서버를 실제로 띄워(저장소 밖 임시 `DATA_DIR`) HTTP 로 확인. ① **환경변수 없이** Pages Origin 사전요청·로그인 성공 ② 설정·상품·포트폴리오·FAQ·팀의 PUT 저장 후 관리자 API와 공개 API에서 다시 조회되는지 ③ 서버가 서빙하는 `/admin`·`/admin/portfolio`·`/cms-bridge.js` 에는 굽힌 주소가 비워지는지 ④ `ADMIN_ALLOWED_ORIGINS` 추가·`*` 허용 동작 |
+| `test/drive-portfolio.mjs` · `test/drive-route.mjs` | 모의 Google Drive 응답으로 공개 영상 필터·중첩 폴더·페이지네이션·추가/삭제·캐시·장애/권한 회수와 실제 공개 HTTP 라우트·자격증명 및 폴더 비노출을 검증한다. 실제 Google 계정 또는 키는 사용하지 않는다. |
 | `test/security.mjs` | 실제로 재현됐던 보안 문제를 회귀 테스트로 고정. ① `X-Forwarded-For` 를 바꿔가며 로그인 제한 우회 불가 ② `TRUST_PROXY=1` 일 때 XFF 오른쪽 hop 만 신뢰 ③ `*` CORS 모드에서 쿠키 자격증명 미허용 ④ 보안 헤더·CSP(환경변수로 끄기) ⑤ Brotli/gzip 압축과 ETag 304 ⑥ 인코딩된 `..`(`%2e%2e%2f`)·형제 폴더 읽기 차단 ⑦ 업로드 MIME 위조 거부 ⑧ 문의 허니팟 미저장 ⑨ robots/sitemap 서빙 ⑩ `REQUIRE_ADMIN_PASSWORD=1` 기동 거부 ⑪ 폼 토큰·Turnstile — `off`/`flag`/`strict` 3단 정책, 3초 미만·만료·위조 토큰이 저장은 되되 `review` 로 잡히는지, 검증 실패가 500 을 만들지 않는지 |
 | `test/notify.mjs` | Phase 1 문의 알림. 로컬 목 웹훅·목 Resend 서버로 **외부 요청 없이** 실제 서버를 띄워 ① 성공 → `sent`·`attempts 1` ② 500 1회 → 백오프 재시도 후 `sent`·`attempts 2`·호출 간격 준수 ③ 계속 실패 → `failed` + `last_error` (문의 접수는 200 유지) ④ UNIQUE — 재발송을 여러 번 해도 행은 1개·시도만 증가 ⑤ env 미설정 → 알림 행 0 ⑥ `NOTIFY_DISABLED=1` → 발송 0 ⑦ `NOTIFY_MASK_CONTACT=1` → 원본 연락처 평문 없음 · 이메일(Resend) 채널·인증 401·`status` 필터·`summary.lastNotification` |
 | `test/cron-backup.mjs` | Phase 3 자동 백업. **목 GitHub Contents API** 를 로컬에 띄우고(`GITHUB_API_BASE` 오버라이드) 실제 서버로 확인 — ① `CRON_SECRET` 미설정 `503`·GitHub 호출 0 ② 틀린 시크릿(헤더 없음·짧은 값·아주 긴 값) `401`·호출 0 ③ 올바른 시크릿 → 커밋 1회(경로·branch·base64 디코드 내용·메시지까지) ④ 즉시 재호출 → `skipped: "no-change"` + **GitHub 요청 0건** ⑤ 콘텐츠 변경 → 재커밋 ⑥ 수동 백업 뒤 크론 skip ⑦ `GITHUB_TOKEN` 미설정 `503`·실패는 해시를 남기지 않음 ⑧ `GET` 으로는 백업이 돌지 않음 · `summary.lastBackupAt/Hash` · 해시 정규화(키 순서·`exportedAt`)·상수시간 비교 단위 검증 |

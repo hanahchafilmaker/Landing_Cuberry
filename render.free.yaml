@@ -29,6 +29,12 @@ services:
         value: "1"
       - key: ADMIN_PASSWORD
         sync: false
+      # Drive 자동 동기화(선택). 폴더는 비공개로 유지하고 서비스 계정에 뷰어 권한을 부여합니다.
+      # 공개할 영상만 개별적으로 링크 공유하세요. 자세한 설정과 키 보안은 README 참고.
+      # - key: GOOGLE_DRIVE_FOLDER_ID
+      #   sync: false
+      # - key: GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON
+      #   sync: false
       # 선택: 기본 초기 비밀번호가 그대로면 서버가 뜨지 않게 막는 안전장치.
       # ADMIN_PASSWORD 를 반드시 함께 등록해야 합니다.
       # - key: REQUIRE_ADMIN_PASSWORD
