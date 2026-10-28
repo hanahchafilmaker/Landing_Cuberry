@@ -36,6 +36,7 @@ jobs:
         run: |
           python3 scripts/drive_folder.py --self-test
           python3 scripts/drive_naming.py --self-test
+          node scripts/check-drive-service-account.mjs --self-test
 
       - name: Unit tests (no server)
         run: npm test
