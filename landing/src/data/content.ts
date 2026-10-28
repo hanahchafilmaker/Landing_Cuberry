@@ -41,9 +41,9 @@ export const heroStills = [
 /** 숫자 요약 — 값·라벨·근거(각주)를 함께 둔다 */
 export const stats = [
   {
-    value: 3,
+    value: 4,
     suffix: " 건",
-    label: "특허 등록 · 출원 1건 별도",
+    label: "특허 등록 · 가출원 자료 1건 별도",
     note: "KIPO 특허증 기준",
   },
   {
@@ -134,6 +134,7 @@ export const founder = {
 export type HistoryItem = { date: string; text: string };
 
 export const history: HistoryItem[] = [
+  { date: "2026.10", text: "특허 등록 · 온톨로지 제약 기반 시퀀스형 콘텐츠 생성 기법" },
   { date: "2026.09", text: "ACE Fair 2026에서 홍콩·중국 기업 4곳과 업무협약 체결" },
   {
     date: "2026.08",
@@ -154,28 +155,52 @@ export const history: HistoryItem[] = [
   { date: "2023.08", text: "주식회사 큐브베리 설립" },
 ];
 
-/** PATENTS · 기술 · 특허 */
-export type Patent = { state: "등록" | "출원"; date: string; title: string; no: string };
+/** PATENTS · 기술 · 특허. 이미지에는 원본 PDF의 첫 페이지만 사용하고 민감 정보를 가렸다. */
+export type Patent = {
+  state: "등록" | "가출원";
+  date: string;
+  dateLabel?: string;
+  title: string;
+  no: string;
+  image: string;
+};
 
 export const patents: Patent[] = [
+  {
+    state: "등록",
+    date: "2026.10.19",
+    title: "온톨로지 제약 기반 위반 검증 및 상태 전이 전파를 이용한 시퀀스형 콘텐츠 생성 기법",
+    no: "제10-3036790호",
+    image: "images/patent-3036790.webp",
+  },
   {
     state: "등록",
     date: "2026.08.06",
     title: "물리 시뮬레이션 데이터의 역산을 이용한 생성형 인공지능 콘텐츠의 다중 검증 및 자동 보정 시스템",
     no: "제10-3002930호",
+    image: "images/patent-3002930.webp",
   },
   {
-    state: "출원",
-    date: "2026.02.12",
-    title: "온톨로지 제약 기반 위반 검증 및 상태 전이 전파를 이용한 시퀀스형 콘텐츠 생성 기법",
-    no: "10-2026-0028285",
+    state: "등록",
+    date: "2025.01.06",
+    title: "인공지능 기반 커플 매칭 시스템",
+    no: "제10-2752198호",
+    image: "images/patent-2752198.webp",
   },
-  { state: "등록", date: "2025.01.06", title: "인공지능 기반 커플 매칭 시스템", no: "제10-2752198호" },
   {
     state: "등록",
     date: "2017.06.29",
     title: "2D 영상 내 3D 요소 추출·삽입 기반 미디어 콘텐츠 제작 방법 및 시스템",
     no: "제10-1754524호",
+    image: "images/patent-1754524.webp",
+  },
+  {
+    state: "가출원",
+    date: "2025.02.26",
+    dateLabel: "서류 표기일",
+    title: "인공지능을 활용한 동영상의 다자 립싱크 더빙 시스템 및 방법",
+    no: "가출원서",
+    image: "images/patent-provisional.webp",
   },
 ];
 
@@ -283,82 +308,6 @@ export const services: Service[] = [
     ],
     accent: "violet" as const,
     badge: null as string | null,
-  },
-];
-
-export type DriveFilm = {
-  title: string;
-  category: string;
-  year: string;
-  description: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  kind: string;
-};
-
-export const driveFilms: DriveFilm[] = [
-  {
-    title: "AI엑스콘다광고",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "AI XCONDA 광고 · AI 광고 / 브랜드 필름",
-    videoUrl: "https://drive.google.com/file/d/1uVP4Ih6kKHxb0uUHsntCR7UsepMJ2djG/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1uVP4Ih6kKHxb0uUHsntCR7UsepMJ2djG&sz=w1000",
-    kind: "광고",
-  },
-  {
-    title: "미국광고_세로숏폼",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "미국 광고 세로 숏폼 · 9:16 광고 / Short-form",
-    videoUrl: "https://drive.google.com/file/d/1Gg2_R8jnLgaVBYWEwrn8KB-mt_yJ6J43/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1Gg2_R8jnLgaVBYWEwrn8KB-mt_yJ6J43&sz=w1000",
-    kind: "숏폼",
-  },
-  {
-    title: "애니메이션_토이팜",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "애니메이션 토이팜 · 애니메이션 / 캐릭터 콘텐츠",
-    videoUrl: "https://drive.google.com/file/d/1o5pVmIcxeoCE4CEq090ememV_lj-IQF4/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1o5pVmIcxeoCE4CEq090ememV_lj-IQF4&sz=w1000",
-    kind: "애니메이션",
-  },
-  {
-    title: "이엘_웹드라마_트레일러",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "이엘 웹드라마 트레일러 · 웹드라마 / Trailer",
-    videoUrl: "https://drive.google.com/file/d/13jH_tndgmbI7MOOOW02I2ADEMFXY6Ii8/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=13jH_tndgmbI7MOOOW02I2ADEMFXY6Ii8&sz=w1000",
-    kind: "웹드라마",
-  },
-  {
-    title: "천년의사랑_웹드라마",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "천년의 사랑 웹드라마 · AI 웹드라마 / Series",
-    videoUrl: "https://drive.google.com/file/d/1OWlKxIH2LRfohRSSR2Fk46Ou2RdYmOya/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1OWlKxIH2LRfohRSSR2Fk46Ou2RdYmOya&sz=w1000",
-    kind: "웹드라마",
-  },
-  {
-    title: "콜드사이트_트레일러",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "콜드사이트 트레일러 · AI 영화 / Trailer",
-    videoUrl: "https://drive.google.com/file/d/1IxNbAvzwgJFMo7CZbhv6mWQWVNafEqMZ/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1IxNbAvzwgJFMo7CZbhv6mWQWVNafEqMZ&sz=w1000",
-    kind: "영화",
-  },
-  {
-    title: "턴_광고",
-    category: "DRIVE FILM",
-    year: "2026",
-    description: "TURN 광고 · XCONDA / AI 광고",
-    videoUrl: "https://drive.google.com/file/d/1a9mwJiB5NJPEu70l3UWaNNE-Y-kKr_Nm/preview",
-    thumbnailUrl: "https://drive.google.com/thumbnail?id=1a9mwJiB5NJPEu70l3UWaNNE-Y-kKr_Nm&sz=w1000",
-    kind: "광고",
   },
 ];
 

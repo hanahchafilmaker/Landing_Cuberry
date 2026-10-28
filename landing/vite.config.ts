@@ -1,4 +1,4 @@
-import { copyFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
@@ -52,7 +52,9 @@ function publishToRepoRoot(): Plugin {
     name: "cuberry-publish-root-index",
     apply: "build",
     closeBundle() {
-      copyFileSync(path.join(OUT_DIR, "index.html"), path.join(REPO_ROOT, "index.html"));
+      // 번들된 서드파티 CSS 템플릿의 공백 전용 줄은 의미가 같으므로 정리해 diff 검사를 통과시킨다.
+      const html = readFileSync(path.join(OUT_DIR, "index.html"), "utf8").replace(/^[\t ]+$/gm, "");
+      writeFileSync(path.join(REPO_ROOT, "index.html"), html);
       console.log("\n[cuberry] landing/dist/index.html → index.html 복사 완료");
     },
   };

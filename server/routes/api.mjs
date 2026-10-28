@@ -11,6 +11,7 @@ import { listNotifications, notifyInquiry, retryNotification } from "./../lib/no
 import { formTokenMode, mintFormToken, validateFormToken, verifyTurnstile } from "./../lib/form-token.mjs";
 import { cronSecret, safeSecretEqual } from "./../lib/backup.mjs";
 import { migrateTeamProfile } from "./../migrations/team-profile-2026.mjs";
+import { drivePortfolio } from "./../lib/drive-portfolio.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -31,6 +32,7 @@ export async function handleApi(req, res, url) {
     });
   }
   if (req.method === "GET" && pathname === "/api/public/content") return send(res, 200, publicContent());
+  if (req.method === "GET" && pathname === "/api/public/drive-portfolio") return send(res, 200, await drivePortfolio.get());
   if (req.method === "GET" && pathname === "/api/auth/status") {
     return send(res, 200, {
       ok: true,

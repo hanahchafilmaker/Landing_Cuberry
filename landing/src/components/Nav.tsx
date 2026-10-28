@@ -59,7 +59,9 @@ export function Nav() {
         <div className="ml-auto flex items-center gap-3">
           <LangToggle className="sm:mr-1" />
           <a
-            href="#lab"
+            href="https://www.xconda.ai/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="hidden rounded-[3px] border border-brand px-3.5 py-2.5 text-[13px] font-medium text-brand transition-colors duration-200 hover:bg-brand hover:text-[#140f00] sm:inline-block"
           >
             {t("XCONDA 시작하기 ↗")}
@@ -112,7 +114,9 @@ export function Nav() {
             ))}
           </div>
           <a
-            href="#lab"
+            href="https://www.xconda.ai/"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => setOpen(false)}
             className="mt-4 flex items-center justify-between rounded-[3px] border border-brand px-4 py-3 text-[14px] font-medium text-brand"
           >

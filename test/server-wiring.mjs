@@ -68,6 +68,8 @@ async function withServer({ label, env = {} }, handle) {
       ADMIN_ALLOWED_ORIGINS: "",
       ADMIN_PASSWORD: "",
       RESET_ADMIN_PASSWORD: "",
+      GOOGLE_DRIVE_FOLDER_ID: "",
+      GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON: "",
       ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -156,6 +158,15 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   expect("Pages Origin 에서 공개 콘텐츠 → 200", content.status, 200);
   expect("공개 콘텐츠에도 Allow-Origin", allowOrigin(content), PAGES_ORIGIN);
 
+  const driveResponse = await fetch(`${origin}/api/public/drive-portfolio`, { headers: { origin: PAGES_ORIGIN } });
+  const drive = await driveResponse.json();
+  expect("Drive 공개 API → 200", driveResponse.status, 200);
+  expect("Drive 공개 API도 Pages 허용", allowOrigin(driveResponse), PAGES_ORIGIN);
+  expect("Drive 응답 캐시 금지", driveResponse.headers.get("cache-control"), "no-store");
+  expect("서비스 계정이 없을 때 미설정 상태", drive.status, "unconfigured");
+  expect("공개 응답에 폴더 정보 없음", Object.hasOwn(drive, "folderId") || Object.hasOwn(drive, "folderUrl"), false);
+  expect("미설정 때 오래된 목록을 돌려주지 않음", drive.videos, []);
+
   // 실제 어드민 저장 경로를 모두 왕복한다. 예전 DOM 종단 테스트는 화면 이동만 해서
   // 저장 버튼이 API까지 도달하지 않거나 공개 API에 반영되지 않는 회귀를 잡지 못했다.
   const authHeaders = {
@@ -167,6 +178,9 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   const adminBeforeResponse = await fetch(`${origin}/api/admin/content`, { headers: authHeaders });
   expect("저장 전 관리자 콘텐츠 → 200", adminBeforeResponse.status, 200);
   const before = await adminBeforeResponse.json();
+  expect("관리자에게 이전 Drive 항목 보존", before.portfolio.some((item) => item.source === "drive"), true);
+  const publicBefore = await content.json();
+  expect("일반 공개 API에 이전 Drive 항목 미노출", publicBefore.portfolio.some((item) => item.source === "drive" || String(item.landingSlot || "").startsWith("drive-")), false);
   const put = (route, body) => fetch(`${origin}${route}`, { method: "PUT", headers: authHeaders, body: JSON.stringify(body) });
 
   const savedTitle = "관리자 저장 왕복 테스트";
@@ -174,8 +188,9 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
 
   const service = before.services[0];
   expect("상품 PUT → 200", (await put(`/api/admin/services/${service.id}`, { ...service, name: "저장된 테스트 상품" })).status, 200);
-  const work = before.portfolio[0];
-  expect("포트폴리오 PUT → 200", (await put(`/api/admin/portfolio/${work.id}`, { ...work, title: "저장된 테스트 작품" })).status, 200);
+  const work = before.portfolio.find((item) => item.source !== "drive" && !String(item.landingSlot || "").startsWith("drive-"));
+  const folderLink = "https://drive.google.com/drive/u/0/folders/private_folder_123";
+  expect("포트폴리오 PUT → 200", (await put(`/api/admin/portfolio/${work.id}`, { ...work, title: "저장된 테스트 작품", videoUrl: folderLink })).status, 200);
   const faq = before.faqs[0];
   expect("FAQ PUT → 200", (await put(`/api/admin/faqs/${faq.id}`, { ...faq, question: "저장된 테스트 질문" })).status, 200);
   const person = before.team[0];
@@ -185,6 +200,7 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   expect("관리자 재조회에 설정 저장값", after.settings.heroTitle, savedTitle);
   expect("관리자 재조회에 상품 저장값", after.services.find((item) => item.id === service.id)?.name, "저장된 테스트 상품");
   expect("관리자 재조회에 작품 저장값", after.portfolio.find((item) => item.id === work.id)?.title, "저장된 테스트 작품");
+  expect("관리자 원본 폴더 링크는 보존", after.portfolio.find((item) => item.id === work.id)?.videoUrl, folderLink);
   expect("관리자 재조회에 FAQ 저장값", after.faqs.find((item) => item.id === faq.id)?.question, "저장된 테스트 질문");
   expect("관리자 재조회에 팀 저장값", after.team.find((item) => item.id === person.id)?.name, "저장된 테스트 감독");
 
@@ -192,6 +208,7 @@ await withServer({ label: "기본" }, async ({ origin, logs }) => {
   expect("공개 API에도 설정 저장값", publicAfter.settings.heroTitle, savedTitle);
   expect("공개 API에도 상품 저장값", publicAfter.services.find((item) => item.id === service.id)?.name, "저장된 테스트 상품");
   expect("공개 API에도 작품 저장값", publicAfter.portfolio.find((item) => item.id === work.id)?.title, "저장된 테스트 작품");
+  expect("일반 작품의 Drive 폴더 링크는 공개 API에서 제거", publicAfter.portfolio.find((item) => item.id === work.id)?.videoUrl, "");
   expect("공개 API에도 FAQ 저장값", publicAfter.faqs.find((item) => item.id === faq.id)?.question, "저장된 테스트 질문");
   expect("공개 API에도 팀 저장값", publicAfter.team.find((item) => item.id === person.id)?.name, "저장된 테스트 감독");
 

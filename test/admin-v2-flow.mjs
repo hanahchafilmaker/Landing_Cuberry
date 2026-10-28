@@ -120,6 +120,14 @@ const portfolioBtn = byText([...document.querySelectorAll("button")], "포트폴
 expect("사이드바 포트폴리오 메뉴", Boolean(portfolioBtn), true);
 portfolioBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true, cancelable: true }));
 await until("포트폴리오 페이지", () => byText([...document.querySelectorAll("h1")], "포트폴리오"));
+await until("Drive 연결 상태", () => byText([...document.querySelectorAll("aside p")], "DRIVE FILM 영상은"));
+const driveInfo = await (await fetch(`${BASE}/api/public/drive-portfolio`)).json();
+expect("Drive 응답에 폴더 ID 미노출", Object.hasOwn(driveInfo, "folderId"), false);
+expect("Drive 배너에 폴더 링크 미노출", Boolean(document.querySelector('aside a[href*="drive.google.com/drive/folders"]')), false);
+const adminToken = dom.window.localStorage.getItem("cuberry-admin-token");
+const adminData = await (await fetch(`${BASE}/api/admin/content`, { headers: { Authorization: `Bearer ${adminToken}` } })).json();
+const hasLegacyDrive = adminData.portfolio.some((item) => item.source === "drive" || String(item.landingSlot || "").startsWith("drive-"));
+expect("이전 Drive 항목은 미노출로 구분", Boolean(byText([...document.querySelectorAll("span, div")], "이전 Drive · 미노출")), hasLegacyDrive);
 const searchInput = document.querySelector('input[aria-label="포트폴리오 검색"]');
 expect("작품 검색 입력칸", Boolean(searchInput), true);
 nativeSetter.call(searchInput, "zzz-no-match");

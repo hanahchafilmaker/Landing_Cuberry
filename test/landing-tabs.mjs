@@ -146,6 +146,10 @@ console.log("\n[4] 상단 메뉴·본문 앵커 — 숨은 탭의 섹션이면 �
   const { document } = dom.window;
   const menuLink = [...document.querySelectorAll('header nav[aria-label] a')].find((link) => text(link) === "엑스콘다");
   expect("상단 메뉴에 엑스콘다", Boolean(menuLink), true);
+  const externalCtas = [...document.querySelectorAll('header a[href="https://www.xconda.ai/"]')];
+  expect("데스크톱·모바일 XCONDA 시작 버튼", externalCtas.length, 2);
+  expect("시작 버튼은 안전한 새 창으로 열기", externalCtas.every((link) => link.target === "_blank" && link.rel.includes("noopener") && link.rel.includes("noreferrer")), true);
+  expect("메뉴의 엑스콘다 탭은 사이트 내부 이동 유지", menuLink.getAttribute("href"), "#lab");
   menuLink.click();
   await until("엑스콘다 탭", () => selectedTab(document)?.getAttribute("data-tab") === "xconda");
   expect("주소 해시", dom.window.location.hash, "#lab");
@@ -243,6 +247,35 @@ console.log("\n[9] 고정 배치 — 헤더 아래에 붙고, 이동한 섹션�
   const { document } = dom.window;
   expect("탭 바에 측정용 표식(data-tabbar)", Boolean(document.querySelector("[data-tabbar]")), true);
   expect("탭 바가 본문 첫 요소", document.getElementById("main-content").firstElementChild.hasAttribute("data-tabbar"), true);
+  dom.window.close();
+}
+
+console.log("\n[10] 특허 — 등록 4건·가출원 자료 1건과 공개용 증빙 이미지");
+{
+  const dom = await renderLanding();
+  const { document } = dom.window;
+  const cards = [...document.querySelectorAll("#patents article")];
+  const expected = [
+    ["등록", "제10-3036790호", "images/patent-3036790.webp"],
+    ["등록", "제10-3002930호", "images/patent-3002930.webp"],
+    ["등록", "제10-2752198호", "images/patent-2752198.webp"],
+    ["등록", "제10-1754524호", "images/patent-1754524.webp"],
+    ["가출원", "가출원서", "images/patent-provisional.webp"],
+  ];
+  expect("카드 수", cards.length, 5);
+  expect("순서·상태·번호", cards.map((card) => [text(card.querySelector("span")), text(card.querySelector("span.font-mono.text-mute"))]), expected.map(([state, number]) => [state, number]));
+  expect("각 서류의 이미지와 확대 링크 일치", cards.map((card) => [card.querySelector("img")?.getAttribute("src"), card.querySelector("a")?.getAttribute("href")]), expected.map(([, , image]) => [image, image]));
+  expect("이미지 링크 접근성과 새 창", cards.every((card) => {
+    const link = card.querySelector("a");
+    return link?.getAttribute("aria-label")?.includes("증빙 이미지 크게 보기") && link.target === "_blank" && link.rel.includes("noopener") && link.rel.includes("noreferrer");
+  }), true);
+  expect("가출원 날짜는 서류 표기일로 구분", text(cards[4]).includes("서류 표기일 · 2025.02.26"), true);
+  expect("숫자 요약에 등록 4건", text(document.querySelector('section[aria-label="숫자 요약"]')).includes("4 건특허 등록 · 가출원 자료 1건 별도"), true);
+  expect("개인정보 가림 안내", text(document.querySelector("#patents")).includes("개인정보 보호를 위해 일부 내용을 가렸습니다."), true);
+  expect("5개 로컬 WebP 파일 존재", expected.every(([, , image]) => {
+    const bytes = readFileSync(path.join(ROOT, image));
+    return bytes.length > 1000 && bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP";
+  }), true);
   dom.window.close();
 }
 
