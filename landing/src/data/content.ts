@@ -322,6 +322,9 @@ export type Work = {
   videoUrl?: string;
 };
 
+// 2026-10-28: 모션그래픽 장르 작품(모션그래픽 쇼릴·고잉 세븐틴 오프닝 등)은 포트폴리오에서 뺐습니다.
+// 실제 노출 목록은 어드민/CMS 가 정하며, 기존 DB 행은 server/migrations/hide-motion-graphics-2026.mjs 가
+// 비노출(is_published = 0)로 내립니다. 아래는 API 에 연결되지 않았을 때의 기본값입니다.
 export const works: Work[] = [
   {
     title: "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT",
@@ -413,24 +416,6 @@ export const works: Work[] = [
       "북미 최대 친환경 상용차 전시회 ACT EXPO에서 현대차 수소전기트럭의 기술적 강점을 담았습니다.",
     thumbnailUrl: "portfolio_thumbs/flow-21.jpg",
     tags: ["EDITING", "MOTION"],
-  },
-  {
-    title: "모션그래픽 쇼릴",
-    category: "MOTION SHOWREEL",
-    year: "2025",
-    description:
-      "기업 홍보영상과 광고에 작업한 모션그래픽 장면을 한 편의 쇼릴로 구성했습니다.",
-    thumbnailUrl: "portfolio_thumbs/flow-22.jpg",
-    tags: ["PLANNING", "ART DIRECTION", "EDITING", "MOTION"],
-  },
-  {
-    title: "2025 고잉 세븐틴 오프닝",
-    category: "OPENING SEQUENCE",
-    year: "2025",
-    description:
-      "13명의 다양한 분야 작가들과 협업해 고잉 세븐틴 로고를 로고 플레이 콘셉트로 제작했습니다.",
-    thumbnailUrl: "portfolio_thumbs/flow-23.jpg",
-    tags: ["PLANNING", "ART DIRECTION", "EDITING", "MOTION"],
   },
   {
     title: "CJ대한통운 사업 소개 영상",

@@ -1,3 +1,4 @@
+import { hideMotionGraphics } from "./migrations/hide-motion-graphics-2026.mjs";
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { handleApi } from "./routes/api.mjs";
 import {
@@ -68,6 +69,7 @@ function ensureAdminUser() {
 seedContent();
 seedTeam();
 console.log("Team profile 2026:", migrateTeamProfile(db, JSON.parse(readFileSync(SEED_PATH, "utf8")).team));
+console.log("Motion graphics 2026:", hideMotionGraphics(db));
 ensureAdminUser();
 
 // 운영에서 기본 비밀번호를 그대로 쓰는 사고를 막는 안전장치.

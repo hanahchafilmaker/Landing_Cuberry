@@ -150,11 +150,15 @@ console.log("\n[i18n] B. 영어 브라우저 → 자동으로 영어 화면");
   expect("내비 메뉴", navLabels(document).slice(0, 4), ["Company", "Studio", "XCONDA", "Contact"]);
   expect("히어로 상담 CTA", text(document.querySelector('#top a[href="#contact"]')), "Discuss a project");
   expect("히어로 포트폴리오 CTA", text(document.querySelector('#top a[href="#works"]')), "Portfolio →");
-  expect("포트폴리오 초기 카드 6개", document.querySelectorAll("#works article").length, 6);
+  const initialCards = document.querySelectorAll("#works article").length;
+  expect("포트폴리오 초기 카드 6개", initialCards, 6);
   const moreProjects = [...document.querySelectorAll("#works button")].find((button) => text(button).includes("Load more projects"));
-  expect("포트폴리오 추가 로드 버튼", text(moreProjects), "Load more projects+6");
+  // 작품 수는 CMS 값에 따라 달라지므로(2026-10-28 모션그래픽 장르 제외) 버튼이 알려주는 남은 수로 계산한다.
+  const remaining = Number((text(moreProjects) || "").match(/\+(\d+)$/)?.[1]);
+  expect("포트폴리오 추가 로드 버튼", text(moreProjects), `Load more projects+${remaining}`);
+  expect("추가 로드 수가 1 이상", remaining > 0, true);
   moreProjects?.click();
-  await until("추가 작품 렌더", () => document.querySelectorAll("#works article").length === 12);
+  await until("추가 작품 렌더", () => document.querySelectorAll("#works article").length === initialCards + remaining);
   expect("섹션 제목(연혁)", text(document.querySelector("#history h2")), "Milestones");
   expect("숫자 요약 라벨", document.querySelector('section[aria-label="Key numbers"]') !== null, true);
   expect("특허 상태", text(document.querySelector("#patents article span")), "Registered");
