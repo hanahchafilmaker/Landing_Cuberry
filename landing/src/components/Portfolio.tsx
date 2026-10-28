@@ -40,7 +40,7 @@ export function Portfolio() {
         <SectionHeading
           label="PORTFOLIO · STUDIO"
           title={<T text={"결과물로 증명하는\n제작 역량"} />}
-          desc={t("기업 홍보영상부터 브랜드 필름, 광고, 모션그래픽과 AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.")}
+          desc={t("기업 홍보영상부터 브랜드 필름, 광고, AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.")}
         />
 
         <Reveal delay={1}>

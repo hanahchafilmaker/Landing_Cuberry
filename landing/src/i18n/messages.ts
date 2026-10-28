@@ -237,8 +237,8 @@ export const en: Record<string, string> = {
 
   // ── 포트폴리오 (기본 작품) ───────────────────────────────────
   "결과물로 증명하는\n제작 역량": "Production capability,\nproven by the work",
-  "기업 홍보영상부터 브랜드 필름, 광고, 모션그래픽과 AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.":
-    "Corporate films, brand films, commercials, motion graphics and AI content — see the intent and the scope behind each project.",
+  "기업 홍보영상부터 브랜드 필름, 광고, AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.":
+    "Corporate films, brand films, commercials and AI content — see the intent and the scope behind each project.",
   "{title} 영상 보기": "Watch {title}",
   "{title} 새 창에서 보기": "Open {title} in a new window",
   "드라이브 영상 목록을 불러오는 중입니다.": "Loading videos from Google Drive.",
