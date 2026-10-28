@@ -121,6 +121,24 @@ curl -s https://landing-cuberry-admin.onrender.com/api/public/drive-portfolio
 #   ready         정상. videos 에 사이트에 노출될 영상만 들어 있습니다.
 #   unconfigured  두 환경변수가 없거나 JSON 형식이 잘못됨 → 서버 로그에 안내가 남습니다.
 #   unavailable   인증·권한·네트워크 문제 → 서버 로그의 [drive] 경고 확인
+
+# ③ 무엇이 잘못됐는지 바로 확인 (비밀값은 나가지 않습니다)
+curl -s https://landing-cuberry-admin.onrender.com/api/public/drive-diagnose
+# → {"status":"unconfigured","configured":false,
+#    "folderIdSet":true,"folderIdValid":false,
+#    "serviceAccountSet":true,"serviceAccountParsed":false,
+#    "serviceAccountEmail":"cup***@cuberry-drive.iam.gserviceaccount.com",
+#    "reasons":["GOOGLE_DRIVE_FOLDER_ID 형식 오류(폴더 ID만 넣어야 합니다)",
+#               "서비스 계정 JSON 오류: JSON 파싱 실패 ..."]}
+#   · folderIdValid=false  → 폴더 "주소"를 통째로 넣은 경우가 대부분. folders/ 와 ? 사이의 ID 만 넣습니다.
+#   · serviceAccountParsed=false → 값이 한 줄로 깨졌거나 type 이 service_account 가 아님
+#   · configured=true 인데 status 가 unavailable 이면 값은 정상, Drive 권한/API 문제입니다.
+```
+
+서버가 켜질 때도 같은 내용을 로그에 남깁니다:
+
+```
+[drive] DRIVE FILM 자동 동기화가 꺼져 있습니다 — GOOGLE_DRIVE_FOLDER_ID 형식 오류(폴더 ID만 넣어야 합니다) / 서비스 계정 JSON 오류: ...
 ```
 
 값을 넣기 전에 **내 컴퓨터에서 먼저 검사**할 수도 있습니다(권장):

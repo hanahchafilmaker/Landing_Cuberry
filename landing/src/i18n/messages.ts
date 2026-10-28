@@ -15,6 +15,35 @@ export type Vars = Record<string, string | number>;
 
 /** 영문 화면에서 쓰는 ko → en 사전 (정적 문구 + 운영 CMS 시드 문구) */
 export const en: Record<string, string> = {
+  "세로 숏폼": "Vertical shorts",
+  "세로": "Vertical",
+  "DI 플레이트": "DI plate",
+  "DI 가이드": "DI guide",
+  "기타": "Other",
+  "작품중심": "Craft",
+  "폴더 필터": "Folder filter",
+  "포트폴리오 검색": "Search the portfolio",
+  "작품·브랜드·툴 검색 (예: 구미호, 토이팜, 모나리자)": "Search by title, brand or tool (e.g. Gumiho, Toy Farm, Mona Lisa)",
+  "검색 지우기": "Clear search",
+  "검색과 일치하는 작품이 없습니다.": "No projects match your search.",
+  "이 분류에 공개된 영상이 없습니다.": "No published videos in this category.",
+  "영상 버전 선택": "Choose a version",
+  "가이드": "Guides",
+  "데모 · 쇼릴": "Demo · Showreel",
+  "한국어": "Korean",
+  "영어": "English",
+  "일본어": "Japanese",
+  "납품본": "Delivery",
+  "트레일러": "Trailer",
+  "쇼릴": "Showreel",
+  "티저": "Teaser",
+  "파일럿": "Pilot",
+  "메이킹": "Making-of",
+  "기본": "Default",
+  "KO 자막": "KO subtitles",
+  "EN 자막": "EN subtitles",
+  "JA 자막": "JA subtitles",
+  "9:16": "9:16",
   "전 KBS PD": "Former KBS producer",
   "XCONDA 총괄": "Head of XCONDA",
   "AI 제작 총괄": "AI production lead",
@@ -560,6 +589,10 @@ export const koOnly: { text: string; reason: string }[] = [
  * 운영 CMS에서 금액·길이를 새로 입력해도 숫자와 단위가 영어로 바뀝니다.
  */
 export const rules: { pattern: RegExp; replace: (match: RegExpMatchArray) => string }[] = [
+  // 포트폴리오 카드 배지 — 5편 시리즈 / 3개 버전 / 3편 Future
+  { pattern: /^(\d+)편 시리즈$/, replace: (match) => `${match[1]}-episode series` },
+  { pattern: /^(\d+)개 버전$/, replace: (match) => `${match[1]} versions` },
+  { pattern: /^(\d+)편 (.+)$/, replace: (match) => `Ep. ${match[1]} ${match[2]}` },
   // 29만원~ / 149만원
   {
     pattern: /^(\d+(?:\.\d+)?)만원(\s*~)?$/,

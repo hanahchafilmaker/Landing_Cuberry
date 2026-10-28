@@ -33,6 +33,8 @@ export async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/public/content") return send(res, 200, publicContent());
   if (req.method === "GET" && pathname === "/api/public/drive-portfolio") return send(res, 200, await drivePortfolio.get());
+  // 드라이브 연동이 왜 비어 있는지(값 누락·형식 오류)를 비밀값 없이 알려준다.
+  if (req.method === "GET" && pathname === "/api/public/drive-diagnose") return send(res, 200, drivePortfolio.diagnose());
   if (req.method === "GET" && pathname === "/api/auth/status") {
     return send(res, 200, {
       ok: true,

@@ -16,11 +16,12 @@ const privateVideo = node("private_video_123", PRIVATE_TITLE, "video/mp4", { vis
 const list = new Map([
   [ROOT, [
     { files: [node("folder_commercial", "Internal folder name", FOLDER), rootVideo, privateVideo, node("ignored_doc_123", "notes.txt", "text/plain")], nextPageToken: "next" },
-    { files: [node("folder_guide_123", "Guide", FOLDER)] },
+    { files: [node("folder_guide_123", "02_Guide", FOLDER), node("folder_archive_123", "_archive", FOLDER)] },
   ]],
   ["folder_commercial", [{ files: [node("folder_nested_123", "Confidential folder", FOLDER)] }]],
   ["folder_nested_123", [{ files: [subVideo] }]],
-  ["folder_guide_123", [{ files: [node("guide_video_123", "Guide.webm", "video/webm", { visibility: "anyoneWithLink" })] }]],
+  ["folder_guide_123", [{ files: [node("guide_video_123", "Guide_XCONDA_05_AutoAngleGenerator_KO.mp4", "video/mp4", { visibility: "anyoneWithLink", videoMediaMetadata: { width: 1080, height: 1920, durationMillis: 61_000 } })] }]],
+  ["folder_archive_123", [{ files: [node("archived_video_123", "Old_Duplicate_dup.mp4", "video/mp4", { visibility: "anyoneWithLink" })] }]],
 ]);
 let clock = Date.parse("2026-10-28T00:00:00Z");
 let calls = [];
@@ -51,7 +52,7 @@ async function mockFetch(input, options = {}) {
   assert.match(q, /mimeType contains 'video\//);
   assert.match(q, /visibility = 'anyoneWithLink' or visibility = 'anyoneCanFind'/, "공개 영상으로 범위를 제한한다");
   assert.match(q, /mimeType = 'application\/vnd.google-apps.folder' or \(mimeType contains 'video\//, "비공개 하위 폴더도 탐색할 수 있다");
-  assert.equal(url.searchParams.get("fields"), "nextPageToken,incompleteSearch,files(id,name,mimeType,resourceKey)");
+  assert.equal(url.searchParams.get("fields"), "nextPageToken,incompleteSearch,files(id,name,mimeType,resourceKey,videoMediaMetadata(width,height,durationMillis))");
   if (folderId === failingFolder) return { ok: false, status: 503 };
   if (repeatedToken && folderId === ROOT) return { ok: true, json: async () => ({ files: [], nextPageToken: "repeat" }) };
   if (incomplete && folderId === ROOT) return { ok: true, json: async () => ({ files: [], incompleteSearch: true }) };
@@ -73,9 +74,26 @@ const [first, concurrent] = await Promise.all([service.get(), service.get(), ser
 assert.deepEqual(first, concurrent);
 assert.equal(first.status, "ready");
 assert.deepEqual(first.videos.map((video) => video.id).sort(), ["guide_video_123", "nested_video_123", "root_video_123"]);
-assert.deepEqual(first.videos.find((video) => video.id === "nested_video_123"), { id: "nested_video_123", name: "Nested_2026.mp4", resourceKey: "resource_key_123" });
+const nested = first.videos.find((video) => video.id === "nested_video_123");
+assert.equal(nested.resourceKey, "resource_key_123");
+assert.equal(nested.category, "other", "루트에 바로 있는 영상은 기타로 분류된다");
+assert.equal(nested.categoryLabel, "기타");
+assert.equal(nested.group, "other:nested_2026");
+assert.equal(nested.title, "Nested 2026");
+assert.equal(nested.aspect, "landscape");
+assert.deepEqual(Object.keys(nested).sort(), [
+  "aspect", "category", "categoryLabel", "durationMs", "episode", "group", "height", "id", "name",
+  "resourceKey", "search", "section", "title", "variant", "version", "width",
+]);
 assert.deepEqual(Object.keys(first).sort(), ["status", "updatedAt", "videos"]);
-for (const secret of [ROOT, TOKEN, PRIVATE_TITLE, "private_video_123", "Internal folder name", "Confidential folder", "private description", "folder_commercial"]) {
+const guide = first.videos.find((video) => video.id === "guide_video_123");
+assert.equal(guide.category, "guide", "02_Guide 폴더는 가이드로 분류된다");
+assert.equal(guide.categoryLabel, "가이드");
+assert.equal(guide.aspect, "portrait", "세로 영상은 portrait 로 표시한다");
+assert.equal(guide.durationMs, 61_000);
+assert.equal(first.videos.some((video) => video.id === "archived_video_123"), false, "_archive 는 공개 목록에서 뺀다");
+assert.equal(calls.some((call) => call.includes("folder_archive_123")), false, "_archive 하위는 조회하지 않는다");
+for (const secret of [ROOT, TOKEN, PRIVATE_TITLE, "private_video_123", "Internal folder name", "Confidential folder", "private description", "folder_commercial", "02_Guide", "_archive"]) {
   assert.equal(JSON.stringify(first).includes(secret), false, `${secret} 공개 금지`);
 }
 assert.equal(calls.filter((call) => new URL(call).pathname.endsWith(`/files/${ROOT}`)).length, 1);
@@ -92,7 +110,10 @@ list.set("folder_guide_123", [{ files: [] }]);
 clock += 2;
 const changed = await service.get();
 assert.equal(changed.status, "ready");
-assert.deepEqual(changed.videos, [{ id: "new_video_12345", name: "New.mp4" }]);
+assert.equal(changed.videos.length, 1);
+assert.equal(changed.videos[0].id, "new_video_12345");
+assert.equal(changed.videos[0].name, "New.mp4");
+assert.equal("resourceKey" in changed.videos[0], false, "형식이 틀린 resourceKey 는 버린다");
 assert.notEqual(changed.updatedAt, first.updatedAt);
 
 console.log("[drive] 일부 폴더 오류는 이전 목록도 비우고 짧게 재시도");
@@ -197,4 +218,47 @@ try {
 } finally {
   JWT.prototype.getRequestHeaders = originalHeaders;
 }
+console.log("[drive] 설정 진단은 비밀값 없이 사유를 알려준다");
+{
+  const empty = createDrivePortfolio({ folderId: "", serviceAccount: "", getAuthHeaders: null });
+  const emptyDiag = empty.diagnose();
+  assert.equal(emptyDiag.configured, false);
+  assert.equal(emptyDiag.folderIdSet, false);
+  assert.equal(emptyDiag.reasons.length, 2);
+  assert.match(emptyDiag.reasons.join(" "), /GOOGLE_DRIVE_FOLDER_ID 없음/);
+  assert.match(emptyDiag.reasons.join(" "), /SERVICE_ACCOUNT_JSON 없음/);
+
+  const urlId = createDrivePortfolio({ folderId: "https://drive.google.com/drive/folders/root_folder_12345", serviceAccount: "", getAuthHeaders: null });
+  const urlDiag = urlId.diagnose();
+  assert.equal(urlDiag.folderIdSet, true);
+  assert.equal(urlDiag.folderIdValid, false, "URL 을 넣으면 형식 오류로 잡는다");
+  assert.match(urlDiag.reasons.join(" "), /형식 오류/);
+
+  const badJson = createDrivePortfolio({ folderId: ROOT, serviceAccount: "{quoted}", getAuthHeaders: null });
+  assert.match(badJson.diagnose().reasons.join(" "), /JSON 파싱 실패/);
+
+  const wrongType = createDrivePortfolio({
+    folderId: ROOT,
+    serviceAccount: JSON.stringify({ type: "authorized_user", client_email: "someone@example.com" }),
+    getAuthHeaders: null,
+  });
+  const wrongDiag = wrongType.diagnose();
+  assert.equal(wrongDiag.serviceAccountSet, true);
+  assert.equal(wrongDiag.serviceAccountParsed, false);
+  assert.equal(wrongDiag.serviceAccountEmail, "som***@example.com");
+  assert.match(wrongDiag.reasons.join(" "), /service_account/);
+
+  const good = createDrivePortfolio({
+    folderId: ROOT,
+    serviceAccount: JSON.stringify({ type: "service_account", client_email: "reader@project.iam.gserviceaccount.com", private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----" }),
+    getAuthHeaders: null,
+  });
+  const goodDiag = good.diagnose();
+  assert.equal(goodDiag.configured, true);
+  assert.equal(goodDiag.serviceAccountParsed, true);
+  assert.equal(goodDiag.serviceAccountEmail, "rea***@project.iam.gserviceaccount.com");
+  assert.deepEqual(goodDiag.reasons, []);
+  assert.equal(JSON.stringify(goodDiag).includes("BEGIN PRIVATE KEY"), false, "진단에 키가 들어가지 않는다");
+}
+
 console.log("[drive] 통과");

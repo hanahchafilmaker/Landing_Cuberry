@@ -5,34 +5,86 @@ import { Reveal } from "./Reveal";
 import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
-import { useDrivePortfolio } from "@/cms/drive";
+import { useDrivePortfolio, type DriveFilm } from "@/cms/drive";
 import type { PortfolioCard } from "@/cms/map";
 import { T, useI18n } from "@/i18n/LanguageContext";
 
-type Tab = "ALL" | "DRIVE FILM" | "WORKS";
+type Tab = "ALL" | "AD" | "CREATIVE";
 const PAGE_SIZE = 6;
+const ALL_CHIP = "__all__";
 
-/** 일반 작품은 어드민에서, DRIVE FILM은 링크 공개된 개별 영상에서 가져온다. */
+/** 광고 = Drive 01_Commercial, 작품중심 = TV·웹드라마·데모·가이드 (+ CMS 작품) */
+const CREATIVE_SLUGS = new Set(["tv", "webdrama", "demo", "guide", "other"]);
+const TABS: Tab[] = ["ALL", "AD", "CREATIVE"];
+const TAB_LABEL: Record<Tab, string> = { ALL: "전체", AD: "광고", CREATIVE: "작품중심" };
+
+function durationLabel(ms: number) {
+  if (!ms) return "";
+  const seconds = Math.round(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+/** 일반 작품은 어드민에서, 드라이브 작품은 폴더 분류·중복 병합을 거쳐 가져온다. */
 export function Portfolio() {
   const { works } = useContent();
   const drive = useDrivePortfolio();
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("ALL");
+  const [chip, setChip] = useState<string>(ALL_CHIP);
+  const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState(0);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  // 공개가 해제되거나 목록 조회에 실패하면 열려 있던 플레이어도 닫는다.
-  const selected = drive.films.find((film) => film.key === selectedKey) ?? null;
-  useEffect(() => { if (selectedKey && !selected) setSelectedKey(null); }, [selectedKey, selected]);
-  const tabs = useMemo<Tab[]>(() => (works.length ? ["ALL", "DRIVE FILM", "WORKS"] : ["ALL", "DRIVE FILM"]), [works.length]);
-  const activeTab: Tab = tabs.includes(tab) ? tab : "ALL";
-  const cards: PortfolioCard[] = useMemo(() => {
-    if (activeTab === "DRIVE FILM") return drive.films;
-    if (activeTab === "WORKS") return works;
-    return [...works, ...drive.films];
-  }, [activeTab, drive.films, works]);
 
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeTab, cards.length]);
+  const films = drive.films;
+  const selected: DriveFilm | null = films.find((film) => film.key === selectedKey) ?? null;
+  useEffect(() => { if (selectedKey && !selected) setSelectedKey(null); }, [selectedKey, selected]);
+
+  // 탭은 사이트 전체 분류이고 CMS 작품 수와 무관하게 늘 같다(전체 · 광고 · 작품중심).
+  const activeTab: Tab = TABS.includes(tab) ? tab : "ALL";
+
+  /** 탭별 드라이브 작품 */
+  const filmsForTab = useMemo(() => {
+    if (activeTab === "AD") return films.filter((film) => film.categorySlug === "commercial");
+    if (activeTab === "CREATIVE") return films.filter((film) => CREATIVE_SLUGS.has(film.categorySlug));
+    return films;
+  }, [activeTab, films]);
+
+  /** 칩: 광고 탭은 프로젝트(KOSHA·XCONDA…), 작품중심 탭은 장르(TV·웹드라마…) */
+  const chips = useMemo(() => {
+    if (activeTab === "ALL") return [];
+    const key = (film: DriveFilm) => (activeTab === "AD" ? film.section || film.categoryLabel : film.categoryLabel);
+    const counts = new Map<string, number>();
+    for (const film of filmsForTab) {
+      const label = key(film);
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).map(([label, count]) => ({ label, count }));
+  }, [activeTab, filmsForTab]);
+
+  useEffect(() => { setChip(ALL_CHIP); }, [activeTab]);
+
+  const trimmed = query.trim().toLowerCase();
+  const matches = (value: string) => value.includes(trimmed);
+
+  const driveCards = useMemo(() => {
+    const keyOf = (film: DriveFilm) => (activeTab === "AD" ? film.section || film.categoryLabel : film.categoryLabel);
+    let list = filmsForTab;
+    if (chip !== ALL_CHIP) list = list.filter((film) => keyOf(film) === chip);
+    if (trimmed) list = list.filter((film) => matches(film.searchText) || matches(film.title.toLowerCase()));
+    return list;
+  }, [activeTab, chip, filmsForTab, trimmed]);
+
+  const worksCards = useMemo(() => {
+    if (activeTab !== "ALL") return [];
+    if (!trimmed) return works;
+    return works.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
+  }, [activeTab, trimmed, works]);
+
+  const cards: PortfolioCard[] = useMemo(() => [...worksCards, ...driveCards], [driveCards, worksCards]);
+
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeTab, chip, trimmed, cards.length]);
 
   return (
     <section id="works" className="section">
@@ -45,7 +97,7 @@ export function Portfolio() {
 
         <Reveal delay={1}>
           <div className="mt-9 flex flex-wrap items-center gap-1.5">
-            {tabs.map((item) => (
+            {TABS.map((item) => (
               <button
                 key={item}
                 type="button"
@@ -61,12 +113,61 @@ export function Portfolio() {
                     : "border border-line-2 text-body hover:border-line-4 hover:text-paper",
                 )}
               >
-                {t(item)}
+                {t(TAB_LABEL[item])}
               </button>
             ))}
             <span className="ml-auto font-mono text-[11px] text-faint">
               {cards.length} PROJECTS
             </span>
+          </div>
+        </Reveal>
+
+        {activeTab !== "ALL" && chips.length > 1 && (
+          <Reveal delay={1}>
+            <div aria-label={t("폴더 필터")} role="group" className="mt-4 flex flex-wrap gap-1.5">
+              {[{ label: t("전체"), count: filmsForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
+                <button
+                  key={entry.value}
+                  type="button"
+                  data-chip={entry.value}
+                  aria-current={chip === entry.value ? "true" : undefined}
+                  onClick={() => setChip(entry.value)}
+                  className={cn(
+                    "cursor-pointer rounded-[3px] border px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] transition-colors",
+                    chip === entry.value
+                      ? "border-brand/60 text-brand"
+                      : "border-line text-faint hover:border-line-4 hover:text-body",
+                  )}
+                >
+                  {entry.label}
+                  <span className="ml-1 text-[9px] opacity-70">{entry.count}</span>
+                </button>
+              ))}
+            </div>
+          </Reveal>
+        )}
+
+        <Reveal delay={1}>
+          <div className="mt-4 flex items-center gap-3">
+            <label className="flex min-h-10 flex-1 items-center gap-2 rounded-[3px] border border-line px-3 focus-within:border-line-4 sm:max-w-sm">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4 shrink-0 text-faint">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label={t("포트폴리오 검색")}
+                placeholder={t("작품·브랜드·툴 검색 (예: 구미호, 토이팜, 모나리자)")}
+                className="w-full bg-transparent py-2 text-sm text-paper placeholder:text-faint focus:outline-none"
+              />
+            </label>
+            {trimmed && (
+              <button type="button" onClick={() => setQuery("")} className="cursor-pointer font-mono text-[11px] text-mute underline underline-offset-4 hover:text-paper">
+                {t("검색 지우기")}
+              </button>
+            )}
           </div>
         </Reveal>
 
@@ -79,8 +180,8 @@ export function Portfolio() {
                     src={card.thumbnailUrl}
                     alt={t(card.title)}
                     fallbackSrc={card.fallbackUrl}
-                    className="aspect-video w-full"
-                    imgClassName="transition-transform duration-700 group-hover:scale-[1.03]"
+                    className={cn("w-full", card.aspect === "portrait" ? "aspect-[9/16] max-h-[420px]" : "aspect-video")}
+                    imgClassName={cn("transition-transform duration-700 group-hover:scale-[1.03]", card.aspect === "portrait" && "object-contain")}
                   />
                   <span
                     aria-hidden="true"
@@ -103,7 +204,7 @@ export function Portfolio() {
                       {card.driveVideo ? (
                         <button
                           type="button"
-                          onClick={(event) => { triggerRef.current = event.currentTarget; setSelectedKey(card.key); }}
+                          onClick={(event) => { triggerRef.current = event.currentTarget; setSelectedKey(card.key); setSelectedVariant(0); }}
                           aria-label={t("{title} 영상 보기", { title: t(card.title) })}
                           className="absolute inset-0 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
                         />
@@ -122,8 +223,11 @@ export function Portfolio() {
                 <div className="flex flex-1 flex-col gap-2 p-5">
                   <h3 className="m-0 text-base font-semibold leading-snug tracking-[-0.01em] text-paper">{t(card.title)}</h3>
                   {card.description && <p className="m-0 flex-1 text-[13px] leading-relaxed text-mute">{t(card.description)}</p>}
-                  {card.tags.length > 0 && (
+                  {(card.badges?.length || card.tags.length > 0) && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(card.badges || []).map((badge) => (
+                        <span key={badge} className="rounded-[2px] border border-brand/40 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-brand">{t(badge)}</span>
+                      ))}
                       {card.tags.map((tag) => (
                         <span key={tag} className="rounded-[2px] border border-line px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-faint">{t(tag).toUpperCase()}</span>
                       ))}
@@ -144,9 +248,10 @@ export function Portfolio() {
           </div>
         )}
 
-        {activeTab !== "WORKS" && drive.status === "loading" && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러오는 중입니다.")}</p>}
-        {activeTab === "DRIVE FILM" && drive.status === "ready" && drive.films.length === 0 && <p className="mt-8 text-sm text-mute">{t("공개된 드라이브 영상이 없습니다.")}</p>}
-        {activeTab !== "WORKS" && (drive.status === "unconfigured" || drive.status === "unavailable") && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러올 수 없습니다.")}</p>}
+        {cards.length === 0 && trimmed && <p role="status" className="mt-8 text-sm text-mute">{t("검색과 일치하는 작품이 없습니다.")}</p>}
+        {cards.length === 0 && !trimmed && activeTab !== "ALL" && drive.status === "ready" && <p className="mt-8 text-sm text-mute">{t("이 분류에 공개된 영상이 없습니다.")}</p>}
+        {drive.status === "loading" && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러오는 중입니다.")}</p>}
+        {(drive.status === "unconfigured" || drive.status === "unavailable") && worksCards.length === 0 && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러올 수 없습니다.")}</p>}
 
         <Dialog.Root open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
           {selected && (
@@ -158,16 +263,39 @@ export function Portfolio() {
                   <Dialog.Close aria-label={t("닫기")} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-xl text-body hover:text-brand focus-visible:outline focus-visible:outline-brand">×</Dialog.Close>
                 </div>
                 <Dialog.Description className="sr-only">{t("Google Drive에서 이 영상을 재생합니다.")}</Dialog.Description>
-                <iframe
-                  src={selected.videoUrl}
-                  title={t("{title} 영상 보기", { title: t(selected.title) })}
-                  className="block aspect-video w-full border-0 bg-black"
-                  allow="autoplay; fullscreen; picture-in-picture"
-                  allowFullScreen
-                  referrerPolicy="no-referrer"
-                />
+                <div className={cn("mx-auto bg-black", selected.variants[selectedVariant]?.aspect === "portrait" ? "max-w-[min(100%,420px)]" : "w-full")}>
+                  <iframe
+                    key={selected.variants[selectedVariant]?.id}
+                    src={selected.variants[selectedVariant]?.previewUrl}
+                    title={t("{title} 영상 보기", { title: t(selected.title) })}
+                    className={cn("block w-full border-0 bg-black", selected.variants[selectedVariant]?.aspect === "portrait" ? "aspect-[9/16]" : "aspect-video")}
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                {selected.variants.length > 1 && (
+                  <div aria-label={t("영상 버전 선택")} role="group" className="flex flex-wrap gap-1.5 border-t border-line px-4 py-3 sm:px-5">
+                    {selected.variants.map((variant, index) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        data-variant={variant.id}
+                        aria-pressed={index === selectedVariant}
+                        onClick={() => setSelectedVariant(index)}
+                        className={cn(
+                          "cursor-pointer rounded-[3px] border px-2.5 py-1 font-mono text-[10px] tracking-[0.08em] transition-colors",
+                          index === selectedVariant ? "border-brand/60 text-brand" : "border-line text-faint hover:border-line-4 hover:text-body",
+                        )}
+                      >
+                        {t(variant.label)}
+                        {variant.durationMs ? <span className="ml-1 text-[9px] opacity-70">{durationLabel(variant.durationMs)}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-end px-4 py-3 sm:px-5">
-                  <a href={selected.videoUrl?.replace(/\/preview(?=\?|$)/, "/view")} target="_blank" rel="noreferrer" className="text-xs text-mute underline underline-offset-4 hover:text-brand">{t("Google Drive에서 영상 열기")} ↗</a>
+                  <a href={selected.variants[selectedVariant]?.viewUrl} target="_blank" rel="noreferrer" className="text-xs text-mute underline underline-offset-4 hover:text-brand">{t("Google Drive에서 영상 열기")} ↗</a>
                 </div>
               </Dialog.Content>
             </Dialog.Portal>

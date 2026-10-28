@@ -38,6 +38,17 @@ export type PortfolioCard = {
   playable: boolean;
   /** Drive 자동 동기화 영상은 사이트 안에서 개별 파일의 플레이어를 연다. */
   driveVideo?: boolean;
+  /** 카드에 붙는 짧은 배지(버전 수·9:16·언어/자막 등) — Drive 작품에서만 쓴다 */
+  badges?: string[];
+  /** 세로 영상은 카드 액자를 9:16 으로 그린다 */
+  aspect?: "portrait" | "landscape";
+  /** 같은 작품의 변형 수(플레이어에서 고를 수 있다) */
+  variantCount?: number;
+  /** 탭·칩 필터용 분류 — Drive 작품에서만 채워진다 */
+  categorySlug?: string;
+  section?: string;
+  /** 검색에 쓰는 소문자 문자열(제목·파일명·한글 별칭·언어) */
+  searchText?: string;
 };
 
 export type SiteService = Service & { key: string };

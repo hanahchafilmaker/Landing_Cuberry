@@ -11,7 +11,7 @@
     "build:admin": "vite build --config admin-v2/vite.config.ts",
     "typecheck": "tsc -p landing/tsconfig.json && tsc -p admin-v2/tsconfig.json",
     "test": "node test/client-origin.mjs && node test/static-paths.mjs && node test/server-wiring.mjs && node test/i18n-coverage.mjs && node --experimental-sqlite test/team-profile.mjs && node test/security.mjs && node test/notify.mjs && node test/cron-backup.mjs && node test/domain.mjs && node test/landing-tabs.mjs && node --experimental-sqlite test/portfolio-motion.mjs && npm run test:drive",
-    "test:drive": "node test/drive-portfolio.mjs && node test/drive-route.mjs",
+    "test:drive": "node test/drive-grouping.mjs && node test/drive-portfolio.mjs && node test/drive-route.mjs",
     "test:security": "node test/security.mjs",
     "test:notify": "node test/notify.mjs",
     "test:cron": "node test/cron-backup.mjs",
