@@ -178,6 +178,71 @@ const keepAlive = setTimeout(() => {}, 100);
 assert.equal((await hanging.get()).status, "unavailable", "인증 지연도 제한 시간 내에 실패한다");
 clearTimeout(keepAlive);
 
+console.log("[drive] 공유 폴더 ID 가 카테고리 폴더(01_Commercial)를 직접 가리켜도 보인다");
+{
+  const id = "commercial_folder_1";
+  const selfRoot = createDrivePortfolio({
+    folderId: id,
+    getAuthHeaders: auth,
+    logger: { warn() {} },
+    fetchImpl: async (input) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith(`/files/${id}`)) return { ok: true, json: async () => ({ id, name: "01_Commercial", mimeType: FOLDER }) };
+      const parent = url.searchParams.get("q").match(/^'([^']+)'/)[1];
+      const files = parent === id
+        ? [
+            node("root_ad_1", "SeongnamCity_Promotional_v1.mp4", "video/mp4", { visibility: "anyoneWithLink" }),
+            node("ad_sub_1", "Kosha", FOLDER),
+          ]
+        : parent === "ad_sub_1"
+          ? [node("nested_ad_1", "Kosha_VanGogh_v3.mp4", "video/mp4", { visibility: "anyoneWithLink" })]
+          : [];
+      return { ok: true, json: async () => ({ files }) };
+    },
+  });
+  const result = await selfRoot.get();
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.videos.map((video) => video.id).sort(), ["nested_ad_1", "root_ad_1"], "카테고리 폴더 바로 아래 영상도 포함한다");
+  assert.equal(result.videos.every((video) => video.category === "commercial"), true, "모두 광고로 분류된다");
+  assert.equal(result.videos.find((video) => video.id === "nested_ad_1").section, "KOSHA", "하위 폴더는 섹션이 된다");
+  assert.equal(selfRoot.diagnose().categories.commercial, 2, "진단에 카테고리별 편수가 나온다");
+}
+
+console.log("[drive] 작업 폴더가 한 겹 감싸도 광고 폴더를 찾아낸다");
+{
+  const id = "wrapper_root_1";
+  const tree = {
+    wrapper_root_1: [{ id: "work_folder_1", name: "Cuberry_Video", mimeType: FOLDER }],
+    work_folder_1: [
+      { id: "ad_folder_1", name: "01_Commercial", mimeType: FOLDER },
+      { id: "guide_folder_1", name: "02_Guide", mimeType: FOLDER },
+    ],
+    ad_folder_1: [
+      node("jeju_video_1", "JejuContest_Final_4K_v1.mp4", "video/mp4", { visibility: "anyoneWithLink" }),
+      { id: "kosha_folder_1", name: "Kosha", mimeType: FOLDER },
+    ],
+    kosha_folder_1: [node("kosha_video_1", "Kosha_VanGogh_v3.mp4", "video/mp4", { visibility: "anyoneWithLink" })],
+    guide_folder_1: [node("guide_video_2", "Guide_XCONDA_01_KO.mp4", "video/mp4", { visibility: "anyoneWithLink" })],
+  };
+  const wrapped = createDrivePortfolio({
+    folderId: id,
+    getAuthHeaders: auth,
+    logger: { warn() {} },
+    fetchImpl: async (input) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith(`/files/${id}`)) return { ok: true, json: async () => ({ id, name: "내 드라이브", mimeType: FOLDER }) };
+      const parent = url.searchParams.get("q").match(/^'([^']+)'/)[1];
+      return { ok: true, json: async () => ({ files: structuredClone(tree[parent] || []) }) };
+    },
+  });
+  const result = await wrapped.get();
+  assert.equal(result.status, "ready");
+  assert.deepEqual(result.videos.map((video) => video.id).sort(), ["jeju_video_1", "kosha_video_1"], "감싼 폴더 안의 광고는 보이고 가이드는 빠진다");
+  const jeju = result.videos.find((video) => video.id === "jeju_video_1");
+  assert.equal(jeju.section, "제주공모", "폴더 없이 놓인 영상은 파일 이름으로 프로젝트를 추정한다");
+  assert.equal(result.videos.find((video) => video.id === "kosha_video_1").section, "KOSHA");
+}
+
 console.log("[drive] 서비스 계정 JSON으로 읽기 전용 JWT 서명 및 토큰 교환");
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const pem = privateKey.export({ type: "pkcs8", format: "pem" });

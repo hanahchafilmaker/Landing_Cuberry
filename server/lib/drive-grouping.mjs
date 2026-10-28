@@ -10,14 +10,27 @@
 //   · 폴더 ID·폴더 경로·원본 폴더 이름은 내보내지 않는다(카테고리 slug/label 만).
 //   · 파일 이름은 이미 공개 목록에 포함되어 있으므로 제목·검색어를 여기서 파생시켜도 안전하다.
 
-/** 최상위 폴더 이름 → 공개 카테고리. 이름 자체는 응답에 나가지 않는다. */
+/**
+ * 최상위 폴더 이름 → 공개 카테고리. 이름 자체는 응답에 나가지 않는다.
+ * "01_Commercial", "1.Commercial", "Commercial_2026", "커머셜" 처럼 앞 번호·구분자가
+ * 조금씩 달라도 같은 폴더로 알아본다(이름이 조금 다르다고 폴더가 통째로 사라지면 안 된다).
+ */
 const ROOT_FOLDERS = [
-  { test: /^01[_-]?commercial/i, category: "commercial", label: "광고", order: 10 },
-  { test: /^02[_-]?guide/i, category: "guide", label: "가이드", order: 40 },
-  { test: /^03[_-]?demo/i, category: "demo", label: "데모 · 쇼릴", order: 30 },
-  { test: /^04[_-]?tv/i, category: "tv", label: "TV", order: 20 },
-  { test: /^05[_-]?web[_-]?drama/i, category: "webdrama", label: "웹드라마", order: 21 },
+  { test: /^(commercial|commerce|advert\w*|ads?|광고|커머셜|커머|상업)/, category: "commercial", label: "광고", order: 10 },
+  { test: /^(guide|guides|tutorial\w*|가이드|튜토리얼|설명서)/, category: "guide", label: "가이드", order: 40 },
+  { test: /^(demo|demos|showreel|show\s*reel|쇼릴|데모)/, category: "demo", label: "데모 · 쇼릴", order: 30 },
+  { test: /^(tv|broadcast|방송|티비)/, category: "tv", label: "TV", order: 20 },
+  { test: /^(web[\s_-]*drama|drama|웹드라마|드라마|웹)/, category: "webdrama", label: "웹드라마", order: 21 },
 ];
+
+/** "01_Commercial" → "commercial" 처럼 앞 번호·기호를 걷어낸 비교용 이름 */
+function folderKey(rawName) {
+  return clean(rawName)
+    .replace(/\.(mp4|m4v|mov|webm|avi|mkv)$/i, "")
+    .replace(/^[\s\d]+[._\-)\]]*\s*/, "")
+    .replace(/[\s._-]+/g, "")
+    .toLowerCase();
+}
 
 /** 보관·중복 폴더는 공개 목록에서 통째로 뺀다(규칙 문서: "납품/공유 대상 아님"). */
 const ARCHIVE_FOLDER = /^_?(archive|보관|중복|test)/i;
@@ -26,7 +39,7 @@ const ARCHIVE_FOLDER = /^_?(archive|보관|중복|test)/i;
  * 사이트에 올릴 카테고리 — 광고(커머셜)·TV·웹드라마만 노출한다(2026-10-28 대표님 지시).
  * 가이드·데모/쇼릴은 폴더째로 조회하지 않는다(하위 폴더도 내려가지 않음).
  */
-const PUBLIC_CATEGORIES = new Set(["commercial", "tv", "webdrama"]);
+export const PUBLIC_CATEGORIES = new Set(["commercial", "tv", "webdrama"]);
 
 /** 공개하지 않기로 한 작품 — 파일 이름 기준으로 걸러 낸다. */
 const HIDDEN_WORKS = [/seed\s*-?\s*war/i, /씨앗\s*전쟁/];
@@ -157,19 +170,23 @@ const lower = (value) => clean(value).toLowerCase();
 export function rootFolder(rawName) {
   const name = clean(rawName);
   if (ARCHIVE_FOLDER.test(name)) return { category: "", label: "", order: 9999, hidden: true };
+  const key = folderKey(name);
   for (const entry of ROOT_FOLDERS) {
-    if (!entry.test.test(name)) continue;
+    if (!entry.test.test(key)) continue;
     if (!PUBLIC_CATEGORIES.has(entry.category)) return { category: entry.category, label: entry.label, order: entry.order, hidden: true };
     return { category: entry.category, label: entry.label, order: entry.order };
   }
-  // 분류를 모르는 최상위 폴더도 사이트에는 올리지 않는다.
-  return { category: "other", label: "기타", order: 90, hidden: true };
+  // 분류를 모르는 폴더. 최상위에 바로 있으면 사이트에 올리지 않고,
+  // 한 겹 감싸는 폴더(예: 최상위 → 작업 폴더 → 01_Commercial)면 안쪽을 다시 살펴본다.
+  return { category: "other", label: "기타", order: 90, hidden: true, unknown: true };
 }
 
 /** 카테고리 안의 하위 폴더 이름 → 섹션 라벨 (없으면 빈 문자열) */
 export function sectionLabel(category, rawName) {
   const name = clean(rawName);
   if (!name) return "";
+  // 카테고리 폴더 자신(01_Commercial 등)은 섹션이 아니다.
+  if (category && rootFolder(name).category === category) return "";
   const table = category === "commercial" ? COMMERCIAL_SECTIONS : category === "guide" ? GUIDE_SECTIONS : [];
   for (const entry of table) {
     if (entry.test.test(name)) return entry.label;
