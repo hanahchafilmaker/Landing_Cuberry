@@ -174,7 +174,7 @@ expect("중복 변형은 카드 한 장으로 병합", works.querySelectorAll("a
 expect("드라이브 썸네일·리소스 키", works.querySelector("article img")?.getAttribute("src"), "https://drive.google.com/thumbnail?id=drivevideo12345&sz=w1000&resourcekey=resourcekey123");
 expect("폴더명이 카드에 표시되지 않음", text(works).includes("Never show folder"), false);
 expect("세로 영상은 9:16 액자", Boolean(works.querySelector("article img.aspect-\\[9\\/16\\], article img")), true);
-expect("변형 배지 표시", text(works.querySelector("article")).includes("KO 자막"), true);
+expect("버전이 하나면 배지를 붙이지 않음", Boolean(works.querySelector("article [data-badge]")), false);
 expect("폴더 링크나 폴더 임베드 없음", Boolean(works.querySelector('a[href*="/drive/folders/"], iframe')), false);
 const videoButton = works.querySelector('article button[aria-label]');
 videoButton.focus();
@@ -240,6 +240,7 @@ drive = { ...drive, videos: [
   { id: "newvideo123456", name: "New_commercial.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", group: "commercial:new_commercial", title: "New Commercial" },
   { id: "guidevideo12345", name: "Guide_XCONDA_05_AutoAngleGenerator_KO.mp4", category: "guide", categoryLabel: "가이드", section: "한국어", group: "guide:guide_xconda_05_autoanglegenerator", title: "Guide XCONDA Auto Angle Generator" },
   { id: "demovideo123456", name: "Demo_Cubeberry_Showreel.mp4", category: "demo", categoryLabel: "데모 · 쇼릴", section: "", group: "demo:demo_cubeberry_showreel", title: "Demo Cubeberry Showreel" },
+  { id: "newvideo789012", name: "New_commercial_v2_KO.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", group: "commercial:new_commercial", title: "New Commercial", variant: "한국어 / v2", version: 2, aspect: "portrait" },
 ] };
 tabs[2].click();
 dom.window.dispatchEvent(new dom.window.Event("focus"));
@@ -264,6 +265,15 @@ await until("검색 필터", () => works.querySelectorAll("article").length === 
 expect("검색 결과", [...works.querySelectorAll("article h3")].map(text), ["Demo Cubeberry Showreel"]);
 typeSearch("");
 await until("검색 해제", () => works.querySelectorAll("article").length === 2);
+
+// 같은 group 의 변형은 카드 한 장으로 묶이고, 배지로만 개수를 알린다.
+tabs[1].click();
+await until("광고 탭 병합 카드", () => works.querySelectorAll("article").length === 1);
+expect("변형 2편은 카드 1장", works.querySelectorAll("article").length, 1);
+expect("병합 배지 표시", works.querySelector("article [data-badge]")?.getAttribute("data-badge"), "2개 버전");
+expect("카드에는 언어·버전 배지를 붙이지 않음", text(works.querySelector("article")).includes("KO 자막"), false);
+tabs[2].click();
+await until("작품중심 복귀", () => works.querySelectorAll("article").length === 2);
 const updatedDrive = structuredClone(drive);
 works.querySelector('article button[aria-label]').click();
 await until("갱신 전 개별 플레이어", () => Boolean(document.querySelector('[role="dialog"] iframe')));

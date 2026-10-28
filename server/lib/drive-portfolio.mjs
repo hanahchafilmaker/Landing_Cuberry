@@ -1,7 +1,7 @@
 // 비공개 Google Drive 폴더에서 링크 공개된 영상의 메타데이터만 읽는다.
 // 영상은 방문자의 브라우저가 Google Drive에서 직접 재생하며, 서버에 복사하지 않는다.
 import { JWT } from "google-auth-library";
-import { CATEGORY_LABELS, describeVideo, rootFolder, sectionLabel } from "./drive-grouping.mjs";
+import { CATEGORY_LABELS, describeVideo, isHiddenWork, rootFolder, sectionLabel } from "./drive-grouping.mjs";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -149,6 +149,10 @@ export function createDrivePortfolio({
             queue.push({ id, depth: parent.depth + 1, category, categoryLabel, section, order });
           } else if (typeof file.mimeType === "string" && file.mimeType.startsWith("video/")) {
             if (seenVideos.has(id)) continue;
+            // 공개 카테고리(광고·TV·웹드라마) 안에 있는 영상만 올린다 — 최상위에 놓인 파일은 제외.
+            if (!parent.category) continue;
+            // 공개하지 않기로 한 작품(예: 씨앗전쟁)은 목록에도 넣지 않는다.
+            if (isHiddenWork(name)) continue;
             seenVideos.add(id);
             if (seenVideos.size > MAX_VIDEOS) throw new DriveError("video-limit");
             // resourceKey가 필요한 오래된 링크 공유 파일은 재생 URL에 이 값이 필요하다.
