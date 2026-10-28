@@ -185,16 +185,32 @@ export function Portfolio() {
                 {/* 썸네일은 모든 카드가 같은 16:9 액자 — 세로 영상은 안쪽에 담아 여백만 남긴다.
                     (예전처럼 카드마다 높이가 달라지면 줄이 어긋나 지저분해 보인다.) */}
                 <div className="relative aspect-video w-full overflow-hidden bg-void">
-                  <SmartImage
-                    src={card.thumbnailUrl}
-                    alt={t(card.title)}
-                    fallbackSrc={card.fallbackUrl}
-                    // 세로 영상도 액자를 꽉 채운다(여백 없이). 잘리는 부분은 위쪽으로 조금 당겨
-                    // 인물 얼굴이 프레임 밖으로 나가지 않게 한다.
-                    objectPosition={card.aspect === "portrait" ? "50% 35%" : undefined}
-                    className="absolute inset-0 h-full w-full"
-                    imgClassName="transition-transform duration-500 group-hover:scale-[1.02]"
-                  />
+                  {card.thumbnailBlank ? (
+                    /* 첫 장면이 검은 영상은 드라이브 썸네일도 새까맣다.
+                       검은 사각형 대신 브랜드 톤 카드로 그려 "빈 카드"처럼 보이지 않게 한다. */
+                    <div
+                      data-blank-thumb="true"
+                      aria-hidden="true"
+                      className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_38%,rgba(212,175,55,0.22),rgba(8,8,8,0.98)_72%)]"
+                    >
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full border border-brand/50 bg-void/60">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="ml-0.5 h-5 w-5 text-brand">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </span>
+                    </div>
+                  ) : (
+                    <SmartImage
+                      src={card.thumbnailUrl}
+                      alt={t(card.title)}
+                      fallbackSrc={card.fallbackUrl}
+                      // 세로 영상도 액자를 꽉 채운다(여백 없이). 위아래가 잘리더라도 화면을 채우고,
+                      // 잘리는 위치는 조금 위쪽으로 두어 얼굴이 프레임 밖으로 나가지 않게 한다.
+                      objectPosition={card.aspect === "portrait" ? "50% 35%" : undefined}
+                      className="absolute inset-0 h-full w-full"
+                      imgClassName="transition-transform duration-500 group-hover:scale-[1.02]"
+                    />
+                  )}
 
                   {/* 왼쪽 위: 지금 보고 있는 분류(전체 탭에서만) / 오른쪽 위: 버전 수 안내 */}
                   {activeTab === "ALL" && card.category && (

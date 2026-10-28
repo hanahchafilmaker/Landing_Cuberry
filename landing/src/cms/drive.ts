@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PortfolioCard } from "./map";
+import { findBlankThumbnails } from "./thumbnail";
 
 const ID = /^[A-Za-z0-9_-]{8,200}$/;
 const REFRESH_MS = 60 * 1000;
@@ -303,5 +304,23 @@ export function useDrivePortfolio() {
   }, []);
 
   const films = useMemo(() => toFilms(state.videos), [state.videos]);
-  return { ...state, films };
+
+  // 첫 장면이 검은 영상은 드라이브 썸네일도 새까맣게 나온다.
+  // 그런 카드는 화면에서 검은 사각형 대신 브랜드 톤 카드로 대신 그린다.
+  const [blankThumbnails, setBlankThumbnails] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!films.length) return;
+    let disposed = false;
+    void findBlankThumbnails(films.map((film) => film.thumbnailUrl)).then((blanks) => {
+      if (!disposed && blanks.size) setBlankThumbnails(blanks);
+    });
+    return () => { disposed = true; };
+  }, [films]);
+
+  const decorated = useMemo(
+    () => films.map((film) => (blankThumbnails.has(film.thumbnailUrl) ? { ...film, thumbnailBlank: true } : film)),
+    [blankThumbnails, films],
+  );
+
+  return { ...state, films: decorated };
 }
