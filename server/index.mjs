@@ -1,5 +1,6 @@
 import { hideMotionGraphics } from "./migrations/hide-motion-graphics-2026.mjs";
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
+import { drivePortfolio } from "./lib/drive-portfolio.mjs";
 import { handleApi } from "./routes/api.mjs";
 import {
   ALLOWED_ORIGINS, ALLOW_ANY_ORIGIN, BEHIND_PROXY, CONTENT_SECURITY_POLICY, DEFAULT_ALLOWED_ORIGINS, DEFAULT_PASSWORD,
@@ -65,6 +66,11 @@ function ensureAdminUser() {
   }
 }
 
+
+const driveState = drivePortfolio.diagnose();
+if (!driveState.configured) {
+  console.warn(`[drive] DRIVE FILM 자동 동기화가 꺼져 있습니다 — ${driveState.reasons.join(" / ") || "설정 없음"}`);
+}
 
 seedContent();
 seedTeam();

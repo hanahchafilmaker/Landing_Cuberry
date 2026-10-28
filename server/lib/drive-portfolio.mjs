@@ -1,6 +1,7 @@
 // 비공개 Google Drive 폴더에서 링크 공개된 영상의 메타데이터만 읽는다.
 // 영상은 방문자의 브라우저가 Google Drive에서 직접 재생하며, 서버에 복사하지 않는다.
 import { JWT } from "google-auth-library";
+import { CATEGORY_LABELS, describeVideo, rootFolder, sectionLabel } from "./drive-grouping.mjs";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -59,6 +60,7 @@ export function createDrivePortfolio({
   logger = console,
 } = {}) {
   const rootId = safeId(folderId);
+  const credentialState = inspectCredentials(serviceAccount);
   let snapshot = null;
   let nextAttemptAt = 0;
   let inflight = null;
@@ -88,7 +90,10 @@ export function createDrivePortfolio({
       const url = new URL(DRIVE_API);
       // 폴더는 탐색만 하고, 비디오는 누구나 링크로 볼 수 있는 것만 공개 응답에 넣는다.
       url.searchParams.set("q", `'${folder.id}' in parents and trashed = false and (mimeType = '${FOLDER_MIME}' or (mimeType contains 'video/' and (visibility = 'anyoneWithLink' or visibility = 'anyoneCanFind')))`);
-      url.searchParams.set("fields", "nextPageToken,incompleteSearch,files(id,name,mimeType,resourceKey)");
+      url.searchParams.set(
+        "fields",
+        "nextPageToken,incompleteSearch,files(id,name,mimeType,resourceKey,videoMediaMetadata(width,height,durationMillis))",
+      );
       url.searchParams.set("pageSize", "1000");
       url.searchParams.set("supportsAllDrives", "true");
       url.searchParams.set("includeItemsFromAllDrives", "true");
@@ -114,7 +119,8 @@ export function createDrivePortfolio({
     const root = await request(rootUrl, headers, signal);
     if (root.id !== rootId || root.mimeType !== FOLDER_MIME) throw new DriveError("invalid-root");
 
-    const queue = [{ id: rootId, depth: 0 }];
+    // 폴더 이름은 공개 카테고리로만 바꿔 내려보낸다(폴더 ID·이름은 응답에 나가지 않는다).
+    const queue = [{ id: rootId, depth: 0, category: "", categoryLabel: "", section: "", order: 999 }];
     const seenFolders = new Set([rootId]);
     const seenVideos = new Set();
     const videos = [];
@@ -130,23 +136,48 @@ export function createDrivePortfolio({
           if (!id || !name) continue;
           if (file.mimeType === FOLDER_MIME) {
             if (seenFolders.has(id)) continue;
+            // 최상위 폴더가 _archive 이면 하위까지 통째로 건너뛴다(공유 대상 아님).
+            if (parent.depth === 0 && rootFolder(name).hidden) continue;
             seenFolders.add(id);
             if (seenFolders.size > MAX_FOLDERS) throw new DriveError("folder-limit");
             if (parent.depth >= MAX_DEPTH) throw new DriveError("depth-limit");
-            queue.push({ id, depth: parent.depth + 1 });
+            const top = parent.depth === 0 ? rootFolder(name) : null;
+            const category = top ? top.category : parent.category;
+            const categoryLabel = top ? top.label : parent.categoryLabel;
+            const order = top ? top.order : parent.order;
+            const section = top ? "" : parent.section || sectionLabel(category, name);
+            queue.push({ id, depth: parent.depth + 1, category, categoryLabel, section, order });
           } else if (typeof file.mimeType === "string" && file.mimeType.startsWith("video/")) {
             if (seenVideos.has(id)) continue;
             seenVideos.add(id);
             if (seenVideos.size > MAX_VIDEOS) throw new DriveError("video-limit");
             // resourceKey가 필요한 오래된 링크 공유 파일은 재생 URL에 이 값이 필요하다.
             const resourceKey = safeId(file.resourceKey);
-            videos.push({ id, name, ...(resourceKey ? { resourceKey } : {}) });
+            const meta = file.videoMediaMetadata && typeof file.videoMediaMetadata === "object" ? file.videoMediaMetadata : {};
+            const record = describeVideo(
+              { id, name, ...(resourceKey ? { resourceKey } : {}), width: meta.width, height: meta.height, durationMs: meta.durationMillis },
+              {
+                category: parent.category || "other",
+                categoryLabel: parent.categoryLabel || CATEGORY_LABELS.other || "기타",
+                section: parent.section || "",
+              },
+            );
+            videos.push({ ...record, _order: parent.order });
           }
         }
       }
     }
-    videos.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base", numeric: true }) || a.id.localeCompare(b.id));
-    return videos;
+    // 카테고리 → 섹션 → 제목 순으로 정렬해 랜딩의 탭/칩 순서와 맞춘다.
+    videos.sort(
+      (a, b) =>
+        (a._order || 0) - (b._order || 0) ||
+        a.category.localeCompare(b.category) ||
+        a.section.localeCompare(b.section, "ko") ||
+        a.title.localeCompare(b.title, "ko", { sensitivity: "base", numeric: true }) ||
+        a.name.localeCompare(b.name, "en", { sensitivity: "base", numeric: true }) ||
+        a.id.localeCompare(b.id),
+    );
+    return videos.map(({ _order, ...video }) => video);
   }
 
   async function get() {
@@ -180,7 +211,61 @@ export function createDrivePortfolio({
     return inflight;
   }
 
-  return { get };
+  /**
+   * 설정이 왜 비어 있는지 알려준다(비밀값은 절대 담지 않는다).
+   * `unconfigured` 는 Google 호출 전에 돌려주는 값이라, 원인을 이걸로만 알 수 있다.
+   */
+  function diagnose() {
+    const folderIdSet = Boolean(String(folderId || "").trim());
+    const folderIdValid = Boolean(rootId);
+    const reasons = [];
+    if (!folderIdSet) reasons.push("GOOGLE_DRIVE_FOLDER_ID 없음");
+    else if (!folderIdValid) reasons.push("GOOGLE_DRIVE_FOLDER_ID 형식 오류(폴더 ID만 넣어야 합니다)");
+    if (!credentialState.set) reasons.push("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON 없음");
+    else if (!credentialState.parsed) reasons.push(`서비스 계정 JSON 오류: ${credentialState.error}`);
+    return {
+      status: !folderIdValid || !credentialState.parsed ? "unconfigured" : snapshot ? "ready" : "unavailable",
+      configured: folderIdValid && credentialState.parsed,
+      folderIdSet,
+      folderIdValid,
+      serviceAccountSet: credentialState.set,
+      serviceAccountParsed: credentialState.parsed,
+      serviceAccountType: credentialState.type,
+      serviceAccountEmail: credentialState.email,
+      reasons,
+    };
+  }
+
+  return { get, diagnose };
+}
+
+/** 서비스 계정 JSON 을 비밀값 없이 요약한다(이메일은 앞 3자만). */
+function inspectCredentials(raw) {
+  const set = Boolean(String(raw || "").trim());
+  if (!set) return { set, parsed: false, type: "", email: "", error: "" };
+  let value;
+  try {
+    value = JSON.parse(String(raw));
+  } catch (error) {
+    return { set, parsed: false, type: "", email: "", error: `JSON 파싱 실패 (${String(error.message).slice(0, 80)})` };
+  }
+  if (!value || typeof value !== "object") return { set, parsed: false, type: "", email: "", error: "JSON 최상위가 객체가 아님" };
+  const type = typeof value.type === "string" ? value.type : "";
+  const account = typeof value.client_email === "string" ? value.client_email : "";
+  if (type !== "service_account") {
+    return { set, parsed: false, type, email: maskEmail(account), error: `type 이 service_account 가 아님 (${type || "없음"})` };
+  }
+  // 서버 인증(serviceAccountHeaders)과 같은 기준으로 판단한다 — PEM 형식 검사는 CLI 검사기가 한다.
+  if (!account || typeof value.private_key !== "string" || !value.private_key.trim()) {
+    return { set, parsed: false, type, email: maskEmail(account), error: "client_email 또는 private_key 누락" };
+  }
+  return { set, parsed: true, type, email: maskEmail(account), error: "" };
+}
+
+function maskEmail(email) {
+  if (!email) return "";
+  const [name, domain = ""] = String(email).split("@");
+  return `${name.slice(0, 3)}***@${domain}`;
 }
 
 export const drivePortfolio = createDrivePortfolio();

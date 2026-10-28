@@ -45,10 +45,33 @@ try {
   assert.equal(data.status, "ready");
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(Object.keys(data).sort(), ["status", "updatedAt", "videos"]);
-  assert.deepEqual(data.videos, [{ id: "mockvideo1234", name: "Mock video.mp4", resourceKey: "mockkey12345" }]);
+  assert.equal(data.videos.length, 1);
+  const [video] = data.videos;
+  assert.equal(video.id, "mockvideo1234");
+  assert.equal(video.name, "Mock video.mp4");
+  assert.equal(video.resourceKey, "mockkey12345");
+  // 화면 분류용 필드 — 폴더 ID·이름 대신 공개 카테고리만 내려간다.
+  assert.equal(video.category, "other");
+  assert.equal(video.categoryLabel, "기타");
+  assert.equal(typeof video.group, "string");
+  assert.equal(typeof video.title, "string");
+  assert.equal(video.aspect, "landscape");
+  assert.equal(Object.keys(video).includes("folderId"), false);
   for (const secret of ["root_folder_12345", "childfolder123", "Do not expose folder", "Do not expose description", "local-test-token", "local-fake-private-key", "test-service@example.invalid"]) {
     assert.equal(text.includes(secret), false, `${secret} 공개 금지`);
   }
+  // 진단 라우트: 값이 정상일 때 configured 이고, 이메일은 마스킹되며 키는 나가지 않는다.
+  const diagnoseResponse = await fetch(`${base}/api/public/drive-diagnose`);
+  const diagnoseText = await diagnoseResponse.text();
+  const diagnose = JSON.parse(diagnoseText);
+  assert.equal(diagnoseResponse.status, 200);
+  assert.equal(diagnose.configured, true);
+  assert.equal(diagnose.folderIdValid, true);
+  assert.equal(diagnose.serviceAccountParsed, true);
+  assert.equal(diagnose.serviceAccountEmail, "tes***@example.invalid");
+  assert.deepEqual(diagnose.reasons, []);
+  assert.equal(diagnoseText.includes("local-fake-private-key"), false, "개인키는 진단에도 나가지 않는다");
+
   const content = await (await fetch(`${base}/api/public/content`)).json();
   assert.ok(content.portfolio.length > 0, "기존 일반 작품은 유지된다");
   assert.equal(content.portfolio.some((item) => item.source === "drive" || String(item.landingSlot || "").startsWith("drive-")), false, "일반 공개 API로 이전 Drive 메타데이터가 새지 않는다");
