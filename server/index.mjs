@@ -1,4 +1,5 @@
 import { hideMotionGraphics } from "./migrations/hide-motion-graphics-2026.mjs";
+import { migrateServicePricing } from "./migrations/service-pricing-2026.mjs";
 import { migrateTeamProfile } from "./migrations/team-profile-2026.mjs";
 import { drivePortfolio } from "./lib/drive-portfolio.mjs";
 import { handleApi } from "./routes/api.mjs";
@@ -76,6 +77,7 @@ seedContent();
 seedTeam();
 console.log("Team profile 2026:", migrateTeamProfile(db, JSON.parse(readFileSync(SEED_PATH, "utf8")).team));
 console.log("Motion graphics 2026:", hideMotionGraphics(db));
+console.log("Service pricing 2026:", migrateServicePricing(db));
 ensureAdminUser();
 
 // 운영에서 기본 비밀번호를 그대로 쓰는 사고를 막는 안전장치.

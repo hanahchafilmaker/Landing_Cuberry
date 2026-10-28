@@ -101,7 +101,7 @@ export function Pricing() {
         <Reveal delay={4}>
           <p className="mt-7 font-mono text-[11px] text-faint">
             {t(
-              "* 표기 금액은 참고용 기본 구성입니다. 영상 길이·컷 수·캐릭터 수·연출 난이도에 따라 최종 견적이 달라질 수 있습니다.",
+              "* 표기 금액은 부가세(VAT) 별도이며, 참고용 기본 구성입니다. 영상 길이·컷 수·캐릭터 수·연출 난이도에 따라 최종 견적이 달라질 수 있습니다.",
             )}
           </p>
         </Reveal>
