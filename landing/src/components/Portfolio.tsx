@@ -16,7 +16,14 @@ const ALL_CHIP = "__all__";
 /** 광고 = Drive 01_Commercial, 작품중심 = TV·웹드라마·데모·가이드 (+ CMS 작품) */
 const CREATIVE_SLUGS = new Set(["tv", "webdrama", "demo", "guide", "other"]);
 const TABS: Tab[] = ["ALL", "AD", "CREATIVE"];
+const UNCATEGORIZED = "기타";
 const TAB_LABEL: Record<Tab, string> = { ALL: "전체", AD: "광고", CREATIVE: "작품중심" };
+
+/** 칩을 나누는 기준 — 광고 탭은 프로젝트(섹션), 작품중심 탭은 장르. 섹션이 없으면 '기타'. */
+function chipKey(tab: Tab, film: DriveFilm) {
+  if (tab === "AD") return film.section || UNCATEGORIZED;
+  return film.categoryLabel;
+}
 
 function durationLabel(ms: number) {
   if (!ms) return "";
@@ -54,7 +61,7 @@ export function Portfolio() {
   /** 칩: 광고 탭은 프로젝트(KOSHA·XCONDA…), 작품중심 탭은 장르(TV·웹드라마…) */
   const chips = useMemo(() => {
     if (activeTab === "ALL") return [];
-    const key = (film: DriveFilm) => (activeTab === "AD" ? film.section || film.categoryLabel : film.categoryLabel);
+    const key = (film: DriveFilm) => chipKey(activeTab, film);
     const counts = new Map<string, number>();
     for (const film of filmsForTab) {
       const label = key(film);
@@ -69,7 +76,7 @@ export function Portfolio() {
   const matches = (value: string) => value.includes(trimmed);
 
   const driveCards = useMemo(() => {
-    const keyOf = (film: DriveFilm) => (activeTab === "AD" ? film.section || film.categoryLabel : film.categoryLabel);
+    const keyOf = (film: DriveFilm) => chipKey(activeTab, film);
     let list = filmsForTab;
     if (chip !== ALL_CHIP) list = list.filter((film) => keyOf(film) === chip);
     if (trimmed) list = list.filter((film) => matches(film.searchText) || matches(film.title.toLowerCase()));

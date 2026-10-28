@@ -37,7 +37,7 @@ assert.equal(rootFolder("03_Demo").hidden, true, "데모/쇼릴은 사이트에 
 for (const name of ["_archive", "Archive", "보관함", "test-folder"]) {
   assert.equal(rootFolder(name).hidden, true, `${name} 은 공개 대상이 아니다`);
 }
-assert.deepEqual(rootFolder("기타자료"), { category: "other", label: "기타", order: 90, hidden: true });
+assert.deepEqual(rootFolder("기타자료"), { category: "other", label: "기타", order: 90, hidden: true, unknown: true });
 assert.equal(rootFolder("기타자료").hidden, true, "분류 밖 폴더도 올리지 않는다");
 
 // 공개하지 않기로 한 작품(씨앗전쟁)

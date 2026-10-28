@@ -1,7 +1,7 @@
 // 비공개 Google Drive 폴더에서 링크 공개된 영상의 메타데이터만 읽는다.
 // 영상은 방문자의 브라우저가 Google Drive에서 직접 재생하며, 서버에 복사하지 않는다.
 import { JWT } from "google-auth-library";
-import { CATEGORY_LABELS, describeVideo, isHiddenWork, rootFolder, sectionLabel } from "./drive-grouping.mjs";
+import { CATEGORY_LABELS, PUBLIC_CATEGORIES, describeVideo, isHiddenWork, rootFolder, sectionLabel } from "./drive-grouping.mjs";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -114,13 +114,25 @@ export function createDrivePortfolio({
   async function collect(headers, signal) {
     // 인증된 계정이 폴더를 열 수 있는지 확인해 빈 폴더와 접근 오류를 구분한다.
     const rootUrl = new URL(`${DRIVE_API}/${rootId}`);
-    rootUrl.searchParams.set("fields", "id,mimeType");
+    rootUrl.searchParams.set("fields", "id,name,mimeType");
     rootUrl.searchParams.set("supportsAllDrives", "true");
     const root = await request(rootUrl, headers, signal);
     if (root.id !== rootId || root.mimeType !== FOLDER_MIME) throw new DriveError("invalid-root");
 
+    // 공유 폴더 ID 가 카테고리 폴더(예: 01_Commercial)를 직접 가리키는 경우도 있다.
+    // 이때는 그 안의 파일·폴더가 모두 그 카테고리 소속이므로 따로 처리한다.
+    const rootInfo = typeof root.name === "string" && root.name.trim() ? rootFolder(root.name) : null;
+    const self = rootInfo && !rootInfo.hidden && PUBLIC_CATEGORIES.has(rootInfo.category) ? rootInfo : null;
+
     // 폴더 이름은 공개 카테고리로만 바꿔 내려보낸다(폴더 ID·이름은 응답에 나가지 않는다).
-    const queue = [{ id: rootId, depth: 0, category: "", categoryLabel: "", section: "", order: 999 }];
+    const queue = [{
+      id: rootId,
+      depth: 0,
+      category: self ? self.category : "",
+      categoryLabel: self ? self.label : "",
+      section: "",
+      order: self ? self.order : 999,
+    }];
     const seenFolders = new Set([rootId]);
     const seenVideos = new Set();
     const videos = [];
@@ -136,16 +148,26 @@ export function createDrivePortfolio({
           if (!id || !name) continue;
           if (file.mimeType === FOLDER_MIME) {
             if (seenFolders.has(id)) continue;
-            // 최상위 폴더가 _archive 이면 하위까지 통째로 건너뛴다(공유 대상 아님).
-            if (parent.depth === 0 && rootFolder(name).hidden) continue;
+            const top = !self && parent.depth === 0 ? rootFolder(name) : null;
+            // 분류를 모르는 폴더가 하나 더 감싸고 있으면(작업 폴더) 한 단계만 안쪽을 살핀다.
+            if (top?.unknown && !parent.wrapper) {
+              seenFolders.add(id);
+              queue.push({ id, depth: parent.depth + 1, category: "", categoryLabel: "", section: "", order: 999, wrapper: true });
+              continue;
+            }
+            // 최상위 폴더가 _archive·가이드·데모처럼 공개 대상이 아니면 하위까지 통째로 건너뛴다.
+            if (top && top.hidden) continue;
             seenFolders.add(id);
             if (seenFolders.size > MAX_FOLDERS) throw new DriveError("folder-limit");
             if (parent.depth >= MAX_DEPTH) throw new DriveError("depth-limit");
-            const top = parent.depth === 0 ? rootFolder(name) : null;
-            const category = top ? top.category : parent.category;
-            const categoryLabel = top ? top.label : parent.categoryLabel;
-            const order = top ? top.order : parent.order;
-            const section = top ? "" : parent.section || sectionLabel(category, name);
+            const inner = parent.wrapper ? rootFolder(name) : null;
+            if (inner?.hidden) continue;
+            const category = inner ? inner.category : top ? top.category : parent.category;
+            const categoryLabel = inner ? inner.label : top ? top.label : parent.categoryLabel;
+            const order = inner ? inner.order : top ? top.order : parent.order;
+            // 카테고리 안에서는 하위 폴더가 곧 섹션(프로젝트·장르)이다.
+            // 카테고리 폴더 자신(01_Commercial 등)은 섹션이 아니다.
+            const section = top || inner ? "" : parent.section || sectionLabel(category, name);
             queue.push({ id, depth: parent.depth + 1, category, categoryLabel, section, order });
           } else if (typeof file.mimeType === "string" && file.mimeType.startsWith("video/")) {
             if (seenVideos.has(id)) continue;
@@ -158,12 +180,14 @@ export function createDrivePortfolio({
             // resourceKey가 필요한 오래된 링크 공유 파일은 재생 URL에 이 값이 필요하다.
             const resourceKey = safeId(file.resourceKey);
             const meta = file.videoMediaMetadata && typeof file.videoMediaMetadata === "object" ? file.videoMediaMetadata : {};
+            // 폴더 없이 카테고리 폴더에 바로 놓인 영상은 파일 이름 앞부분으로 섹션(프로젝트)을 추정한다.
+            const section = parent.section || sectionLabel(parent.category, name.split("_")[0]);
             const record = describeVideo(
               { id, name, ...(resourceKey ? { resourceKey } : {}), width: meta.width, height: meta.height, durationMs: meta.durationMillis },
               {
                 category: parent.category || "other",
                 categoryLabel: parent.categoryLabel || CATEGORY_LABELS.other || "기타",
-                section: parent.section || "",
+                section,
               },
             );
             videos.push({ ...record, _order: parent.order });
@@ -227,8 +251,12 @@ export function createDrivePortfolio({
     else if (!folderIdValid) reasons.push("GOOGLE_DRIVE_FOLDER_ID 형식 오류(폴더 ID만 넣어야 합니다)");
     if (!credentialState.set) reasons.push("GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON 없음");
     else if (!credentialState.parsed) reasons.push(`서비스 계정 JSON 오류: ${credentialState.error}`);
+    const counts = {};
+    for (const video of snapshot?.videos ?? []) counts[video.category] = (counts[video.category] || 0) + 1;
     return {
       status: !folderIdValid || !credentialState.parsed ? "unconfigured" : snapshot ? "ready" : "unavailable",
+      videos: snapshot?.videos.length ?? 0,
+      categories: counts,
       configured: folderIdValid && credentialState.parsed,
       folderIdSet,
       folderIdValid,
