@@ -44,3 +44,24 @@ export function isAiWork(card: PortfolioCard): boolean {
   if (tags.some((tag) => tag === "AI" || tag.startsWith("AI ") || tag.includes("AI GENERATION") || tag.includes("AI ANIMATION"))) return true;
   return /(^|\s)AI(\s|$)/.test(`${card.category} ${card.title}`.toUpperCase()) || /XCONDA/i.test(card.title);
 }
+
+/** 칩 이름을 비교용으로 정규화한다 — 띄어쓰기·가운뎃점·기호를 무시한다. */
+function normalizeChip(value: string): string {
+  return String(value || "").toLowerCase().replace(/[\s·._-]+/g, "");
+}
+
+/**
+ * 고른 칩(프로젝트·장르)에 어드민 작품이 속하는지.
+ *
+ * 2026-10-29 대표님 지적 "왜 kosha에 다른 영상이 섞여있지"
+ *   칩 필터가 드라이브 영상에만 걸려서, 어드민에 올린 작품(브랜드 필름 등)은
+ *   KOSHA 칩을 골라도 그대로 남아 섞여 보였다. 이제 칩을 고르면 어드민 작품도
+ *   그 프로젝트에 속한 것만 남고 나머지는 숨긴다(제목·카테고리·태그에서 찾는다).
+ *   → 어디에도 속하지 않는 작품은 '전체' 칩에서만 보인다(사라지지는 않는다).
+ */
+export function chipMatchesCmsWork(chip: string, card: PortfolioCard): boolean {
+  const target = normalizeChip(chip);
+  if (!target) return true;
+  const haystack = normalizeChip(`${card.title} ${card.category} ${card.tags.join(" ")}`);
+  return haystack.includes(target);
+}

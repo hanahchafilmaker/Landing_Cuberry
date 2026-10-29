@@ -6,7 +6,7 @@ import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
 import { useDrivePortfolio, type DriveFilm } from "@/cms/drive";
-import { PORTFOLIO_TABS, isAiWork, tabForCmsWork, tabForDriveFilm, type PortfolioTab } from "@/cms/classify";
+import { PORTFOLIO_TABS, chipMatchesCmsWork, isAiWork, tabForCmsWork, tabForDriveFilm, type PortfolioTab } from "@/cms/classify";
 import { mergeDuplicateWorks } from "@/cms/dedupe";
 import { curatedThumbnail } from "@/cms/curated";
 import type { PortfolioCard } from "@/cms/map";
@@ -93,7 +93,10 @@ export function Portfolio() {
   const filmsForTab = grouped.drive[activeTab];
   const worksForTab = grouped.works[activeTab];
 
-  /** 칩: 광고 탭은 프로젝트(KOSHA·XCONDA…), 작품중심 탭은 장르(TV·웹드라마…) */
+  /**
+   * 칩: 광고 탭은 프로젝트(KOSHA·XCONDA…), 작품중심 탭은 장르(TV·웹드라마…).
+   * 숫자는 **그 칩을 골랐을 때 실제로 보이는 카드 수**다 — 어드민 작품도 함께 센다.
+   */
   const chips = useMemo(() => {
     const key = (film: DriveFilm) => chipKey(activeTab, film);
     const counts = new Map<string, number>();
@@ -101,8 +104,13 @@ export function Portfolio() {
       const label = key(film);
       counts.set(label, (counts.get(label) || 0) + 1);
     }
+    for (const card of worksForTab) {
+      for (const label of counts.keys()) {
+        if (chipMatchesCmsWork(label, card)) counts.set(label, (counts.get(label) || 0) + 1);
+      }
+    }
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko")).map(([label, count]) => ({ label, count }));
-  }, [activeTab, filmsForTab]);
+  }, [activeTab, filmsForTab, worksForTab]);
 
   useEffect(() => { setChip(ALL_CHIP); }, [activeTab]);
 
@@ -117,10 +125,14 @@ export function Portfolio() {
     return list;
   }, [activeTab, chip, filmsForTab, trimmed]);
 
+  // 칩을 고르면 어드민 작품도 그 프로젝트·장르에 속한 것만 남긴다.
+  // (예전에는 드라이브 영상만 걸러서 KOSHA 칩에 브랜드 필름이 섞여 보였다 — 2026-10-29 지적)
   const worksCards = useMemo(() => {
-    if (!trimmed) return worksForTab;
-    return worksForTab.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
-  }, [trimmed, worksForTab]);
+    let list = worksForTab;
+    if (chip !== ALL_CHIP) list = list.filter((card) => chipMatchesCmsWork(chip, card));
+    if (trimmed) list = list.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
+    return list;
+  }, [chip, trimmed, worksForTab]);
 
   /**
    * 대표님이 직접 준 썸네일이 있으면 그것을 쓴다.
@@ -209,7 +221,7 @@ export function Portfolio() {
         {chips.length > 1 && (
           <Reveal delay={1}>
             <div aria-label={t("폴더 필터")} role="group" className="mt-4 flex flex-wrap gap-1.5">
-              {[{ label: t("전체"), count: filmsForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
+              {[{ label: t("전체"), count: filmsForTab.length + worksForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
                 <button
                   key={entry.value}
                   type="button"

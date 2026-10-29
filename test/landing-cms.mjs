@@ -279,11 +279,12 @@ await until("Drive 파일 갱신", () => works.querySelectorAll("article").lengt
 expect("작품중심 = CMS 드라마 + TV·웹드라마", titles().sort(), ["CMS 드라마 작품", "TV Hometown", "Web Drama Cold Site"].sort());
 expect("작품중심 탭에는 광고가 섞이지 않음", text(works).includes("New Commercial"), false);
 const chipButtons = [...works.querySelectorAll('[aria-label="폴더 필터"] button')];
-// 칩은 드라이브 영상의 장르만 좁힌다(어드민 작품은 장르 정보가 없어 그대로 남는다).
-expect("장르 칩 표시(전체 + 장르 2)", chipButtons.map(text).sort(), ["TV1", "웹드라마1", "전체2"].sort());
+// 칩을 고르면 어드민 작품도 그 장르에 속한 것만 남는다(2026-10-29 "KOSHA에 다른 영상이 섞여있다" 지적).
+// 숫자는 그 칩을 골랐을 때 보이는 카드 수 — 어드민 작품(CMS 드라마)까지 포함한다.
+expect("장르 칩 표시(전체 + 장르 2)", chipButtons.map(text).sort(), ["TV1", "웹드라마1", "전체3"].sort());
 chipButtons.find((button) => button.dataset.chip === "웹드라마").click();
-await until("칩 필터", () => works.querySelectorAll("article").length === 2);
-expect("칩 선택 시 해당 장르만", titles().sort(), ["CMS 드라마 작품", "Web Drama Cold Site"].sort());
+await until("칩 필터", () => works.querySelectorAll("article").length === 1);
+expect("칩 선택 시 해당 장르만", titles(), ["Web Drama Cold Site"]);
 works.querySelector('[aria-label="폴더 필터"] button').click();
 await until("칩 해제", () => works.querySelectorAll("article").length === 3);
 const search = works.querySelector('input[type="search"]');
@@ -563,6 +564,68 @@ console.log("\n[landing Drive] 대표님이 준 썸네일이 Drive 썸네일보�
   expect("다른 작품은 준 사진을 쓰지 않음", (coldSite?.querySelector("img")?.getAttribute("src") || "").includes("/images/curated/"), false);
   expect("다른 작품은 검은 썸네일이면 브랜드 카드", Boolean(coldSite?.querySelector("[data-blank-thumb]")), true);
   curatedDom.window.close();
+}
+
+console.log("\n[landing Drive] 광고 탭에서 KOSHA 칩을 고르면 KOSHA 작품만 (2026-10-29 지적)");
+{
+  const adContent = {
+    settings: {}, services: [], team: [], faqs: [],
+    portfolio: [
+      { id: 601, title: "비치오네 AI 브랜드 필름", category: "BRAND FILM", year: "2026", description: "브랜드 필름", thumbnailUrl: "https://example.com/a.jpg", tags: "PLANNING, AI GENERATION", source: "works" },
+      { id: 602, title: "셀렉스 릴렉스 샷 윤가이편", category: "ADVERTISING", year: "2024", description: "광고", thumbnailUrl: "https://example.com/b.jpg", tags: "PLANNING", source: "works" },
+      { id: 603, title: "미국 광고 RERE", category: "ADVERTISING · ATTACHED REEL", year: "2026", description: "광고", thumbnailUrl: "https://example.com/c.jpg", tags: "4K", source: "works" },
+    ],
+  };
+  const adDrive = {
+    status: "ready",
+    updatedAt: "2026-10-29T00:00:00.000Z",
+    videos: [
+      { id: "kosha0000001", name: "Kosha_daVinci_MonaLisa_v5.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", title: "Kosha da Vinci Mona Lisa" },
+      { id: "kosha0000002", name: "Kosha_VanGogh_v3.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", title: "Kosha Van Gogh" },
+      { id: "scanpang0001", name: "ScanPang_Commercial_v7_KO.mp4", category: "commercial", categoryLabel: "광고", section: "스캔팡", title: "Scan Pang Commercial" },
+    ],
+  };
+  const adDom = new JSDOM('<!doctype html><html lang="ko" data-cms-native="1"><head></head><body><div id="root"></div></body></html>', {
+    url: "https://hanahchafilmaker.github.io/Landing_Cuberry/",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+    virtualConsole,
+    beforeParse(window) {
+      Object.defineProperty(window.navigator, "language", { value: "ko-KR", configurable: true });
+      Object.defineProperty(window.navigator, "languages", { value: ["ko-KR", "ko"], configurable: true });
+      window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+      window.scrollTo = () => {};
+      window.CuberryContent = structuredClone(adContent);
+      window.fetch = async (url) => ({
+        ok: true,
+        json: async () => structuredClone(String(url).endsWith("/api/public/drive-portfolio") ? adDrive : adContent),
+      });
+    },
+  });
+  adDom.window.eval(bundle);
+  const adWorks = () => adDom.window.document.querySelector("#works");
+  const adTitles = () => [...(adWorks()?.querySelectorAll("article h3") ?? [])].map(text);
+  const startedAt = Date.now();
+  while (!adWorks()) {
+    if (Date.now() - startedAt > 5000) throw new Error("포트폴리오 렌더 시간 초과");
+    await sleep(25);
+  }
+  adWorks().querySelector('[data-portfolio-tab="ad"]').click();
+  const tabStart = Date.now();
+  while (adTitles().length < 6) {
+    if (Date.now() - tabStart > 5000) throw new Error("광고 탭 렌더 시간 초과");
+    await sleep(25);
+  }
+  expect("광고 전체 = 어드민 작품 + 드라이브", adTitles().sort(), ["Kosha da Vinci Mona Lisa", "Kosha Van Gogh", "Scan Pang Commercial", "미국 광고 RERE", "비치오네 AI 브랜드 필름", "셀렉스 릴렉스 샷 윤가이편"].sort());
+  adWorks().querySelector('[data-chip="KOSHA"]').click();
+  await until("KOSHA 칩", () => adTitles().length === 2);
+  expect("KOSHA 칩에는 KOSHA 작품만", adTitles().sort(), ["Kosha da Vinci Mona Lisa", "Kosha Van Gogh"].sort());
+  expect("브랜드 필름이 섞이지 않음", adTitles().includes("비치오네 AI 브랜드 필름"), false);
+  expect("미국 광고 RERE 도 섞이지 않음", adTitles().includes("미국 광고 RERE"), false);
+  adWorks().querySelector('[data-chip]:not([data-chip="KOSHA"])')?.click();
+  await sleep(120);
+  expect("전체 칩으로 돌아오면 다시 모두", adTitles().length >= 6, true);
+  adDom.window.close();
 }
 
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
