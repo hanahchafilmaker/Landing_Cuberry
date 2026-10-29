@@ -4,21 +4,44 @@
      - 국문 canonical = https://www.cuberry.kr/   → hreflang ko 도 `/`
      - 영문 canonical = https://www.cuberry.kr/?lang=en → hreflang en 도 `/?lang=en`
      `/kr/`·`/en/` 은 진입용 별칭(noindex)이므로 사이트맵에 넣지 않습니다.
-     도메인 연결 절차: docs/domain-setup.md -->
+     이미지 확장(image:image)은 대표 이미지·히어로 스틸처럼 화면에 실제로 있는 사진만 적습니다
+     (Google 이미지 검색에 함께 노출되도록). 도메인 연결 절차: docs/domain-setup.md -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://www.cuberry.kr/</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
+    <image:image>
+      <image:loc>https://www.cuberry.kr/images/og-cover.jpg</image:loc>
+      <image:title>CUBEBERRY · 큐브베리 — AI 콘텐츠 스튜디오</image:title>
+      <image:caption>방송 전문가들이 이끄는 AI 콘텐츠 기업. 자체 개발 플랫폼 XCONDA로 지상파 방영작을 만듭니다.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.cuberry.kr/images/still-gumiho.jpg</image:loc>
+      <image:title>〈전설의 고향-구미호〉 — KBS1 어린이날 특집 AI 애니메이션</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.cuberry.kr/images/sector-studio.jpg</image:loc>
+      <image:title>큐브베리 스튜디오 — 기획부터 유통까지</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://www.cuberry.kr/images/sector-xconda.jpg</image:loc>
+      <image:title>XCONDA — 롱폼 AI 영상 제작 플랫폼</image:title>
+    </image:image>
     <xhtml:link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />
   </url>
   <url>
     <loc>https://www.cuberry.kr/?lang=en</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <changefreq>weekly</changefreq>
+    <image:image>
+      <image:loc>https://www.cuberry.kr/images/og-cover.jpg</image:loc>
+      <image:title>CUBEBERRY — AI Content Studio</image:title>
+    </image:image>
     <xhtml:link rel="alternate" hreflang="ko" href="https://www.cuberry.kr/" />
     <xhtml:link rel="alternate" hreflang="en" href="https://www.cuberry.kr/?lang=en" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://www.cuberry.kr/" />
