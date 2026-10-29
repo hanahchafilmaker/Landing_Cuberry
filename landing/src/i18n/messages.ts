@@ -15,6 +15,7 @@ export type Vars = Record<string, string | number>;
 
 /** 영문 화면에서 쓰는 ko → en 사전 (정적 문구 + 운영 CMS 시드 문구) */
 export const en: Record<string, string> = {
+  "목구멍": "Poverty Knows No Law",
   "AI 콘텐츠 스튜디오가\n실제로 납품한 작업": "Work the AI content studio\nhas actually delivered",
   "TV·웹드라마 같은 방송 작품부터 커머셜, 기업 영상까지. 작품중심·광고·기타 세 갈래로 나눠 실제 납품 작업과 제작 범위를 함께 확인하실 수 있습니다.": "From broadcast work such as TV series and web dramas to commercials and corporate films. Browse it in three views — Craft, Commercial and Other — with the scope of each project.",
   "포트폴리오 분류": "Portfolio category",

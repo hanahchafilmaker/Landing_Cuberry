@@ -505,6 +505,66 @@ console.log("\n[landing Drive] 어드민 작품과 드라이브 영상이 겹치
   dupeDom.window.close();
 }
 
+console.log("\n[landing Drive] 대표님이 준 썸네일이 Drive 썸네일보다 우선");
+{
+  const curatedContent = { settings: {}, services: [], team: [], faqs: [], portfolio: [] };
+  const curatedDrive = {
+    status: "ready",
+    updatedAt: "2026-10-29T00:00:00.000Z",
+    videos: [
+      // 첫 장면이 검은 영상 — 판정되면 브랜드 카드로 덮이지만, 준 사진이 있으면 그 사진을 쓴다.
+      { id: "division01234", name: "WebDrama_DIVISION_0.mp4", category: "webdrama", categoryLabel: "웹드라마", title: "Web Drama DIVISION 0" },
+      { id: "mokgumeong123", name: "WebDrama_PovertyKnowsNoLaw.mp4", category: "webdrama", categoryLabel: "웹드라마", title: "Web Drama Poverty Knows No Law" },
+      { id: "coldsite12345", name: "WebDrama_ColdSite.mp4", category: "webdrama", categoryLabel: "웹드라마", title: "Web Drama Cold Site" },
+    ],
+  };
+  const curatedDom = new JSDOM('<!doctype html><html lang="ko" data-cms-native="1"><head></head><body><div id="root"></div></body></html>', {
+    url: "https://hanahchafilmaker.github.io/Landing_Cuberry/",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+    virtualConsole,
+    beforeParse(window) {
+      Object.defineProperty(window.navigator, "language", { value: "ko-KR", configurable: true });
+      Object.defineProperty(window.navigator, "languages", { value: ["ko-KR", "ko"], configurable: true });
+      window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+      window.scrollTo = () => {};
+      window.CuberryContent = structuredClone(curatedContent);
+      window.fetch = async (url) => ({
+        ok: true,
+        json: async () => structuredClone(String(url).endsWith("/api/public/drive-portfolio") ? curatedDrive : curatedContent),
+      });
+      // 썸네일 판정 흉내 — 모든 Drive 썸네일이 "검다"고 답한다.
+      window.Image = class {
+        set src(value) { this._src = value; setTimeout(() => this.onload?.(), 0); }
+        get src() { return this._src; }
+      };
+      window.HTMLCanvasElement.prototype.getContext = function () {
+        return {
+          drawImage() {},
+          getImageData: () => ({ data: new Uint8ClampedArray(48 * 48 * 4).fill(0).map((_, i) => (i % 4 === 3 ? 255 : 0)) }),
+        };
+      };
+    },
+  });
+  curatedDom.window.eval(bundle);
+  const cardFinder = () => [...curatedDom.window.document.querySelectorAll("#works article")];
+  const startedAt = Date.now();
+  while (cardFinder().length < 3) {
+    if (Date.now() - startedAt > 5000) throw new Error("카드 렌더 시간 초과");
+    await sleep(25);
+  }
+  await sleep(300); // 검은 썸네일 판정이 끝난 뒤에도 사진이 유지되는지 본다
+  const find = (title) => cardFinder().find((node) => text(node.querySelector("h3")) === title);
+  expect("디비전0 — 준 사진 사용", find("Web Drama DIVISION 0")?.querySelector("img")?.getAttribute("src"), "images/curated/work-division-zero.jpg");
+  expect("목구멍 — 준 사진 사용", find("Web Drama Poverty Knows No Law")?.querySelector("img")?.getAttribute("src"), "images/curated/work-mokgumeong.jpg");
+  expect("준 사진 카드는 검은 카드로 덮지 않음", Boolean(find("Web Drama DIVISION 0")?.querySelector("[data-blank-thumb]")), false);
+  // 사진이 없는 작품은 기존 규칙대로(중계 썸네일 → 검은 카드면 브랜드 카드)
+  const coldSite = find("Web Drama Cold Site");
+  expect("다른 작품은 준 사진을 쓰지 않음", (coldSite?.querySelector("img")?.getAttribute("src") || "").includes("/images/curated/"), false);
+  expect("다른 작품은 검은 썸네일이면 브랜드 카드", Boolean(coldSite?.querySelector("[data-blank-thumb]")), true);
+  curatedDom.window.close();
+}
+
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
 dom.window.close();
 if (failures) process.exitCode = 1;

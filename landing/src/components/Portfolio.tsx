@@ -8,6 +8,7 @@ import { useContent } from "@/cms/ContentContext";
 import { useDrivePortfolio, type DriveFilm } from "@/cms/drive";
 import { PORTFOLIO_TABS, isAiWork, tabForCmsWork, tabForDriveFilm, type PortfolioTab } from "@/cms/classify";
 import { mergeDuplicateWorks } from "@/cms/dedupe";
+import { curatedThumbnail } from "@/cms/curated";
 import type { PortfolioCard } from "@/cms/map";
 import { T, useI18n } from "@/i18n/LanguageContext";
 
@@ -121,7 +122,21 @@ export function Portfolio() {
     return worksForTab.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
   }, [trimmed, worksForTab]);
 
-  const cards: PortfolioCard[] = useMemo(() => [...worksCards, ...driveCards], [driveCards, worksCards]);
+  /**
+   * 대표님이 직접 준 썸네일이 있으면 그것을 쓴다.
+   * (〈DIVISION 0〉·〈목구멍〉처럼 첫 장면이 검은 영상은 Drive 썸네일이 새까매서
+   *  브랜드 카드로 덮는 것보다 실제 장면을 보여주는 편이 낫다.)
+   */
+  const withCurated = (card: PortfolioCard): PortfolioCard => {
+    const src = curatedThumbnail(card.title, card.category, card.searchText);
+    if (!src) return card;
+    return { ...card, thumbnailUrl: src, fallbackUrl: card.thumbnailUrl, thumbnailBlank: false };
+  };
+
+  const cards: PortfolioCard[] = useMemo(
+    () => [...worksCards, ...driveCards].map(withCurated),
+    [driveCards, worksCards],
+  );
 
   useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeTab, chip, trimmed, cards.length]);
 
