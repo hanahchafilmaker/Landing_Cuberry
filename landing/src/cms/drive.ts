@@ -118,8 +118,26 @@ function normalize(value: unknown): DrivePortfolio | null {
   };
 }
 
-function variantFor(video: DriveVideo): DriveVariant {
+/**
+ * 썸네일은 우리 서버를 거쳐 받는다(`/api/public/drive-thumbnail`).
+ * drive.google.com 썸네일은 CORS 헤더가 없어 캔버스가 오염되고, 그러면 "첫 장면이 검은 영상"을
+ * 판정할 수 없어 검은 카드가 그대로 나온다(2026-10-29 대표님 지적: 디비전0 · 목구멍).
+ * 서버가 CORS 를 붙여 내려 주면 픽셀을 읽을 수 있어 브랜드 카드로 대체된다.
+ */
+function proxiedThumbnail(video: DriveVideo, size = "w800") {
   const resource = video.resourceKey ? `&resourcekey=${encodeURIComponent(video.resourceKey)}` : "";
+  const path = `/api/public/drive-thumbnail?id=${encodeURIComponent(video.id)}&sz=${size}${resource}`;
+  const api = typeof window !== "undefined" ? window.CuberryApi : undefined;
+  return api?.url ? api.url(path) : path;
+}
+
+/** 중계가 실패해도 카드가 비지 않도록 쓰는 구글 원본 주소(폴백). */
+function directThumbnail(video: DriveVideo) {
+  const resource = video.resourceKey ? `&resourcekey=${encodeURIComponent(video.resourceKey)}` : "";
+  return `https://drive.google.com/thumbnail?id=${video.id}&sz=w1000${resource}`;
+}
+
+function variantFor(video: DriveVideo): DriveVariant {
   const previewResource = video.resourceKey ? `?resourcekey=${encodeURIComponent(video.resourceKey)}` : "";
   const base = `https://drive.google.com/file/d/${video.id}`;
   const title = video.title || humanize(video.name);
@@ -127,7 +145,7 @@ function variantFor(video: DriveVideo): DriveVariant {
     id: video.id,
     name: video.name,
     label: video.variant || title,
-    thumbnailUrl: `https://drive.google.com/thumbnail?id=${video.id}&sz=w1000${resource}`,
+    thumbnailUrl: proxiedThumbnail(video),
     previewUrl: `${base}/preview${previewResource}`,
     viewUrl: `${base}/view${previewResource}`,
     aspect: video.aspect || FALLBACK.aspect,
@@ -236,6 +254,8 @@ export function toFilms(videos: DriveVideo[]): DriveFilm[] {
       year,
       description: "",
       thumbnailUrl: representative.variant.thumbnailUrl,
+      // 중계 서버가 죽어도 원본 드라이브 썸네일로 대체한다.
+      fallbackUrl: directThumbnail(first),
       tags: [],
       videoUrl: representative.variant.previewUrl,
       playable: true,

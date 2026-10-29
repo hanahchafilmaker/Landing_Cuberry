@@ -181,7 +181,9 @@ expect("작품이 6개 이하면 더 보기 버튼 생략", works.querySelector(
 expect("중복 변형은 카드 한 장으로 병합", works.querySelectorAll("article").length, 2);
 expect("일반 작품은 보존하되 저장된 Drive 폴더 링크는 숨김", Boolean(cardOf("CMS 신규 작품")?.querySelector("a")), false);
 expect("AI 로 만든 작품에 AI 배지", cardOf("CMS 신규 작품")?.querySelector("[data-badge]")?.getAttribute("data-badge"), "AI");
-expect("드라이브 썸네일·리소스 키", cardOf("Turn Commercial")?.querySelector("img")?.getAttribute("src"), "https://drive.google.com/thumbnail?id=drivevideo12345&sz=w1000&resourcekey=resourcekey123");
+// 썸네일은 우리 서버 중계를 거친다 — 구글 썸네일은 CORS 헤더가 없어 브라우저가 픽셀을 못 읽고,
+// 그 때문에 "첫 장면이 검은 영상" 판정이 늘 실패했다(2026-10-29 대표님 지적).
+expect("드라이브 썸네일 중계 주소", cardOf("Turn Commercial")?.querySelector("img")?.getAttribute("src"), "https://landing-cuberry-admin.onrender.com/api/public/drive-thumbnail?id=drivevideo12345&sz=w800&resourcekey=resourcekey123");
 expect("폴더명이 카드에 표시되지 않음", text(works).includes("Never show folder"), false);
 const portraitImg = cardOf("Turn Commercial").querySelector("img");
 expect("세로 영상 썸네일도 액자를 꽉 채움(contain 아님)", portraitImg?.className.includes("object-cover") && !portraitImg.className.includes("object-contain"), true);
@@ -433,6 +435,74 @@ console.log("\n[landing Drive] 첫 장면이 검은 영상은 검은 사각형 �
   expect("검은 썸네일 대체 카드", Boolean(blankCard?.querySelector("[data-blank-thumb]")), true);
   expect("검은 썸네일에는 사진을 그리지 않음", Boolean(blankCard?.querySelector("img")), false);
   blankDom.window.close();
+}
+
+console.log("\n[landing Drive] 어드민 작품과 드라이브 영상이 겹치면 카드 한 장");
+{
+  const dupeContent = {
+    settings: {},
+    services: [],
+    team: [],
+    faqs: [],
+    portfolio: [
+      {
+        id: 501, title: "〈전설의 고향-구미호〉 KBS1 방영 · REBOOT", category: "AI ANIMATION SERIES", year: "2026",
+        description: "KBS1 에서 방영된 작품입니다.", thumbnailUrl: "https://example.com/gumiho.jpg", tags: "KBS1 방영, 국내 최초 AI 활용", source: "works",
+      },
+      {
+        id: 502, title: "유네코 기업 홍보 영상", category: "CORPORATE VIDEO", year: "2026",
+        description: "기업 홍보 영상입니다.", thumbnailUrl: "https://example.com/uneco.jpg", tags: "AI", source: "works",
+      },
+    ],
+  };
+  const dupeDrive = {
+    status: "ready",
+    updatedAt: "2026-10-29T00:00:00.000Z",
+    videos: [
+      { id: "gumiho1234567", name: "TV_HometownOfLegends_NineTailedFox.mp4", category: "tv", categoryLabel: "TV", title: "TV Hometown Of Legends Nine Tailed Fox" },
+    ],
+  };
+  const dupeDom = new JSDOM('<!doctype html><html lang="ko" data-cms-native="1"><head></head><body><div id="root"></div></body></html>', {
+    url: "https://hanahchafilmaker.github.io/Landing_Cuberry/",
+    runScripts: "dangerously",
+    pretendToBeVisual: true,
+    virtualConsole,
+    beforeParse(window) {
+      Object.defineProperty(window.navigator, "language", { value: "ko-KR", configurable: true });
+      Object.defineProperty(window.navigator, "languages", { value: ["ko-KR", "ko"], configurable: true });
+      window.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+      window.scrollTo = () => {};
+      // 콘텐츠는 브리지가 미리 읽어 두는 값(window.CuberryContent)을 그대로 쓴다.
+      window.CuberryContent = structuredClone(dupeContent);
+      window.fetch = async (url) => ({
+        ok: true,
+        json: async () => structuredClone(String(url).endsWith("/api/public/drive-portfolio") ? dupeDrive : dupeContent),
+      });
+    },
+  });
+  dupeDom.window.eval(bundle);
+  const dupeWorks = () => dupeDom.window.document.querySelector("#works");
+  const startedAt = Date.now();
+  while (!dupeWorks()?.querySelector("article")) {
+    if (Date.now() - startedAt > 5000) break;
+    await sleep(25);
+  }
+  const dupeTitles = () => [...dupeWorks().querySelectorAll("article h3")].map(text);
+  // 어드민 카드가 먼저 그려지고 드라이브 목록이 도착하면 그때 한 장으로 합쳐진다.
+  const mergeStart = Date.now();
+  while (!dupeWorks().querySelector('article img[src*="/api/public/drive-thumbnail"]')) {
+    if (Date.now() - mergeStart > 5000) throw new Error("중복 병합 시간 초과");
+    await sleep(25);
+  }
+  expect("중복 작품은 카드 한 장", dupeTitles(), ["〈전설의 고향-구미호〉 KBS1 방영 · REBOOT"]);
+  const merged = dupeWorks().querySelector("article");
+  expect("어드민 소개가 드라이브 카드로 이동", text(merged).includes("KBS1 에서 방영된 작품입니다."), true);
+  expect("어드민 태그도 그대로", text(merged).includes("KBS1 방영"), true);
+  expect("드라이브 카드라서 재생 가능", Boolean(merged.querySelector("button[aria-label]")), true);
+  dupeWorks().querySelector('[data-portfolio-tab="other"]').click();
+  await sleep(120);
+  expect("겹치지 않는 작품은 다른 탭에 그대로", dupeTitles(), ["유네코 기업 홍보 영상"]);
+  dupeDom.window.close();
 }
 
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
