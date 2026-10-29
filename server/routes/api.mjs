@@ -12,6 +12,7 @@ import { formTokenMode, mintFormToken, validateFormToken, verifyTurnstile } from
 import { cronSecret, safeSecretEqual } from "./../lib/backup.mjs";
 import { migrateTeamProfile } from "./../migrations/team-profile-2026.mjs";
 import { drivePortfolio } from "./../lib/drive-portfolio.mjs";
+import { driveThumbnail } from "./../lib/drive-thumbnail.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -33,6 +34,24 @@ export async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && pathname === "/api/public/content") return send(res, 200, publicContent());
   if (req.method === "GET" && pathname === "/api/public/drive-portfolio") return send(res, 200, await drivePortfolio.get());
+  // 드라이브 썸네일 중계 — CORS 를 붙여 내려 주므로 브라우저가 픽셀을 읽어 "검은 썸네일"을 판정할 수 있다.
+  if (req.method === "GET" && pathname === "/api/public/drive-thumbnail") {
+    const thumb = await driveThumbnail({
+      id: url.searchParams.get("id") || "",
+      size: url.searchParams.get("sz") || "",
+      resourceKey: url.searchParams.get("resourcekey") || "",
+    });
+    if (!thumb) return send(res, 404, { error: "썸네일을 찾을 수 없습니다." });
+    res.writeHead(200, {
+      "Content-Type": thumb.type,
+      "Content-Length": thumb.body.length,
+      // 브라우저·중계 서버 모두 30분 캐시(Render 무료 플랜 대역폭을 아낀다).
+      "Cache-Control": "public, max-age=1800",
+      "Cross-Origin-Resource-Policy": "cross-origin",
+    });
+    res.end(thumb.body);
+    return;
+  }
   // 드라이브 연동이 왜 비어 있는지(값 누락·형식 오류)를 비밀값 없이 알려준다.
   if (req.method === "GET" && pathname === "/api/public/drive-diagnose") return send(res, 200, drivePortfolio.diagnose());
   if (req.method === "GET" && pathname === "/api/auth/status") {

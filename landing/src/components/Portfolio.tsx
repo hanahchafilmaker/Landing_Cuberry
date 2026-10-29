@@ -7,6 +7,7 @@ import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
 import { useDrivePortfolio, type DriveFilm } from "@/cms/drive";
 import { PORTFOLIO_TABS, isAiWork, tabForCmsWork, tabForDriveFilm, type PortfolioTab } from "@/cms/classify";
+import { mergeDuplicateWorks } from "@/cms/dedupe";
 import type { PortfolioCard } from "@/cms/map";
 import { T, useI18n } from "@/i18n/LanguageContext";
 
@@ -61,7 +62,9 @@ export function Portfolio() {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const films = drive.films;
+  // 어드민 작품과 드라이브 영상이 같은 작품이면 카드 한 장으로 합친다(2026-10-29 대표님 지적).
+  const unified = useMemo(() => mergeDuplicateWorks(works, drive.films), [drive.films, works]);
+  const films = unified.films;
   const selected: DriveFilm | null = films.find((film) => film.key === selectedKey) ?? null;
   useEffect(() => { if (selectedKey && !selected) setSelectedKey(null); }, [selectedKey, selected]);
 
@@ -73,9 +76,9 @@ export function Portfolio() {
     const drive: Record<Tab, DriveFilm[]> = { creative: [], ad: [], other: [] };
     for (const film of films) drive[tabForDriveFilm(film)].push(film);
     const worksByTab: Record<Tab, PortfolioCard[]> = { creative: [], ad: [], other: [] };
-    for (const card of works) worksByTab[tabForCmsWork(card)].push(card);
+    for (const card of unified.works) worksByTab[tabForCmsWork(card)].push(card);
     return { drive, works: worksByTab };
-  }, [films, works]);
+  }, [films, unified.works]);
 
   const counts = useMemo(
     () => ({
