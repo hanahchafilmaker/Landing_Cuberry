@@ -150,8 +150,16 @@ console.log("\n[i18n] B. 영어 브라우저 → 자동으로 영어 화면");
   expect("내비 메뉴", navLabels(document).slice(0, 4), ["Company", "Studio", "XCONDA", "Contact"]);
   expect("히어로 상담 CTA", text(document.querySelector('#top a[href="#contact"]')), "Discuss a project");
   expect("히어로 포트폴리오 CTA", text(document.querySelector('#top a[href="#works"]')), "Portfolio →");
+  // 포트폴리오는 작품중심(기본) · 광고 · 기타 3분류 — 전체 탭은 없다(2026-10-29 대표님 지시).
+  const portfolioTabs = [...document.querySelectorAll("#works [data-portfolio-tab]")];
+  expect("포트폴리오 3분류", portfolioTabs.map((node) => text(node.querySelector("span span"))), ["Original works", "Commercial", "Other"]);
+  expect("기본 탭은 작품중심", portfolioTabs[0].getAttribute("aria-pressed"), "true");
+  expect("카드 분류 칩", text(document.querySelector("#works article span.font-mono")), "AI ANIMATION SERIES");
+  // 더 보기 동작은 카드가 6장을 넘는 '기타' 탭에서 확인한다.
+  portfolioTabs[2].click();
+  await until("기타 탭 열기", () => document.querySelectorAll("#works article").length === 6);
   const initialCards = document.querySelectorAll("#works article").length;
-  expect("포트폴리오 초기 카드 6개", initialCards, 6);
+  expect("한 번에 6장까지", initialCards, 6);
   const moreProjects = [...document.querySelectorAll("#works button")].find((button) => text(button).includes("Load more projects"));
   // 작품 수는 CMS 값에 따라 달라지므로(2026-10-28 모션그래픽 장르 제외) 버튼이 알려주는 남은 수로 계산한다.
   const remaining = Number((text(moreProjects) || "").match(/\+(\d+)$/)?.[1]);

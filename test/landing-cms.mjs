@@ -59,6 +59,10 @@ let content = {
       id: 203, title: "CMS 신규 작품", category: "BRAND", year: "2025", description: "신규 작품 설명",
       videoUrl: "https://drive.google.com/drive/u/0/folders/private_folder_123", thumbnailUrl: "https://example.com/extra.jpg", tags: "AI", kind: "브랜드", source: "extra", landingSlot: null,
     },
+    {
+      id: 204, title: "CMS 드라마 작품", category: "AI ANIMATION SERIES", year: "2026", description: "드라마 작품 설명",
+      videoUrl: "https://example.com/drama", thumbnailUrl: "https://example.com/drama.jpg", tags: "AI GENERATION, PLANNING", kind: "작품", source: "extra", landingSlot: null,
+    },
   ],
   team: [
     {
@@ -157,27 +161,33 @@ expect("프로젝트 문의 CTA", text(document.querySelector('#top a[href="#con
 expect("히어로와 상품 카드 사이 가격 중복 없음", document.querySelectorAll('#top a[href="#pricing"]').length, 0);
 
 const works = document.querySelector("#works");
-await until("Drive 목록 응답", () => [...works.querySelectorAll("article h3")].some((node) => text(node) === "Turn Commercial"));
-expect("포트폴리오 전체 = 일반 + 새 폴더의 영상", [...works.querySelectorAll("article h3")].map(text), ["CMS 기업 작품", "CMS 신규 작품", "Turn Commercial"]);
+/** 제목으로 카드를 찾는다 — 탭마다 카드 순서가 달라지므로 위치 대신 제목을 쓴다. */
+const cardOf = (title) => [...works.querySelectorAll("article")].find((node) => text(node.querySelector("h3")) === title);
+const titles = () => [...works.querySelectorAll("article h3")].map(text);
+const tabOf = (id) => works.querySelector(`[data-portfolio-tab="${id}"]`);
+
+// 전체 탭 대신 3분류 — 작품중심(기본) · 광고 · 기타
+expect("포트폴리오 3분류 탭", [...works.querySelectorAll("[data-portfolio-tab]")].map((node) => text(node.querySelector("span span"))), ["작품중심", "광고", "기타"]);
+expect("기본 진입 탭은 작품중심", tabOf("creative").getAttribute("aria-pressed"), "true");
+expect("작품중심 = CMS 드라마 작품", titles(), ["CMS 드라마 작품"]);
 expect("이전 CMS 드라이브 항목 미노출", text(works).includes("CMS 드라이브 작품"), false);
+
+// 광고 탭 = CMS 브랜드 필름 + 커머셜(Drive)
+tabOf("ad").click();
+await until("광고 탭 Drive 응답", () => titles().includes("Turn Commercial"));
 expect("Drive API도 운영 서버에서 조회", requested.some((url) => url.endsWith("/api/public/drive-portfolio")), true);
+expect("광고 탭 = 브랜드 + 커머셜", titles(), ["CMS 신규 작품", "Turn Commercial"]);
 expect("작품이 6개 이하면 더 보기 버튼 생략", works.querySelector('button[aria-controls="portfolio-grid"]'), null);
-expect("썸네일 저장값", works.querySelector("article img")?.getAttribute("src"), "https://example.com/work.jpg");
-expect("작품 태그 분리", [...works.querySelectorAll("article")][0] && text([...works.querySelectorAll("article")][0]).includes("PLAN"), true);
-expect("일반 작품은 보존하되 저장된 Drive 폴더 링크는 숨김", Boolean([...works.querySelectorAll("article")][1].querySelector("a")), false);
-const tabs = [...works.querySelectorAll("button[aria-pressed]")];
-expect("필터 탭", tabs.map(text), ["전체", "광고", "작품중심"]);
-tabs[1].click();
-await until("광고 탭", () => works.querySelectorAll("article").length === 1);
-expect("광고 탭 작품", text(works.querySelector("article h3")), "Turn Commercial");
-expect("중복 변형은 카드 한 장으로 병합", works.querySelectorAll("article").length, 1);
-expect("드라이브 썸네일·리소스 키", works.querySelector("article img")?.getAttribute("src"), "https://drive.google.com/thumbnail?id=drivevideo12345&sz=w1000&resourcekey=resourcekey123");
+expect("중복 변형은 카드 한 장으로 병합", works.querySelectorAll("article").length, 2);
+expect("일반 작품은 보존하되 저장된 Drive 폴더 링크는 숨김", Boolean(cardOf("CMS 신규 작품")?.querySelector("a")), false);
+expect("AI 로 만든 작품에 AI 배지", cardOf("CMS 신규 작품")?.querySelector("[data-badge]")?.getAttribute("data-badge"), "AI");
+expect("드라이브 썸네일·리소스 키", cardOf("Turn Commercial")?.querySelector("img")?.getAttribute("src"), "https://drive.google.com/thumbnail?id=drivevideo12345&sz=w1000&resourcekey=resourcekey123");
 expect("폴더명이 카드에 표시되지 않음", text(works).includes("Never show folder"), false);
-const portraitImg = works.querySelector("article img");
+const portraitImg = cardOf("Turn Commercial").querySelector("img");
 expect("세로 영상 썸네일도 액자를 꽉 채움(contain 아님)", portraitImg?.className.includes("object-cover") && !portraitImg.className.includes("object-contain"), true);
-expect("버전이 하나면 배지를 붙이지 않음", Boolean(works.querySelector("article [data-badge]")), false);
+expect("버전이 하나면 배지를 붙이지 않음", Boolean(cardOf("Turn Commercial").querySelector("[data-badge]")), false);
 expect("폴더 링크나 폴더 임베드 없음", Boolean(works.querySelector('a[href*="/drive/folders/"], iframe')), false);
-const videoButton = works.querySelector('article button[aria-label]');
+const videoButton = cardOf("Turn Commercial").querySelector('button[aria-label]');
 videoButton.focus();
 videoButton.click();
 await until("개별 Drive 플레이어", () => Boolean(document.querySelector('[role="dialog"] iframe')));
@@ -187,8 +197,26 @@ expect("개별 영상만 새 창에서 열 수 있음", player.querySelector("a"
 player.querySelector('button[aria-label="닫기"]').click();
 await until("플레이어 닫힘", () => !document.querySelector('[role="dialog"]'));
 expect("닫은 뒤 카드에 포커스 복귀", document.activeElement === videoButton, true);
-tabs[0].click();
-await until("전체 탭", () => works.querySelectorAll("article").length === 3);
+
+// 기타 탭 = 기업·인터뷰 등 나머지
+tabOf("other").click();
+await until("기타 탭", () => titles().length === 1);
+expect("기타 탭 = 기업 작품", titles(), ["CMS 기업 작품"]);
+expect("썸네일 저장값", works.querySelector("article img")?.getAttribute("src"), "https://example.com/work.jpg");
+expect("작품 태그 분리", text(works.querySelector("article")).includes("PLAN"), true);
+
+tabOf("creative").click();
+await until("작품중심 복귀", () => titles().length === 1);
+
+// 주소 딥링크(#works?view=ad)로도 탭이 열린다 — 공유·북마크용.
+dom.window.history.replaceState(null, "", "#works?view=ad");
+dom.window.dispatchEvent(new dom.window.Event("hashchange"));
+await until("딥링크 광고 탭", () => tabOf("ad").getAttribute("aria-pressed") === "true");
+expect("딥링크로 광고 탭 열림", titles(), ["CMS 신규 작품", "Turn Commercial"]);
+dom.window.history.replaceState(null, "", "#works?view=creative");
+dom.window.dispatchEvent(new dom.window.Event("hashchange"));
+await until("딥링크 작품중심", () => tabOf("creative").getAttribute("aria-pressed") === "true");
+expect("딥링크로 작품중심 복귀", titles(), ["CMS 드라마 작품"]);
 
 const team = document.querySelector("#team");
 expect("팀 인원 개수", team.querySelectorAll("article").length, 1);
@@ -239,42 +267,43 @@ expect("FAQ 최신값", text(document.querySelector("#faq button[aria-expanded]"
 console.log("\n[landing Drive] 개별 영상 갱신 및 장애 시 안전 처리");
 drive = { ...drive, videos: [
   { id: "newvideo123456", name: "New_commercial.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", group: "commercial:new_commercial", title: "New Commercial" },
-  { id: "guidevideo12345", name: "Guide_XCONDA_05_AutoAngleGenerator_KO.mp4", category: "guide", categoryLabel: "가이드", section: "한국어", group: "guide:guide_xconda_05_autoanglegenerator", title: "Guide XCONDA Auto Angle Generator" },
-  { id: "demovideo123456", name: "Demo_Cubeberry_Showreel.mp4", category: "demo", categoryLabel: "데모 · 쇼릴", section: "", group: "demo:demo_cubeberry_showreel", title: "Demo Cubeberry Showreel" },
+  { id: "tvvideo1234567", name: "TV_Hometown_KO.mp4", category: "tv", categoryLabel: "TV", section: "한국어", group: "tv:tv_hometown", title: "TV Hometown" },
+  { id: "dramavideo12345", name: "WebDrama_ColdSite.mp4", category: "webdrama", categoryLabel: "웹드라마", section: "", group: "webdrama:webdrama_coldsite", title: "Web Drama Cold Site" },
   { id: "newvideo789012", name: "New_commercial_v2_KO.mp4", category: "commercial", categoryLabel: "광고", section: "KOSHA", group: "commercial:new_commercial", title: "New Commercial", variant: "한국어 / v2", version: 2, aspect: "portrait" },
 ] };
-tabs[2].click();
+tabOf("creative").click();
 dom.window.dispatchEvent(new dom.window.Event("focus"));
-await until("Drive 파일 갱신", () => works.querySelectorAll("article").length === 2);
-expect("삭제한 파일 대신 새 영상", [...works.querySelectorAll("article h3")].map(text), ["Guide XCONDA Auto Angle Generator", "Demo Cubeberry Showreel"]);
+await until("Drive 파일 갱신", () => works.querySelectorAll("article").length === 3);
+expect("작품중심 = CMS 드라마 + TV·웹드라마", titles().sort(), ["CMS 드라마 작품", "TV Hometown", "Web Drama Cold Site"].sort());
 expect("작품중심 탭에는 광고가 섞이지 않음", text(works).includes("New Commercial"), false);
 const chipButtons = [...works.querySelectorAll('[aria-label="폴더 필터"] button')];
-expect("장르 칩 표시(전체 + 장르 2)", chipButtons.map(text), ["전체2", "가이드1", "데모 · 쇼릴1"]);
-chipButtons[2].click();
-await until("칩 필터", () => works.querySelectorAll("article").length === 1);
-expect("칩 선택 시 해당 장르만", [...works.querySelectorAll("article h3")].map(text), ["Demo Cubeberry Showreel"]);
-chipButtons[0].click();
-await until("칩 해제", () => works.querySelectorAll("article").length === 2);
+// 칩은 드라이브 영상의 장르만 좁힌다(어드민 작품은 장르 정보가 없어 그대로 남는다).
+expect("장르 칩 표시(전체 + 장르 2)", chipButtons.map(text).sort(), ["TV1", "웹드라마1", "전체2"].sort());
+chipButtons.find((button) => button.dataset.chip === "웹드라마").click();
+await until("칩 필터", () => works.querySelectorAll("article").length === 2);
+expect("칩 선택 시 해당 장르만", titles().sort(), ["CMS 드라마 작품", "Web Drama Cold Site"].sort());
+works.querySelector('[aria-label="폴더 필터"] button').click();
+await until("칩 해제", () => works.querySelectorAll("article").length === 3);
 const search = works.querySelector('input[type="search"]');
 // React 는 input 의 value setter 를 추적하므로 네이티브 setter 로 넣어야 onChange 가 불린다.
 const typeSearch = (value) => {
   Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set.call(search, value);
   search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
 };
-typeSearch("showreel");
+typeSearch("tv hometown");
 await until("검색 필터", () => works.querySelectorAll("article").length === 1);
-expect("검색 결과", [...works.querySelectorAll("article h3")].map(text), ["Demo Cubeberry Showreel"]);
+expect("검색 결과", titles(), ["TV Hometown"]);
 typeSearch("");
-await until("검색 해제", () => works.querySelectorAll("article").length === 2);
+await until("검색 해제", () => works.querySelectorAll("article").length === 3);
 
 // 같은 group 의 변형은 카드 한 장으로 묶이고, 배지로만 개수를 알린다.
-tabs[1].click();
-await until("광고 탭 병합 카드", () => works.querySelectorAll("article").length === 1);
-expect("변형 2편은 카드 1장", works.querySelectorAll("article").length, 1);
-expect("병합 배지 표시", works.querySelector("article [data-badge]")?.getAttribute("data-badge"), "2개 버전");
-expect("카드에는 언어·버전 배지를 붙이지 않음", text(works.querySelector("article")).includes("KO 자막"), false);
-tabs[2].click();
-await until("작품중심 복귀", () => works.querySelectorAll("article").length === 2);
+tabOf("ad").click();
+await until("광고 탭 병합 카드", () => titles().length === 2);
+expect("변형 2편은 카드 1장", titles(), ["CMS 신규 작품", "New Commercial"]);
+expect("병합 배지 표시", cardOf("New Commercial").querySelector("[data-badge]")?.getAttribute("data-badge"), "2개 버전");
+expect("카드에는 언어·버전 배지를 붙이지 않음", text(cardOf("New Commercial")).includes("KO 자막"), false);
+tabOf("creative").click();
+await until("작품중심 복귀", () => titles().length === 3);
 
 // 이름이 겹치는 변형(본편 + 애니메이션판)은 group 이 달라도 카드 한 장으로 합친다.
 const beforeMerge = structuredClone(drive);
@@ -283,31 +312,36 @@ drive = { ...drive, videos: [...drive.videos,
   { id: "toyfarmvideo02", name: "WebDrama_ToyFarm_Animation.mp4", category: "webdrama", categoryLabel: "웹드라마", section: "", group: "webdrama:webdrama_toyfarm_animation", title: "Web Drama Toy Farm Animation" },
 ] };
 dom.window.dispatchEvent(new dom.window.Event("focus"));
-await until("이름 겹침 병합", () => works.querySelectorAll("article").length === 3);
-expect("이름이 겹치는 변형은 한 장", [...works.querySelectorAll("article h3")].map(text).filter((title) => title.startsWith("Web Drama Toy Farm")), ["Web Drama Toy Farm"]);
+await until("이름 겹침 병합", () => works.querySelectorAll("article").length === 4);
+expect("이름이 겹치는 변형은 한 장", titles().filter((title) => title.startsWith("Web Drama Toy Farm")), ["Web Drama Toy Farm"]);
 expect("병합된 변형 수 배지", [...works.querySelectorAll("article")].find((article) => text(article.querySelector("h3")).startsWith("Web Drama Toy Farm"))?.querySelector("[data-badge]")?.getAttribute("data-badge"), "2개 버전");
 drive = beforeMerge;
 dom.window.dispatchEvent(new dom.window.Event("focus"));
-await until("원래 목록 복귀", () => works.querySelectorAll("article").length === 2);
+await until("원래 목록 복귀", () => works.querySelectorAll("article").length === 3);
 const updatedDrive = structuredClone(drive);
-works.querySelector('article button[aria-label]').click();
+cardOf("TV Hometown").querySelector('button[aria-label]').click();
 await until("갱신 전 개별 플레이어", () => Boolean(document.querySelector('[role="dialog"] iframe')));
 drive = { ...drive, status: "unavailable" };
 dom.window.dispatchEvent(new dom.window.Event("focus"));
 await until("장애 시 개별 플레이어 닫힘", () => !document.querySelector('[role="dialog"]'));
-expect("장애 시 기존 영상 비움", works.querySelectorAll("article").length, 0);
+expect("장애 시 Drive 카드만 비움", titles(), ["CMS 드라마 작품"]);
 expect("장애 안내", text(works).includes("드라이브 영상 목록을 불러올 수 없습니다."), true);
 expect("장애 시에도 폴더 공개 안 함", Boolean(works.querySelector('iframe, a[href*="/drive/folders/"]')), false);
 drive = { ...drive, status: "unconfigured", videos: updatedDrive.videos };
 dom.window.dispatchEvent(new dom.window.Event("focus"));
 await until("미설정 응답", () => lastDriveStatus === "unconfigured");
-expect("API 미설정 시 영상 및 폴더 미노출", Boolean(works.querySelector('article, iframe, a[href*="/drive/folders/"]')), false);
+expect("API 미설정 시 영상 및 폴더 미노출", Boolean(works.querySelector('iframe, a[href*="/drive/folders/"]')), false);
 drive = updatedDrive;
 dom.window.dispatchEvent(new dom.window.Event("focus"));
-await until("Drive 복구", () => works.querySelectorAll("article").length === 2);
+await until("Drive 복구", () => works.querySelectorAll("article").length === 3);
 expect("복구해도 이전 플레이어는 다시 열리지 않음", document.querySelector('[role="dialog"]'), null);
-tabs[0].click();
-await until("전체 작품 복구", () => works.querySelectorAll("article").length === 5);
+expect("복구 후 작품중심", titles().sort(), ["CMS 드라마 작품", "TV Hometown", "Web Drama Cold Site"].sort());
+tabOf("ad").click();
+await until("광고 탭 복구", () => titles().length === 2);
+tabOf("other").click();
+await until("기타 탭 복구", () => titles().length === 1);
+tabOf("creative").click();
+await until("작품중심 복귀", () => titles().length === 3);
 
 console.log("\n[landing CMS] 전부 비공개 후 다시 공개");
 const populated = structuredClone(content);
@@ -329,9 +363,9 @@ expect("나머지 섹션은 유지", Boolean(document.querySelector("#top") && d
 content = populated;
 drive = populatedDrive;
 dom.window.dispatchEvent(new dom.window.Event("focus"));
-await until("콘텐츠 재공개", () => document.querySelectorAll("#works article").length === 5, 3000);
+await until("콘텐츠 재공개", () => document.querySelectorAll("#works article").length === 3, 3000);
 expect("상품 다시 공개", document.querySelectorAll("#pricing article").length, 2);
-expect("작품 다시 공개", document.querySelectorAll("#works article").length, 5);
+expect("작품 다시 공개(작품중심 탭)", document.querySelectorAll("#works article").length, 3);
 expect("팀 다시 공개", document.querySelectorAll("#team article").length, 1);
 expect("FAQ 다시 공개", document.querySelectorAll("#faq button[aria-expanded]").length, 2);
 
@@ -380,7 +414,7 @@ console.log("\n[landing Drive] 첫 장면이 검은 영상은 검은 사각형 �
     if (Date.now() - startedAt > 5000) break;
     await sleep(25);
   }
-  [...blankDoc.querySelectorAll("#works button[aria-pressed]")][1]?.click();
+  blankDoc.querySelector('#works [data-portfolio-tab="ad"]')?.click();
   {
     // 판정은 이미지 로드 뒤 비동기로 끝나므로 결과가 반영될 때까지 기다린다.
     const waitStart = Date.now();
@@ -393,9 +427,11 @@ console.log("\n[landing Drive] 첫 장면이 검은 영상은 검은 사각형 �
     if (Date.now() - startedAt > 5000) break;
     await sleep(25);
   }
-  expect("검은 썸네일 카드가 그려짐", blankDoc.querySelectorAll("#works article").length, 1);
-  expect("검은 썸네일 대체 카드", Boolean(blankDoc.querySelector("#works article [data-blank-thumb]")), true);
-  expect("검은 썸네일에는 사진을 그리지 않음", Boolean(blankDoc.querySelector("#works article img")), false);
+  // 광고 탭 = 기본 CMS 광고 작품 + 검은 첫 장면의 드라이브 영상
+  expect("검은 썸네일 카드가 그려짐", blankDoc.querySelectorAll("#works article").length, 4);
+  const blankCard = [...blankDoc.querySelectorAll("#works article")].find((node) => text(node.querySelector("h3")) === "Black Opening");
+  expect("검은 썸네일 대체 카드", Boolean(blankCard?.querySelector("[data-blank-thumb]")), true);
+  expect("검은 썸네일에는 사진을 그리지 않음", Boolean(blankCard?.querySelector("img")), false);
   blankDom.window.close();
 }
 

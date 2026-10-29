@@ -15,6 +15,12 @@ export type Vars = Record<string, string | number>;
 
 /** 영문 화면에서 쓰는 ko → en 사전 (정적 문구 + 운영 CMS 시드 문구) */
 export const en: Record<string, string> = {
+  "AI 콘텐츠 스튜디오가\n실제로 납품한 작업": "Work the AI content studio\nhas actually delivered",
+  "TV·웹드라마 같은 방송 작품부터 커머셜, 기업 영상까지. 작품중심·광고·기타 세 갈래로 나눠 실제 납품 작업과 제작 범위를 함께 확인하실 수 있습니다.": "From broadcast work such as TV series and web dramas to commercials and corporate films. Browse it in three views — Craft, Commercial and Other — with the scope of each project.",
+  "포트폴리오 분류": "Portfolio category",
+  "TV · 웹드라마": "TV · web drama",
+  "커머셜 · 브랜드 필름": "Commercial · brand film",
+  "기업 · 모션 · 인터뷰": "Corporate · motion · interview",
   "납품 규격(비율·해상도)은 어떻게 정하나요?": "How are the delivery specs (aspect ratio and resolution) decided?",
   "9:16·16:9, 4K·1080p 등 채널별 규격을 기획 단계에서 확정합니다. 매체 규격이 정해져 있으면 그 기준에 맞춰 제작합니다.": "We lock the channel specs (9:16, 16:9, 4K, 1080p and so on) during planning. If your media outlet already has a spec, we produce to that.",
   "수정은 몇 회까지 포함인가요?": "How many rounds of revisions are included?",
@@ -54,7 +60,7 @@ export const en: Record<string, string> = {
   "DI 플레이트": "DI plate",
   "DI 가이드": "DI guide",
   "기타": "Other",
-  "작품중심": "Craft",
+  "작품중심": "Original works",
   "폴더 필터": "Folder filter",
   "포트폴리오 검색": "Search the portfolio",
   "작품·브랜드·툴 검색 (예: 구미호, 토이팜, 모나리자)": "Search by title, brand or tool (e.g. Gumiho, Toy Farm, Mona Lisa)",
