@@ -6,22 +6,39 @@ import { SectionHeading } from "./SectionHeading";
 import { SmartImage } from "./SmartImage";
 import { useContent } from "@/cms/ContentContext";
 import { useDrivePortfolio, type DriveFilm } from "@/cms/drive";
+import { PORTFOLIO_TABS, isAiWork, tabForCmsWork, tabForDriveFilm, type PortfolioTab } from "@/cms/classify";
 import type { PortfolioCard } from "@/cms/map";
 import { T, useI18n } from "@/i18n/LanguageContext";
 
-type Tab = "ALL" | "AD" | "CREATIVE";
+type Tab = PortfolioTab;
 const PAGE_SIZE = 6;
 const ALL_CHIP = "__all__";
 
-/** 광고 = Drive 01_Commercial, 작품중심 = TV·웹드라마·데모·가이드 (+ CMS 작품) */
-const CREATIVE_SLUGS = new Set(["tv", "webdrama", "demo", "guide", "other"]);
-const TABS: Tab[] = ["ALL", "AD", "CREATIVE"];
+/**
+ * 3분류 — 전체 탭 없이 작품중심(기본) · 광고 · 기타.
+ * 분류 규칙은 cms/classify.ts 한 곳에 있고, 드라이브 영상과 어드민 작품이 같은 규칙을 쓴다.
+ */
+const TABS: Tab[] = PORTFOLIO_TABS;
 const UNCATEGORIZED = "기타";
-const TAB_LABEL: Record<Tab, string> = { ALL: "전체", AD: "광고", CREATIVE: "작품중심" };
+const TAB_LABEL: Record<Tab, string> = { creative: "작품중심", ad: "광고", other: "기타" };
+/** 탭 아래 한 줄 설명 — 무엇이 들어 있는지 버튼에서 바로 보이게 한다. */
+const TAB_HINT: Record<Tab, string> = {
+  creative: "TV · 웹드라마",
+  ad: "커머셜 · 브랜드 필름",
+  other: "기업 · 모션 · 인터뷰",
+};
+/** 딥링크(#works?view=ad)로 탭을 바로 열 수 있게 한다 — 상단 메뉴·공유 링크용. */
+const VIEW_PARAM: Record<Tab, string> = { creative: "creative", ad: "ad", other: "other" };
 
-/** 칩을 나누는 기준 — 광고 탭은 프로젝트(섹션), 작품중심 탭은 장르. 섹션이 없으면 '기타'. */
+function tabFromHash(): Tab {
+  if (typeof window === "undefined") return "creative";
+  const match = /view=(creative|ad|other)/.exec(window.location.hash);
+  return (match?.[1] as Tab) ?? "creative";
+}
+
+/** 칩을 나누는 기준 — 광고 탭은 프로젝트(섹션), 나머지는 장르. 섹션이 없으면 '기타'. */
 function chipKey(tab: Tab, film: DriveFilm) {
-  if (tab === "AD") return film.section || UNCATEGORIZED;
+  if (tab === "ad") return film.section || UNCATEGORIZED;
   return film.categoryLabel;
 }
 
@@ -36,7 +53,7 @@ export function Portfolio() {
   const { works } = useContent();
   const drive = useDrivePortfolio();
   const { t } = useI18n();
-  const [tab, setTab] = useState<Tab>("ALL");
+  const [tab, setTab] = useState<Tab>(tabFromHash);
   const [chip, setChip] = useState<string>(ALL_CHIP);
   const [query, setQuery] = useState("");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -48,19 +65,32 @@ export function Portfolio() {
   const selected: DriveFilm | null = films.find((film) => film.key === selectedKey) ?? null;
   useEffect(() => { if (selectedKey && !selected) setSelectedKey(null); }, [selectedKey, selected]);
 
-  // 탭은 사이트 전체 분류이고 CMS 작품 수와 무관하게 늘 같다(전체 · 광고 · 작품중심).
-  const activeTab: Tab = TABS.includes(tab) ? tab : "ALL";
+  // 탭은 사이트 전체 분류이고 CMS 작품 수와 무관하게 늘 같다(작품중심 · 광고 · 기타).
+  const activeTab: Tab = TABS.includes(tab) ? tab : "creative";
 
-  /** 탭별 드라이브 작품 */
-  const filmsForTab = useMemo(() => {
-    if (activeTab === "AD") return films.filter((film) => film.categorySlug === "commercial");
-    if (activeTab === "CREATIVE") return films.filter((film) => CREATIVE_SLUGS.has(film.categorySlug));
-    return films;
-  }, [activeTab, films]);
+  /** 드라이브 영상 · 어드민 작품을 한 번에 세 갈래로 나눈다(탭 배지 숫자에 쓴다). */
+  const grouped = useMemo(() => {
+    const drive: Record<Tab, DriveFilm[]> = { creative: [], ad: [], other: [] };
+    for (const film of films) drive[tabForDriveFilm(film)].push(film);
+    const worksByTab: Record<Tab, PortfolioCard[]> = { creative: [], ad: [], other: [] };
+    for (const card of works) worksByTab[tabForCmsWork(card)].push(card);
+    return { drive, works: worksByTab };
+  }, [films, works]);
+
+  const counts = useMemo(
+    () => ({
+      creative: grouped.drive.creative.length + grouped.works.creative.length,
+      ad: grouped.drive.ad.length + grouped.works.ad.length,
+      other: grouped.drive.other.length + grouped.works.other.length,
+    }),
+    [grouped],
+  );
+
+  const filmsForTab = grouped.drive[activeTab];
+  const worksForTab = grouped.works[activeTab];
 
   /** 칩: 광고 탭은 프로젝트(KOSHA·XCONDA…), 작품중심 탭은 장르(TV·웹드라마…) */
   const chips = useMemo(() => {
-    if (activeTab === "ALL") return [];
     const key = (film: DriveFilm) => chipKey(activeTab, film);
     const counts = new Map<string, number>();
     for (const film of filmsForTab) {
@@ -84,52 +114,81 @@ export function Portfolio() {
   }, [activeTab, chip, filmsForTab, trimmed]);
 
   const worksCards = useMemo(() => {
-    if (activeTab !== "ALL") return [];
-    if (!trimmed) return works;
-    return works.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
-  }, [activeTab, trimmed, works]);
+    if (!trimmed) return worksForTab;
+    return worksForTab.filter((card) => [card.title, card.category, card.description, ...card.tags].join(" ").toLowerCase().includes(trimmed));
+  }, [trimmed, worksForTab]);
 
   const cards: PortfolioCard[] = useMemo(() => [...worksCards, ...driveCards], [driveCards, worksCards]);
 
   useEffect(() => { setVisibleCount(PAGE_SIZE); }, [activeTab, chip, trimmed, cards.length]);
 
+  /** 탭을 고르면 주소에 남긴다 — #works?view=ad 처럼 공유·북마크할 수 있게. */
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    setChip(ALL_CHIP);
+    setVisibleCount(PAGE_SIZE);
+    try {
+      if (typeof window !== "undefined") {
+        window.history.replaceState(window.history.state, "", `#works?view=${VIEW_PARAM[next]}`);
+      }
+    } catch {
+      /* 주소를 못 바꾸는 환경(iframe)에서도 탭 전환은 유지한다 */
+    }
+  };
+
+  // 밖에서 링크를 눌러 들어온 경우(#works?view=other)도 같은 탭을 연다.
+  useEffect(() => {
+    const onHashChange = () => setTab(tabFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
   return (
     <section id="works" className="section">
       <div className="shell">
         <SectionHeading
-          label="PORTFOLIO · STUDIO"
-          title={<T text={"결과물로 증명하는\n제작 역량"} />}
-          desc={t("기업 홍보영상부터 브랜드 필름, 광고, AI 콘텐츠까지. 실제 프로젝트의 기획 의도와 제작 범위를 함께 확인해보세요.")}
+          label="PORTFOLIO · AI CONTENT STUDIO"
+          title={<T text={"AI 콘텐츠 스튜디오가\n실제로 납품한 작업"} />}
+          desc={t("TV·웹드라마 같은 방송 작품부터 커머셜, 기업 영상까지. 작품중심·광고·기타 세 갈래로 나눠 실제 납품 작업과 제작 범위를 함께 확인하실 수 있습니다.")}
         />
 
         <Reveal delay={1}>
-          <div className="mt-9 flex flex-wrap items-center gap-1.5">
+          {/* 작품중심이 기본 진입점 — 전체 탭을 없애고 세 갈래만 남긴다. */}
+          <div role="group" aria-label={t("포트폴리오 분류")} className="mt-9 flex flex-wrap items-stretch gap-2">
             {TABS.map((item) => (
               <button
                 key={item}
                 type="button"
-                onClick={() => {
-                  setTab(item);
-                  setVisibleCount(PAGE_SIZE);
-                }}
+                data-portfolio-tab={item}
+                onClick={() => selectTab(item)}
                 aria-pressed={activeTab === item}
                 className={cn(
-                  "min-h-9 cursor-pointer rounded-full px-4 py-1.5 font-mono text-[11px] tracking-[0.12em] transition-colors duration-200",
+                  "flex min-h-14 cursor-pointer flex-col items-start justify-center rounded-[4px] border px-4 py-2.5 text-left transition-colors duration-200",
                   activeTab === item
-                    ? "border border-paper bg-paper font-medium text-ink"
-                    : "border border-line-2 text-body hover:border-line-4 hover:text-paper",
+                    ? "border-brand bg-brand/10"
+                    : "border-line-2 hover:border-line-4",
                 )}
               >
-                {t(TAB_LABEL[item])}
+                <span className="flex items-baseline gap-2">
+                  <span className={cn("text-[13px] font-medium tracking-[-0.01em]", activeTab === item ? "text-brand" : "text-paper")}>
+                    {t(TAB_LABEL[item])}
+                  </span>
+                  <span className={cn("font-mono text-[10px]", activeTab === item ? "text-brand/80" : "text-faint")}>
+                    {counts[item]}
+                  </span>
+                </span>
+                <span className="mt-0.5 font-mono text-[10px] tracking-[0.06em] text-faint">
+                  {t(TAB_HINT[item])}
+                </span>
               </button>
             ))}
-            <span className="ml-auto font-mono text-[11px] text-faint">
+            <span className="ml-auto self-end font-mono text-[11px] text-faint">
               {cards.length} PROJECTS
             </span>
           </div>
         </Reveal>
 
-        {activeTab !== "ALL" && chips.length > 1 && (
+        {chips.length > 1 && (
           <Reveal delay={1}>
             <div aria-label={t("폴더 필터")} role="group" className="mt-4 flex flex-wrap gap-1.5">
               {[{ label: t("전체"), count: filmsForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
@@ -212,15 +271,20 @@ export function Portfolio() {
                     />
                   )}
 
-                  {/* 왼쪽 위: 지금 보고 있는 분류(전체 탭에서만) / 오른쪽 위: 버전 수 안내 */}
-                  {activeTab === "ALL" && card.category && (
+                  {/* 왼쪽 위: 이 카드의 분류(장르·프로젝트) / 오른쪽 위: 버전 수·AI 배지 */}
+                  {(activeTab === "ad" && card.section ? card.section : card.category) && (
                     <span className="absolute left-2.5 top-2.5 rounded-[2px] bg-void/75 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.12em] text-body backdrop-blur">
-                      {t(card.category)}
+                      {/* 광고 탭에서는 프로젝트명(KOSHA·성남시…)이, 다른 탭에서는 장르가 더 쓸모 있다. */}
+                      {t(activeTab === "ad" && card.section ? card.section : card.category)}
                     </span>
                   )}
                   {card.badges?.length ? (
                     <span data-badge={card.badges[0]} className="absolute right-2.5 top-2.5 rounded-[2px] bg-void/75 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-brand backdrop-blur">
                       {t(card.badges[0])}
+                    </span>
+                  ) : isAiWork(card) ? (
+                    <span data-badge="AI" className="absolute right-2.5 top-2.5 rounded-[2px] bg-void/75 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.08em] text-brand backdrop-blur">
+                      AI
                     </span>
                   ) : null}
 
@@ -290,9 +354,10 @@ export function Portfolio() {
         )}
 
         {cards.length === 0 && trimmed && <p role="status" className="mt-8 text-sm text-mute">{t("검색과 일치하는 작품이 없습니다.")}</p>}
-        {cards.length === 0 && !trimmed && activeTab !== "ALL" && drive.status === "ready" && <p className="mt-8 text-sm text-mute">{t("이 분류에 공개된 영상이 없습니다.")}</p>}
+        {cards.length === 0 && !trimmed && drive.status === "ready" && <p className="mt-8 text-sm text-mute">{t("이 분류에 공개된 영상이 없습니다.")}</p>}
         {drive.status === "loading" && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러오는 중입니다.")}</p>}
-        {(drive.status === "unconfigured" || drive.status === "unavailable") && worksCards.length === 0 && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러올 수 없습니다.")}</p>}
+        {/* Drive 가 죽어도 어드민 작품은 남으므로, 안내는 카드 유무와 상관없이 보여준다. */}
+        {(drive.status === "unconfigured" || drive.status === "unavailable") && <p role="status" className="mt-8 text-sm text-mute">{t("드라이브 영상 목록을 불러올 수 없습니다.")}</p>}
 
         <Dialog.Root open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
           {selected && (
