@@ -74,7 +74,15 @@ const unusedKeep = [...keep].filter((text) => dictionary.has(text));
 expect("koOnly 와 사전이 겹치지 않음", unusedKeep, []);
 
 console.log("\n[i18n] 랜딩 소스 문구 커버리지");
-const files = walk(SRC).filter((file) => /\.tsx?$/.test(file) && path.resolve(file) !== DICTIONARY_FILE);
+// landing/src/seo/ 는 화면 문구가 아니라 검색엔진용 메타데이터(schema.org 노드 이름)라 제외한다.
+// 사용자에게 보이지 않으므로 번역 사전에 넣을 대상이 아니다(번역하면 오히려 구조화 데이터가 흔들린다).
+const SEO_DIR = path.join(SRC, "seo") + path.sep;
+const files = walk(SRC).filter(
+  (file) =>
+    /\.tsx?$/.test(file) &&
+    path.resolve(file) !== DICTIONARY_FILE &&
+    !path.resolve(file).startsWith(SEO_DIR),
+);
 const missing = [];
 let total = 0;
 for (const file of files) {

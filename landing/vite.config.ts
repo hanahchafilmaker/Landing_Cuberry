@@ -5,6 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
+import { buildStructuredData } from "./src/seo/structured-data.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,31 @@ function injectLanguageAlternates(): Plugin {
   };
 }
 
+// 구조화 데이터(JSON-LD) 주입 — 회사(Organization)만 손으로 적혀 있는 원본에,
+// 사이트(WebSite) · 제작 상품(OfferCatalog) · FAQ(FAQPage)를 **content.ts 값으로 생성**해 더한다.
+// 화면 문구를 content.ts 에서 고치면 검색엔진이 읽는 값도 같은 빌드에서 함께 바뀐다.
+// 상품 가격처럼 숫자가 필요한 값은 priceToKrw 가 "118만원~" → 1180000 으로 변환한다.
+function injectStructuredData(): Plugin {
+  return {
+    name: "cuberry-structured-data",
+    apply: "build",
+    transformIndexHtml: {
+      order: "post",
+      handler(html) {
+        // "</script>" 가 데이터 안에 들어가면 스크립트가 조기 종료되므로 이스케이프한다.
+        const json = JSON.stringify(buildStructuredData(), null, 2).replace(/<\//g, "<\\/");
+        const block = [
+          '    <script type="application/ld+json" data-cuberry-structured="graph">',
+          ...json.split("\n").map((line) => `      ${line}`),
+          "    </script>",
+          "  </head>",
+        ].join("\n");
+        return html.replace("  </head>", block);
+      },
+    },
+  };
+}
+
 // 단일 파일로 빌드된 landing/dist/index.html 을 저장소 루트 index.html 로 복사한다.
 // Node 서버(server/index.mjs)와 GitHub Pages 모두 이 루트 파일을 그대로 서빙한다.
 function publishToRepoRoot(): Plugin {
@@ -66,7 +92,14 @@ export default defineConfig({
   base: "./",
   // 이미지는 저장소 루트 images/ 에 두고 상대경로(images/…)로 참조한다 → 복사할 필요가 없다.
   publicDir: false,
-  plugins: [react(), tailwindcss(), viteSingleFile(), injectLanguageAlternates(), publishToRepoRoot()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    viteSingleFile(),
+    injectLanguageAlternates(),
+    injectStructuredData(),
+    publishToRepoRoot(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

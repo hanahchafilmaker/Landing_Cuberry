@@ -275,8 +275,14 @@ ADMIN_ALLOWED_ORIGINS=https://cuberry.com
 - **스팸 방어** — 문의 폼에 사람만 못 보는 허니팟 필드(`website`)가 있고, 채워져 들어온 문의는 저장하지 않습니다.
 - **경로 보호** — `/images/…`, `/uploads/…` 는 인코딩된 `..` 세그먼트(`%2e%2e%2f`)와 형제 폴더 접근을 모두 거부합니다.
 - **세션 정리** — 만료 세션을 기동 시와 매시간 정리합니다.
-- **검색/공유** — 루트에 `robots.txt`·`sitemap.xml` 이 있고, 랜딩에는 OG·Twitter 카드·canonical·JSON-LD(Organization)·`images/og-cover.jpg`(1200×630) 가 들어 있습니다. 링크를 메신저에 붙이면 제목·설명·이미지가 함께 표시됩니다.
+- **검색/공유** — 루트에 `robots.txt`·`sitemap.xml` 이 있고, 랜딩에는 OG·Twitter 카드·canonical·`robots` 메타(`max-image-preview:large`)·`images/og-cover.jpg`(1200×630) 가 들어 있습니다. 링크를 메신저에 붙이면 제목·설명·이미지가 함께 표시됩니다.
   주소는 **국문 `/`** · **영문 `/?lang=en`** 두 개가 정본이고, 사이트맵·`hreflang`·`canonical` 이 모두 이 규칙을 따릅니다.
+  검색엔진용 구조화 데이터는 **회사(Organization) + 빌드가 생성하는 `@graph`** 두 블록입니다 —
+  사이트(WebSite)·사업장(ItemList)·제작 상품(OfferCatalog)·FAQ(FAQPage) 를 `landing/src/seo/structured-data.ts` 가
+  `content.ts` 값으로 만들어 붙이므로, 화면 가격·FAQ 문구를 고치면 검색엔진이 읽는 값도 같은 빌드에서 함께 바뀝니다.
+  `sitemap.xml` 에는 대표 이미지(`image:image`), `robots.txt` 에는 저장소가 GitHub Pages 로 그대로 배포되어 함께 열리는
+  소스·문서 경로(`/landing/`·`/docs/`·`/test/` …) 차단이 들어 있습니다. 점검은 `npm run test:seo`,
+  남은 작업(검색엔진 등록·사이트맵 제출 등)은 **`docs/seo.md`** 에 정리되어 있습니다.
   언어를 바꾸면 `LanguageContext` 의 `syncCanonical` 이 `canonical`·`og:url`·`og:locale` 을 그 주소에 맞춰 갱신하므로, 영문 화면이 국문 정본으로 흡수되어 색인에서 빠지는 일이 없습니다.
 
 **2) 브라우저 쪽** — 운영 서버 주소는 이미 소스에 커밋되어 있습니다(`BAKED_API_ORIGIN`).
@@ -617,11 +623,12 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 458건 (client-origin 51 + static-paths 34 + server-wiring 71 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 60 + landing-tabs 47)
+npm test           # 의존성 없음 · 약 600건 (client-origin 51 + static-paths 34 + server-wiring 81 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 73 + seo 96 + landing-tabs 58 + 드라이브 3종)
 npm run test:security # 보안 회귀 63건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟·폼 토큰/Turnstile)
 npm run test:notify  # 문의 알림 63건 (웹훅 성공·백오프 재시도·실패 보존·UNIQUE 재발송·마스킹·킬 스위치, 외부 요청 0)
 npm run test:cron    # 자동 백업 61건 (시크릿 503/401·무변경 skip·내용 변경 재커밋·목 GitHub API, 외부 요청 0)
-npm run test:domain  # 도메인 컷오버 60건 (canonical/OG/사이트맵/robots·/en/·/kr/ 별칭·서버 허용목록·Route 53 레코드 파일)
+npm run test:domain  # 도메인 컷오버 73건 (canonical/OG/사이트맵/robots·/en/·/kr/ 별칭·서버 허용목록·Route 53 레코드 파일)
+npm run test:seo     # 검색 노출 96건 (robots 메타·JSON-LD 그래프·가격/FAQ 일치·정적 셸 동기화·이미지 사이트맵·소스 경로 차단)
 npm run test:tabs  # 콘텐츠 탭 47건 (탭 전환·해시 딥링크·메뉴/앵커 연동·키보드·영어 라벨·DOM 유지·접근성·고정 배치)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
@@ -642,6 +649,7 @@ npm run test:i18n  # jsdom 필요 · 55건 (한영 자동 감지·토글·CMS �
 | `test/static-paths.mjs` | GitHub Pages 를 흉내 낸 정적 서버를 띄운다. ① 미러(`/Landing_Cuberry/` 서브경로, 디렉터리 → `index.html`, 슬래시 없으면 301, `/api/*` 는 404)에서 참조 경로가 전부 해결되고 루트 절대경로(`/…`)가 없는지 ② **공식 도메인처럼 저장소가 루트에 놓인 상태**에서 `/`·`/en/`·`/kr/`·`/admin/`·`/sitemap.xml`·`/robots.txt` 가 200 이고 별칭 페이지의 상대경로가 그대로 풀리는지 확인 |
 | `test/landing-tabs.mjs` | 콘텐츠 탭 동작. 실제 번들을 jsdom 에서 돌려 ① 첫 화면은 회사소개 탭(히어로부터) ② 탭 클릭 → 패널 전환 + 주소 해시 ③ `#works`·`#lab`·`#contact` 로 바로 열면 그 탭 ④ 상단 메뉴·본문 앵커를 누르면 그 섹션의 탭이 켜짐 ⑤ 영어 화면 탭 이름(Company/Studio/XCONDA/Contact) ⑥ 키보드 ←/→·End ⑦ **탭을 꺼도 내용이 DOM 에 남는지**(검색엔진·CMS 대응) ⑧ role/aria 배선 ⑨ 헤더 아래 고정 배치(`--header-height`·`--tab-top`·`--anchor-offset` 배선) |
 | `test/domain.mjs` | 도메인 컷오버 점검. ① 원본(`landing/index.html`)과 빌드 산출물(`index.html`)의 canonical·`og:url`·`og:image`·`twitter:image`·JSON-LD 가 모두 `https://www.cuberry.kr/` 인지(미러 주소·apex 주소가 남아 있으면 실패) ② 빌드가 넣는 hreflang 3종이 절대주소인지 ③ `robots.txt`·`sitemap.xml` 의 Sitemap/loc/hreflang ④ `/en/`·`/kr/` 별칭 페이지가 `noindex` + 상대경로 전용인지 ⑤ 서버 기본 허용목록·`render*.yaml` 에 `www.cuberry.kr`(정본)·`cuberry.kr`(apex) 가 있는지 ⑥ 루트 `CNAME`(2026-10-21 활성화)과 `docs/domain/` 의 CNAME 이 모두 `www.cuberry.kr`(프로토콜 없이) 로 일치하는지, Route 53 변경 파일이 **www CNAME 1건만** 담는지(apex 는 그대로 두므로 A/AAAA 없음), **MX/TXT 는 담고 있지 않은지**(메일 보존) |
+| `test/seo.mjs` | 검색엔진 노출 점검. ① 원본·빌드 산출물 모두 `robots`(index·max-image-preview:large)·`og:image:type`·`twitter:image:alt` 가 있는지 ② JSON-LD 2블록이 **파싱되는지**, `WebSite`·`ItemList`·`OfferCatalog`·`FAQPage` 가 회사 `@id` 를 참조하는지, 상품 가격이 `content.ts` 표시 문구에서 숫자(118만원 → 1180000)로 변환돼 화면과 일치하는지, FAQ 문항 수·문구가 화면과 1:1 인지, `</script>` 조기 종료가 없는지, 앵커(`#pricing`·`#faq`)가 실제 섹션인지 ③ JS 없는 크롤러용 정적 셸이 **화면과 같은 값**(특허 4건·현재 가격·FAQ)이고 옛 값(29만원·120초)이 남아 있지 않은지 ④ 사이트맵의 이미지 항목이 정본 도메인이고 **파일이 실제로 존재**하는지, `lastmod` 형식, noindex 별칭 미포함 ⑤ robots 가 소스 경로를 막고 `/images/` 는 열어 두는지 |
 | `test/dom-flow.mjs` | jsdom 으로 어드민을 실제로 띄워 로그인 → 개요 → 포트폴리오 → 팀 → 설정 → 로그아웃까지 클릭해 넘어간다. `fetch` 를 **브라우저 CORS 규칙을 흉내 낸 래퍼**로 바꿔, 사전요청(OPTIONS)을 실제로 보내고 `Access-Control-Allow-Origin` 이 문서 Origin 과 다르면 브라우저처럼 실패시킨다. 시나리오 **A**(Pages + `?api=`)·**B**(로컬 개발 가드 — 운영 주소가 박힌 HTML 을 `127.0.0.1` 에서 열어 운영 서버로 요청이 한 건도 새지 않는지)·**C**(Pages + 굽힌 주소만 — `?api=`·저장값 없이 로그인 완주)·**D**(허용 목록에 없는 Origin 차단). 마지막으로 어떤 시나리오에서도 운영 주소로 요청이 가지 않았는지 점검한다 |
 | `test/i18n-coverage.mjs` | 사전 커버리지 — 랜딩 소스의 한국어 문구와 운영 기본값(`server/seed.json`)에 **빠진 영어 번역이 없는지**, 영어 문장에 한국어가 섞이지 않았는지 검사한다. 새 문구를 번역 없이 추가하면 실패한다 |
 | `test/landing-i18n.mjs` | 실제 번들을 jsdom 에서 돌려 ①한국어 브라우저→한국어, ②영어 브라우저→자동 영어(화면·`alt`·`aria-label`·`placeholder` 에 한국어가 한 글자도 남지 않는지 전수 확인), ③KO/EN 토글이 화면·`<html lang>`·제목·`?lang=`·저장값을 함께 바꾸는지, ④`?lang=` > 저장값 > 브라우저 언어 우선순위, ⑤어드민 저장값(사전 등록분은 번역·미등록분은 원문 유지)까지 확인한다 |
