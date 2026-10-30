@@ -91,7 +91,9 @@ DNS 담당자가 따로 있거나 Route 53 접근이 어려울 때 쓰는 방식
    ```
 4. `npm run typecheck && npm test` → 커밋·푸시 (GitHub Pages 배포 1~2분)
 5. `https://www.cuberry.kr/google1a2b3c4d5e6f7a8b.html` 이 200 으로 열리고 **내용이 한 줄**인지 확인
-   — 2026-10-30 현재 저장소에 등록된 실제 파일: **`google0e3cdf27e024491d.html`** (`google-site-verification: google0e3cdf27e024491d.html`)
+   — 2026-10-30 현재 저장소에 등록된 실제 파일:
+     · Google: **`google0e3cdf27e024491d.html`** → `google-site-verification: google0e3cdf27e024491d.html`
+     · 네이버: **`naverf466949fe923d669f19bf98f6e421851.html`** → `naver-site-verification: naverf466949fe923d669f19bf98f6e421851.html`
 6. Search Console → **확인** → 이어서 **Sitemaps** 에 `sitemap.xml` 제출
 
 **왜 파일만 올리면 되는가**
@@ -120,6 +122,15 @@ DNS 담당자가 따로 있거나 Route 53 접근이 어려울 때 쓰는 방식
 
 > 네이버는 `robots.txt` 의 `Allow: /` 를 그대로 따릅니다. 현재 `robots.txt` 는 소스·문서 경로만 막고
 > 본문(`/`)·`/images/`·`/sitemap.xml` 은 열어 두었으므로 추가 설정이 필요 없습니다.
+
+**사이트맵 주소는 반드시 `www`** — `https://www.cuberry.kr/sitemap.xml` 만 200(`application/xml`)입니다.
+apex(`https://cuberry.kr/sitemap.xml`)는 AWS ELB 가 **경로를 버리고** `https://www.cuberry.kr/` 로 301 하므로
+사이트맵 대신 홈페이지 HTML 을 보게 됩니다(브라우저에서 태그가 사라지고 글자만 이어져 보이는 원인).
+Search Console·서치어드바이저 모두 **www 속성**에 제출하세요.
+
+- apex 리다이렉트가 경로를 보존하지 않는 문제는 딥링크·외부 백링크에도 영향을 줍니다
+  (`cuberry.kr/아무경로` → `www.cuberry.kr/`). AWS ELB 규칙을 경로·쿼리 보존형
+  (`https://www.cuberry.kr#{path}`)으로 바꾸는 것을 권장합니다 — `docs/domain-setup.md` 참고.
 
 **알아둘 점**
 
