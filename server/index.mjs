@@ -12,6 +12,7 @@ import { db, freshInstall, seedContent, seedTeam } from "./lib/db.mjs";
 import { applyCors, corsOrigin, negotiateEncoding, normalizeOrigin, safeFile, send, serveClientFile, serveFile } from "./lib/http.mjs";
 import { adminAccount, hashPassword, purgeExpiredSessions, verifyPassword } from "./lib/auth.mjs";
 import { cronSecret } from "./lib/backup.mjs";
+import { isVerificationFile } from "../scripts/site-verification.mjs";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -151,6 +152,15 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/robots.txt" || url.pathname === "/sitemap.xml") {
       // 저장소 루트의 정적 파일을 그대로 서빙한다(GitHub Pages 도 같은 파일을 본다).
       serveFile(req, res, path.join(ROOT, url.pathname === "/robots.txt" ? "robots.txt" : "sitemap.xml"));
+      return;
+    }
+    // 검색엔진 소유확인 파일 (Search Console · 네이버 서치어드바이저의 HTML 파일 방식).
+    // GitHub Pages 는 저장소 루트를 그대로 서빙하므로 www 에서는 커밋만으로 열린다.
+    // 도메인을 Render 로 옮겨도 인증이 유지되도록 서버도 같은 파일을 내려준다.
+    // 이름은 화이트리스트(google*.html · naver*.html · yandex_*.html · BingSiteAuth.xml)만 허용하고
+    // 슬래시가 들어갈 수 없어 루트 밖으로 나가지 못한다.
+    if (/^\/[^/]+\.(html|xml)$/.test(url.pathname) && isVerificationFile(url.pathname.slice(1))) {
+      serveFile(req, res, path.join(ROOT, url.pathname.slice(1)));
       return;
     }
     if (url.pathname.startsWith("/uploads/")) {

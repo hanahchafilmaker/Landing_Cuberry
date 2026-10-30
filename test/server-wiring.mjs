@@ -9,7 +9,7 @@
 //
 // 실행: npm run test:server  (npm test 에 포함되어 있다)
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -265,6 +265,30 @@ await withServer({ label: "서빙" }, async ({ origin }) => {
   const landing = await fetch(`${origin}/`, { method: "HEAD" });
   expect("랜딩 HEAD → 200", landing.status, 200);
 });
+
+// ── 검색엔진 소유확인 파일 (URL 접두어 속성의 HTML 파일 방식) ──
+// GitHub Pages 는 커밋만으로 서빙하지만, 도메인을 Render 로 옮기면 서버가 내려줘야 인증이 유지된다.
+// 파일은 테스트가 임시로 만들었다가 지운다(저장소에 남기지 않음).
+console.log("\n[2b] 검색엔진 소유확인 파일을 서버도 서빙한다");
+const verifyName = "google1a2b3c4d5e6f7a8b.html";
+const verifyPath = path.join(ROOT, verifyName);
+try {
+  writeFileSync(verifyPath, `google-site-verification: ${verifyName}\n`, "utf8");
+  await withServer({ label: "소유확인" }, async ({ origin }) => {
+    const response = await fetch(`${origin}/${verifyName}`);
+    const body = await response.text();
+    expect(`/${verifyName} → 200`, response.status, 200);
+    expect("내용이 구글 형식", body.trim(), `google-site-verification: ${verifyName}`);
+    expect("Content-Type 은 HTML", response.headers.get("content-type")?.startsWith("text/html"), true);
+    // 화이트리스트에 없는 루트 파일은 여전히 404 (저장소 파일이 통째로 노출되지 않게)
+    for (const blocked of ["/package.json", "/render.yaml", "/CNAME"]) {
+      expect(`${blocked} → 404(화이트리스트 밖)`, (await fetch(`${origin}${blocked}`)).status, 404);
+    }
+    expect("없는 소유확인 파일 → 404", (await fetch(`${origin}/google9z9z9z9z9z9z.html`)).status, 404);
+  });
+} finally {
+  rmSync(verifyPath, { force: true });
+}
 
 console.log("\n[3] ADMIN_ALLOWED_ORIGINS 는 기본 목록에 추가된다 (대체 아님)");
 await withServer({ label: "추가", env: { ADMIN_ALLOWED_ORIGINS: `${EXTRA_ORIGIN}/ , http://192.168.0.10:5173` } }, async ({ origin }) => {

@@ -69,10 +69,45 @@ https://www.cuberry.kr/?lang=en    ← 영문 정본 (canonical = ?lang=en)
 | 4 | **다음 검색등록** (daum) | register.search.daum.net | 국문 정본 `/` 만 등록 |
 | 5 | **리치 결과 테스트**로 구조화 데이터 확인 | search.google.com/test/rich-results | `FAQ` · `제품/서비스` · `조직` 항목이 "감지됨" 으로 뜨는지 |
 | 6 | **PageSpeed Insights** 로 Core Web Vitals 측정 | pagespeed.web.dev | 모바일 LCP 2.5초 이내(히어로 스틸 `preload` + 단일 HTML 로 이미 최적화) |
+| 6b | DNS 를 못 건드릴 때 — **URL 접두어 속성 + HTML 파일** 방식 | Search Console → URL 접두어 → HTML 파일 다운로드 | 아래 3-1 참고. 파일 이름을 알려주면 저장소 루트에 추가·배포까지 처리 |
 | 7 | **구글 비즈니스 프로필·소셜 링크** 확보 후 `sameAs` 채우기 | — | `landing/index.html` 의 Organization `"sameAs": []` 에 유튜브·인스타·링크드인 주소를 넣으면 지식 패널 연결이 쉬워짐 |
 | 8 | **구 사이트(`old.cuberry.kr`) 처리** | AWS | 주요 페이지에서 새 사이트의 대응 주소로 301. 전환 후 3개월은 유지 |
 
 > 3번에서 소유확인 코드를 받으면 알려주세요 — 메타 태그 삽입은 이 저장소에서 바로 처리합니다.
+
+### 3-1. DNS 없이 인증하는 방법 — URL 접두어 속성 + HTML 파일
+
+DNS 담당자가 따로 있거나 Route 53 접근이 어려울 때 쓰는 방식입니다. **DNS 변경 없이 저장소 파일 한 개**로 인증합니다.
+
+**절차**
+
+1. Search Console → **속성 추가** → **URL 접두어** → `https://www.cuberry.kr/` 입력
+2. 확인 방법에서 **HTML 파일** 선택 → 파일 **다운로드**(예: `google1a2b3c4d5e6f7a8b.html`)
+3. 저장소 루트에 그 파일을 추가합니다(파일 이름·내용을 발급받은 그대로):
+   ```bash
+   npm run seo:verify -- google1a2b3c4d5e6f7a8b.html
+   # 네이버: npm run seo:verify -- naver1a2b3c4d5e6f.html
+   # 내용을 직접 받은 경우: npm run seo:verify -- <파일명> --content "발급받은 내용"
+   ```
+4. `npm run typecheck && npm test` → 커밋·푸시 (GitHub Pages 배포 1~2분)
+5. `https://www.cuberry.kr/google1a2b3c4d5e6f7a8b.html` 이 200 으로 열리고 **내용이 한 줄**인지 확인
+6. Search Console → **확인** → 이어서 **Sitemaps** 에 `sitemap.xml` 제출
+
+**왜 파일만 올리면 되는가**
+
+| 서빙 주체 | 어떻게 열리나 |
+| --- | --- |
+| GitHub Pages (www.cuberry.kr) | 저장소 루트를 그대로 배포하므로 파일을 커밋하면 끝 |
+| Render API 서버 | `server/index.mjs` 가 화이트리스트(`google*.html`·`naver*.html`·`yandex_*.html`·`BingSiteAuth.xml`)에 해당하는 **루트 한 단계 파일**을 서빙한다 → 나중에 도메인을 Render 로 옮겨도 인증 유지 |
+
+**안전장치** — `scripts/site-verification.mjs` 가 파일 이름을 정규식으로 제한합니다(슬래시·점 불가).
+그래서 `npm run seo:verify` 로는 저장소 밖 파일을 만들 수 없고, 서버 라우트도 같은 규칙을 씁니다.
+`test/seo.mjs`(이름 허용/거부·내용·경로 탈출)와 `test/server-wiring.mjs`(실제 HTTP 200·화이트리스트 밖 404)가 이를 고정합니다.
+
+**알아둘 점**
+
+- 인증 파일은 **삭제하지 마세요.** 지우면 Search Console 소유권이 풀립니다(재인증 필요).
+- 속성은 `https://www.cuberry.kr/` 접두어 기준이라 **`/`·`/?lang=en` 은 포함**되지만, apex(`https://cuberry.kr/`)는 별도 속성입니다. DNS 인증이 가능해지면 도메인 속성으로 옮기는 편이 깔끔합니다(기존 인증 파일은 그대로 둬도 무해).
 
 ---
 

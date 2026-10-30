@@ -7,11 +7,18 @@
 // 그래서 ③④가 ①②와 **같은 값을 쓰는지**까지 여기서 확인한다.
 //
 // 실행: npm run test:seo  (npm test 에 포함)
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { faqs, services } from "../landing/src/data/content.ts";
 import { priceToKrw } from "../landing/src/seo/structured-data.ts";
+import {
+  isVerificationFile,
+  providerForFile,
+  verificationContent,
+  writeVerificationFile,
+} from "../scripts/site-verification.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (relative) => readFileSync(path.join(ROOT, relative), "utf8");
@@ -187,6 +194,51 @@ for (const blocked of ["/landing/", "/docs/", "/test/", "/scripts/", "/server/",
 expect("이미지는 막지 않음(/images/ Disallow 없음)", /^Disallow: \/images/m.test(robots), false);
 expect("사이트맵 주소 안내", robots.includes(`Sitemap: ${OFFICIAL}/sitemap.xml`), true);
 expect("robots 에 미러 주소 없음", occurrences(robots, MIRROR), 0);
+
+// ── ⑥ 검색엔진 소유확인 파일 (URL 접두어 속성) ─────────────────
+// DNS 를 건드리지 않는 인증 방식. 저장소 루트에 파일을 두면 GitHub Pages 가 그대로 서빙하고,
+// Render 로 도메인을 옮겨도 인증이 유지되도록 서버 라우트도 같은 화이트리스트를 쓴다.
+console.log("\n[6] 소유확인 파일(HTML 파일 방식)");
+const cases = [
+  ["google1a2b3c4d5e6f7a8b.html", "google-site-verification: google1a2b3c4d5e6f7a8b.html"],
+  ["naver9f8e7d6c5b4a3210.html", "naver-site-verification"],
+  ["yandex_1a2b3c4d5e6f7a8b.html", "yandex-site-verification"],
+  ["BingSiteAuth.xml", ""],
+];
+for (const [name, body] of cases) {
+  expect(`허용: ${name}`, isVerificationFile(name), true);
+  expect(`${name} 내용`, verificationContent(name).trim(), body);
+}
+for (const name of ["index.html", "app.js", "robots.txt", "sitemap.xml", "team_profile.html", "./google.html", "google.txt"]) {
+  expect(`거부: ${name}`, isVerificationFile(name), false);
+}
+expect("대소문자 혼용 구글 파일도 허용", isVerificationFile("Google1A2B3C4D5E6F7A8B.html"), true);
+expect("발급기관 이름", providerForFile("naver9f8e7d6c5b4a3210.html")?.label, "네이버 서치어드바이저");
+
+// 쓰기는 임시 폴더에서만 확인한다(저장소에 인증 파일을 남기지 않음).
+const tmpDir = mkdtempSync(path.join(tmpdir(), "cuberry-verify-"));
+try {
+  const written = writeVerificationFile("google1a2b3c4d5e6f7a8b.html", { dir: tmpDir });
+  expect("임시 폴더에 파일 생성", existsSync(written.file), true);
+  expect("파일 내용", readFileSync(written.file, "utf8").trim(), "google-site-verification: google1a2b3c4d5e6f7a8b.html");
+  let rejected = null;
+  try {
+    writeVerificationFile("../../etc/passwd", { dir: tmpDir });
+  } catch (error) {
+    rejected = error.message;
+  }
+  expect("경로 탈출 이름은 거부", typeof rejected, "string");
+  // 정해진 규칙 밖의 이름은 아예 파일을 만들지 않는다(엉뚱한 파일 커밋 방지).
+  expect("거부 시 디렉터리에 남은 파일 수", readdirSync(tmpDir).length, 1);
+} finally {
+  rmSync(tmpDir, { recursive: true, force: true });
+}
+
+const serverSource = read("server/index.mjs");
+expect("서버가 소유확인 파일을 서빙", /isVerificationFile\(url\.pathname\.slice\(1\)\)/.test(serverSource), true);
+expect("서버 라우트가 루트 한 단계만 허용", /\^\\\/\[\^\/\]\+\\\.\(html\|xml\)\$/.test(serverSource), true);
+expect("robots 가 소유확인 파일을 막지 않음", /^Disallow: \/google/m.test(robots) || /^Disallow: \/\.html/m.test(robots), false);
+expect("npm run seo:verify 스크립트", JSON.parse(read("package.json")).scripts["seo:verify"], "node scripts/site-verification.mjs");
 
 console.log(`\n결과: ${checks - failures}/${checks} 통과`);
 if (failures) {
