@@ -7,7 +7,7 @@
 // 그래서 ③④가 ①②와 **같은 값을 쓰는지**까지 여기서 확인한다.
 //
 // 실행: npm run test:seo  (npm test 에 포함)
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -233,6 +233,21 @@ try {
 } finally {
   rmSync(tmpDir, { recursive: true, force: true });
 }
+
+// 저장소 루트에 실제로 커밋된 소유확인 파일도 검사한다 — 이름 규칙에 맞고 내용이 발급기관 형식인지.
+// (인증 파일은 등록 후에도 지우면 소유권이 풀리므로 계속 저장소에 남는다. 형식이 깨지면 여기서 잡는다)
+const rootFiles = readdirSync(ROOT);
+const verifyFiles = rootFiles.filter((name) => isVerificationFile(name) && statSync(path.join(ROOT, name)).isFile());
+console.log(`  · 루트의 소유확인 파일 ${verifyFiles.length}개: ${verifyFiles.join(", ") || "(없음)"}`);
+for (const name of verifyFiles) {
+  const body = read(`${name}`).trim();
+  expect(`${name}: 구글 형식(파일명 포함)`, body, `google-site-verification: ${name}`);
+}
+// 이름 규칙 밖의 *.html 이 루트에 늘어나면 서버 라우트·robots 가정이 흔들린다.
+const strayHtml = rootFiles.filter(
+  (name) => /\.(html|xml)$/i.test(name) && !isVerificationFile(name) && !["index.html", "sitemap.xml"].includes(name),
+);
+expect("규칙 밖의 루트 html/xml 없음", strayHtml, []);
 
 const serverSource = read("server/index.mjs");
 expect("서버가 소유확인 파일을 서빙", /isVerificationFile\(url\.pathname\.slice\(1\)\)/.test(serverSource), true);
