@@ -167,3 +167,32 @@ npm run build:landing   # landing/ → 루트 index.html 갱신 후 **커밋**
 3. 카카오톡·슬랙에 링크를 붙였을 때 제목·설명·이미지가 나오는지
 4. `?lang=en` 으로 열었을 때 제목·설명·`og:url` 이 영문 주소로 바뀌는지(브라우저 기준)
 5. Search Console → 색인 생성 → "색인된 페이지 수"가 2개로 수렴하는지(별칭 `/en/`·`/kr/` 는 제외)
+
+---
+
+## 6. 검증 기록 — 2026-10-30 등록 완료
+
+구글·네이버 소유확인과 사이트맵 제출을 마쳤습니다. 아래는 **실제 배포본에 요청을 보내 확인한 결과**입니다.
+
+| 확인 항목 | 주소 | 결과 |
+| --- | --- | --- |
+| 구글 소유확인 파일 | `https://www.cuberry.kr/google0e3cdf27e024491d.html` | **200** · `text/html` · 54바이트 · `google-site-verification: google0e3cdf27e024491d.html` |
+| 네이버 소유확인 파일 | `https://www.cuberry.kr/naverf466949fe923d669f19bf98f6e421851.html` | **200** · `text/html` · 67바이트 · `naver-site-verification: naverf466949fe923d669f19bf98f6e421851.html` |
+| 사이트맵 | `https://www.cuberry.kr/sitemap.xml` | **200** · `application/xml` · URL 2개 + 이미지 4장 |
+| robots | `https://www.cuberry.kr/robots.txt` | **200** · `Allow: /` · `Sitemap:` 안내 포함 |
+| 영문 정본 | `https://www.cuberry.kr/?lang=en` | **200** · `text/html` |
+
+**등록 완료 항목**
+
+- Google Search Console — `https://www.cuberry.kr/` (URL 접두어) 소유확인 → **사이트맵 제출** → 색인 생성 요청
+- 네이버 서치어드바이저 — 사이트 등록 · 소유확인 → **사이트맵 제출** → 웹페이지 수집 요청 (`/`, `/?lang=en`)
+
+**다음 점검 시점**
+
+| 시점 | 확인할 것 |
+| --- | --- |
+| 1~2일 | Search Console **페이지 → 색인 생성됨** = 2 (`/`, `/?lang=en`) · `/en/`·`/kr/` 는 noindex 라 제외가 정상 |
+| 3~7일 | 서치어드바이저 **수집 현황** · 네이버에서 `큐브베리` 검색 시 노출 |
+| 1주 | 리치 결과 테스트 — FAQ · 서비스/제품 · 조직 감지 여부 |
+| 상시 | 인증 파일 **삭제 금지**(지우면 소유권 해제). 파일이 사라지면 `npm run test:seo` 가 먼저 실패한다 |
+| 상시 | 사이트맵 제출은 **`www` 주소만** — apex 는 ELB 가 경로를 버리고 301(위 5장 참고) |
