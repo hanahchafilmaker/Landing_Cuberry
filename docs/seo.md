@@ -65,7 +65,7 @@ https://www.cuberry.kr/?lang=en    ← 영문 정본 (canonical = ?lang=en)
 | --- | --- | --- | --- |
 | 1 | **Google Search Console** 에 `www.cuberry.kr` 속성 등록 | search.google.com/search-console | 도메인 속성은 DNS TXT 로 인증(`cuberry.kr` TXT 는 이미 있음 — **삭제 금지**). URL 접두어 속성은 GitHub Pages 파일 업로드로 인증 |
 | 2 | **사이트맵 제출** `https://www.cuberry.kr/sitemap.xml` | Search Console → Sitemaps | 상태가 "성공"이고 검색된 URL 이 2개인지 |
-| 3 | **네이버 서치어드바이저** 등록 + 사이트맵 제출 | searchadvisor.naver.com | 소유확인 메타를 넣어야 하면 `landing/index.html` `<head>` 에 `naver-site-verification` 한 줄 추가 후 `npm run build:landing` 커밋 |
+| 3 | **네이버 서치어드바이저** 등록 + 사이트맵 제출 | searchadvisor.naver.com | 소유확인은 **HTML 파일**(`naver…html`) 권장 → `npm run seo:verify -- naver….html`. 메타 태그 방식이면 `landing/index.html` `<head>` 에 `naver-site-verification` 한 줄 추가 후 `npm run build:landing` 커밋 |
 | 4 | **다음 검색등록** (daum) | register.search.daum.net | 국문 정본 `/` 만 등록 |
 | 5 | **리치 결과 테스트**로 구조화 데이터 확인 | search.google.com/test/rich-results | `FAQ` · `제품/서비스` · `조직` 항목이 "감지됨" 으로 뜨는지 |
 | 6 | **PageSpeed Insights** 로 Core Web Vitals 측정 | pagespeed.web.dev | 모바일 LCP 2.5초 이내(히어로 스틸 `preload` + 단일 HTML 로 이미 최적화) |
@@ -104,6 +104,22 @@ DNS 담당자가 따로 있거나 Route 53 접근이 어려울 때 쓰는 방식
 **안전장치** — `scripts/site-verification.mjs` 가 파일 이름을 정규식으로 제한합니다(슬래시·점 불가).
 그래서 `npm run seo:verify` 로는 저장소 밖 파일을 만들 수 없고, 서버 라우트도 같은 규칙을 씁니다.
 `test/seo.mjs`(이름 허용/거부·내용·경로 탈출)와 `test/server-wiring.mjs`(실제 HTTP 200·화이트리스트 밖 404)가 이를 고정합니다.
+
+### 3-2. 네이버 서치어드바이저 (같은 방식)
+
+1. `searchadvisor.naver.com` → **웹마스터 도구 → 사이트 등록** → `https://www.cuberry.kr/`
+2. 소유확인 방법에서 **HTML 파일** 선택 → 파일 다운로드 (예: `naver2bb706cb4277b12fe42cf37d19603ef9.html`)
+3. ```bash
+   npm run seo:verify -- naver2bb706cb4277b12fe42cf37d19603ef9.html
+   # 발급 파일을 그대로 쓰려면: npm run seo:verify -- <파일명> --content "$(cat <내려받은 파일>)"
+   ```
+   네이버 파일 내용도 `naver-site-verification: <파일명>` 한 줄입니다(스크립트가 자동으로 채웁니다).
+4. 커밋·푸시 → `https://www.cuberry.kr/<파일명>` 200 확인 → 서치어드바이저 **소유확인**
+5. **요청 → 사이트맵 제출** 에 `https://www.cuberry.kr/sitemap.xml`
+6. **요청 → 웹페이지 수집** 에서 `/` 와 `/?lang=en` 을 한 번씩 요청(초기 반영 단축)
+
+> 네이버는 `robots.txt` 의 `Allow: /` 를 그대로 따릅니다. 현재 `robots.txt` 는 소스·문서 경로만 막고
+> 본문(`/`)·`/images/`·`/sitemap.xml` 은 열어 두었으므로 추가 설정이 필요 없습니다.
 
 **알아둘 점**
 

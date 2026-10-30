@@ -23,15 +23,17 @@ export const VERIFICATION_PROVIDERS = [
   {
     id: "naver",
     label: "네이버 서치어드바이저",
-    // 예: naver1a2b3c4d5e6f.html — 네이버는 파일 내용도 지정하지 않고 이름만 본다.
+    // 예: naver2bb706cb4277b12fe42cf37d19603ef9.html
+    // 내용도 `naver-site-verification: <파일명>` 한 줄이다(구글과 같은 형식).
     pattern: /^naver[a-z0-9]{8,40}\.html$/i,
-    content: () => "naver-site-verification",
+    content: (name) => `naver-site-verification: ${name}`,
   },
   {
     id: "yandex",
     label: "Yandex Webmaster",
+    // 예: yandex_1a2b3c4d5e6f7a8b.html — 야넥스는 파일명과 같은 문자열을 넣는다.
     pattern: /^yandex_[a-z0-9]{8,40}\.html$/i,
-    content: () => "yandex-site-verification",
+    content: (name) => name,
   },
   {
     id: "bing",

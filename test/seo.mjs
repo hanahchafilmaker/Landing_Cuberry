@@ -201,8 +201,8 @@ expect("robots 에 미러 주소 없음", occurrences(robots, MIRROR), 0);
 console.log("\n[6] 소유확인 파일(HTML 파일 방식)");
 const cases = [
   ["google1a2b3c4d5e6f7a8b.html", "google-site-verification: google1a2b3c4d5e6f7a8b.html"],
-  ["naver9f8e7d6c5b4a3210.html", "naver-site-verification"],
-  ["yandex_1a2b3c4d5e6f7a8b.html", "yandex-site-verification"],
+  ["naver2bb706cb4277b12fe42cf37d19603ef9.html", "naver-site-verification: naver2bb706cb4277b12fe42cf37d19603ef9.html"],
+  ["yandex_1a2b3c4d5e6f7a8b.html", "yandex_1a2b3c4d5e6f7a8b.html"],
   ["BingSiteAuth.xml", ""],
 ];
 for (const [name, body] of cases) {
@@ -241,7 +241,9 @@ const verifyFiles = rootFiles.filter((name) => isVerificationFile(name) && statS
 console.log(`  · 루트의 소유확인 파일 ${verifyFiles.length}개: ${verifyFiles.join(", ") || "(없음)"}`);
 for (const name of verifyFiles) {
   const body = read(`${name}`).trim();
-  expect(`${name}: 구글 형식(파일명 포함)`, body, `google-site-verification: ${name}`);
+  // 발급기관 형식: `google-site-verification: <파일명>` · `naver-site-verification: <파일명>` · 야넥스는 파일명 자체
+  const provider = providerForFile(name);
+  expect(`${name}: ${provider.label} 형식(파일명 포함)`, body, verificationContent(name).trim());
 }
 // 이름 규칙 밖의 *.html 이 루트에 늘어나면 서버 라우트·robots 가정이 흔들린다.
 const strayHtml = rootFiles.filter(
