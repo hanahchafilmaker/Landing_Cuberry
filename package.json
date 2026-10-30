@@ -27,7 +27,8 @@
     "test:cms": "node test/landing-cms.mjs",
     "test:admin": "node test/admin-v2-flow.mjs",
     "sync:seed": "node test/../scripts/sync-seed.mjs",
-    "check:drive": "node scripts/check-drive-service-account.mjs"
+    "check:drive": "node scripts/check-drive-service-account.mjs",
+    "seo:verify": "node scripts/site-verification.mjs"
   },
   "devDependencies": {
     "@radix-ui/react-avatar": "^1.2.6",

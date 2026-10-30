@@ -623,12 +623,13 @@ ADMIN_PASSWORD='새비밀번호' RESET_ADMIN_PASSWORD=1 npm start
 ## 테스트
 
 ```bash
-npm test           # 의존성 없음 · 약 600건 (client-origin 51 + static-paths 34 + server-wiring 81 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 73 + seo 96 + landing-tabs 58 + 드라이브 3종)
+npm test           # 의존성 없음 · 약 600건 (client-origin 51 + static-paths 34 + server-wiring 81 + i18n-coverage 5 + team-profile + security 66 + notify 63 + cron-backup 61 + domain 73 + seo 121 + landing-tabs 58 + 드라이브 3종)
 npm run test:security # 보안 회귀 63건 (XFF 우회·CSP·압축/ETag·경로 보호·업로드 시그니처·허니팟·폼 토큰/Turnstile)
 npm run test:notify  # 문의 알림 63건 (웹훅 성공·백오프 재시도·실패 보존·UNIQUE 재발송·마스킹·킬 스위치, 외부 요청 0)
 npm run test:cron    # 자동 백업 61건 (시크릿 503/401·무변경 skip·내용 변경 재커밋·목 GitHub API, 외부 요청 0)
 npm run test:domain  # 도메인 컷오버 73건 (canonical/OG/사이트맵/robots·/en/·/kr/ 별칭·서버 허용목록·Route 53 레코드 파일)
-npm run test:seo     # 검색 노출 96건 (robots 메타·JSON-LD 그래프·가격/FAQ 일치·정적 셸 동기화·이미지 사이트맵·소스 경로 차단)
+npm run seo:verify -- google1a2b3c4d5e6f7a8b.html   # 검색엔진 소유확인 파일을 저장소 루트에 추가(DNS 없이 인증)
+npm run test:seo     # 검색 노출 121건 (robots 메타·JSON-LD 그래프·가격/FAQ 일치·정적 셸 동기화·이미지 사이트맵·소스 경로 차단)
 npm run test:tabs  # 콘텐츠 탭 47건 (탭 전환·해시 딥링크·메뉴/앵커 연동·키보드·영어 라벨·DOM 유지·접근성·고정 배치)
 npm run test:dom   # jsdom 필요 · 79건 (서버가 켜져 있어야 함)
 npm run test:cms   # jsdom 필요 · 46건 (서버 없이 React 랜딩 + mock API)
