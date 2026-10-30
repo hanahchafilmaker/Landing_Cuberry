@@ -91,6 +91,7 @@ DNS 담당자가 따로 있거나 Route 53 접근이 어려울 때 쓰는 방식
    ```
 4. `npm run typecheck && npm test` → 커밋·푸시 (GitHub Pages 배포 1~2분)
 5. `https://www.cuberry.kr/google1a2b3c4d5e6f7a8b.html` 이 200 으로 열리고 **내용이 한 줄**인지 확인
+   — 2026-10-30 현재 저장소에 등록된 실제 파일: **`google0e3cdf27e024491d.html`** (`google-site-verification: google0e3cdf27e024491d.html`)
 6. Search Console → **확인** → 이어서 **Sitemaps** 에 `sitemap.xml` 제출
 
 **왜 파일만 올리면 되는가**
