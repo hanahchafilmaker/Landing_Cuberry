@@ -63,6 +63,8 @@ assert.equal(chipMatchesCmsWork("KOSHA", koshaCms), true, "KOSHA 작품이 걸�
 // ③ 프로젝트 이름은 제목·태그 어디에 있어도 찾는다(띄어쓰기·기호 무시)
 assert.equal(chipMatchesCmsWork("성남시", card({ title: "성남시 청년 정책 홍보" })), true);
 assert.equal(chipMatchesCmsWork("스캔팡", card({ title: "ScanPang 스캔팡 브랜드 필름" })), true);
+assert.equal(chipMatchesCmsWork("천년의 사랑", card({ title: "천년의 사랑 뮤직비디오" })), true);
+assert.equal(chipMatchesCmsWork("천년의 사랑", brand), false);
 assert.equal(chipMatchesCmsWork("XCONDA", card({ title: "브랜드 필름", tags: ["XCONDA"] })), true);
 assert.equal(chipMatchesCmsWork("KOSHA", card({ title: "koshi 안전" })), false, "부분 문자열 오탐이 있습니다");
 

@@ -1,7 +1,7 @@
 // 비공개 Google Drive 폴더에서 링크 공개된 영상의 메타데이터만 읽는다.
 // 영상은 방문자의 브라우저가 Google Drive에서 직접 재생하며, 서버에 복사하지 않는다.
 import { JWT } from "google-auth-library";
-import { CATEGORY_LABELS, PUBLIC_CATEGORIES, describeVideo, isHiddenWork, rootFolder, sectionLabel } from "./drive-grouping.mjs";
+import { CATEGORY_LABELS, PUBLIC_CATEGORIES, dedupeVideos, describeVideo, isHiddenWork, rootFolder, sectionLabel } from "./drive-grouping.mjs";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 const FOLDER_MIME = "application/vnd.google-apps.folder";
@@ -195,8 +195,10 @@ export function createDrivePortfolio({
         }
       }
     }
+    // 정본 파일과 겹치는 중복 업로드본(콜드사이트_EP01-001 · *_dup 등)을 걷어낸 뒤,
     // 카테고리 → 섹션 → 제목 순으로 정렬해 랜딩의 탭/칩 순서와 맞춘다.
-    videos.sort(
+    const unique = dedupeVideos(videos);
+    unique.sort(
       (a, b) =>
         (a._order || 0) - (b._order || 0) ||
         a.category.localeCompare(b.category) ||
@@ -205,7 +207,7 @@ export function createDrivePortfolio({
         a.name.localeCompare(b.name, "en", { sensitivity: "base", numeric: true }) ||
         a.id.localeCompare(b.id),
     );
-    return videos.map(({ _order, ...video }) => video);
+    return unique.map(({ _order, ...video }) => video);
   }
 
   async function get() {

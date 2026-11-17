@@ -243,6 +243,60 @@ console.log("[drive] 작업 폴더가 한 겹 감싸도 광고 폴더를 찾아�
   assert.equal(result.videos.find((video) => video.id === "kosha_video_1").section, "KOSHA");
 }
 
+console.log("[drive] 2026-11-09 폴더 재편(External_Commercial · XCONDA_Commercial · 천년의 사랑) 및 중복 제거");
+{
+  const id = "cuberry_root_261109";
+  const tree = {
+    cuberry_root_261109: [{ id: "ext_portfolio_1", name: "Cubeberry_Portfolio_External", mimeType: FOLDER }],
+    ext_portfolio_1: [
+      { id: "com_folder_01", name: "01_Commercial", mimeType: FOLDER },
+      { id: "web_folder_05", name: "05_Web_Drama", mimeType: FOLDER },
+    ],
+    com_folder_01: [
+      { id: "ext_com_sub01", name: "External_Commercial", mimeType: FOLDER },
+      { id: "xconda_sub_01", name: "XCONDA_Commercial", mimeType: FOLDER },
+      { id: "tyol_sub_0001", name: "A_Thousand_Years_of_Love_AI_Music_Video_Drama", mimeType: FOLDER },
+    ],
+    ext_com_sub01: [
+      { id: "kosha_sub_001", name: "Kosha", mimeType: FOLDER },
+      { id: "scan_sub_0001", name: "ScanPang", mimeType: FOLDER },
+      { id: "seong_sub_001", name: "SeongnamCity", mimeType: FOLDER },
+    ],
+    kosha_sub_001: [node("kosha_vid_001", "Kosha_VanGogh_v3.mp4")],
+    scan_sub_0001: [node("scan_vid_0001", "ScanPang_Commercial_v7_KO.mp4")],
+    seong_sub_001: [node("seong_vid_001", "SeongnamCity_Promotional_v1.mp4")],
+    xconda_sub_01: [node("xconda_vid_01", "XCONDA_DirectorsCut_FashionAd_4K_v1.mp4")],
+    tyol_sub_0001: [node("tyol_vid_0001", "XCONDA_ThousandYearsOfLove_MusicVideoDrama_4K_v1.mp4")],
+    web_folder_05: [
+      node("cold_ep1_orig", "WebDrama_ColdSite_EP01_v1.mp4"),
+      node("cold_ep1_kdup", "\u110f\u1169\u11af\u1103\u1173\u1109\u1161\u110b\u1175\u1110\u1173_EP01-001.mp4"),
+    ],
+  };
+  const reorganized = createDrivePortfolio({
+    folderId: id,
+    getAuthHeaders: auth,
+    logger: { warn() {} },
+    fetchImpl: async (input) => {
+      const url = new URL(input);
+      if (url.pathname.endsWith(`/files/${id}`)) return { ok: true, json: async () => ({ id, name: "Cuberry_Video", mimeType: FOLDER }) };
+      const parent = url.searchParams.get("q").match(/^'([^']+)'/)[1];
+      return { ok: true, json: async () => ({ files: structuredClone(tree[parent] || []) }) };
+    },
+  });
+  const result = await reorganized.get();
+  assert.equal(result.status, "ready");
+  const byId = Object.fromEntries(result.videos.map((video) => [video.id, video]));
+  assert.equal(byId.kosha_vid_001.section, "KOSHA");
+  assert.equal(byId.scan_vid_0001.section, "스캔팡");
+  assert.equal(byId.seong_vid_001.section, "성남시");
+  assert.equal(byId.xconda_vid_01.section, "XCONDA");
+  assert.equal(byId.tyol_vid_0001.section, "천년의 사랑");
+  assert.equal(Boolean(byId.cold_ep1_orig), true);
+  assert.equal(Boolean(byId.cold_ep1_kdup), false, "한글 중복 콜드사이트 파일은 제외한다");
+  assert.equal(JSON.stringify(result).includes("External_Commercial"), false);
+  assert.equal(JSON.stringify(result).includes("XCONDA_Commercial"), false);
+}
+
 console.log("[drive] 서비스 계정 JSON으로 읽기 전용 JWT 서명 및 토큰 교환");
 const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const pem = privateKey.export({ type: "pkcs8", format: "pem" });

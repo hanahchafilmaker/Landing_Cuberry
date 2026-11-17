@@ -47,6 +47,24 @@ const guMioh = card({
 });
 const guMiohFilm = film({ id: "abc", title: "TV Hometown Of Legends Nine Tailed Fox" });
 assert.equal(isSameWork(guMioh, guMiohFilm), true, "구미호 짝을 못 찾았습니다");
+assert.equal(isSameWork(guMioh, film({ id: "g2", title: "TV Hometown Of Legends Gumiho" })), true, "Gumiho 트레일러 짝을 못 찾았습니다");
+assert.equal(
+  isSameWork(card({ title: "〈한국전쟁 이동외상센터〉 KBS 특집" }), film({ id: "kw", title: "TV Korean War Mobile Trauma Center KBS" })),
+  true,
+  "이동외상센터 짝을 못 찾았습니다",
+);
+assert.equal(
+  isSameWork(card({ title: "목구령 경찰국" }), film({ id: "mgr", title: "Web Drama Mokguryeong Police Bureau" })),
+  true,
+  "목구령 경찰국 짝을 못 찾았습니다",
+);
+assert.equal(
+  isSameWork(card({ title: "천년의 사랑" }), film({ id: "tyol", title: "XCONDA Thousand Years Of Love Music Video Drama" })),
+  true,
+  "천년의 사랑 짝을 못 찾았습니다",
+);
+// 목구령 경찰국과 목구멍은 서로 다른 작품이다.
+assert.equal(isSameWork(card({ title: "목구멍" }), film({ id: "mgr", title: "Web Drama Mokguryeong Police Bureau" })), false);
 
 // ② 영문 제목끼리는 뜻 있는 단어 2개 이상이 겹치면 합친다.
 assert.equal(isSameWork(card({ title: "Seongnam City Promotional" }), film({ title: "Seongnam City Promotional" })), true);

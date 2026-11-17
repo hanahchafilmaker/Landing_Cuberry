@@ -65,17 +65,48 @@ export function applyRules(text: string): string | undefined {
   return undefined;
 }
 
+/** "트레일러 / v1 / DI 플레이트" 처럼 구분자로 이어 붙인 드라이브 버전 라벨을 조각별로 옮긴다. */
+function translateCompound(text: string): string | undefined {
+  const value = normalizeKey(text);
+  if (!value.includes(" / ")) return undefined;
+  let changed = false;
+  const parts = value.split(" / ").map((segment) => {
+    const direct = lookup(segment) ?? applyRules(segment);
+    if (direct !== undefined) {
+      changed = true;
+      return direct;
+    }
+    if (segment.includes(" · ")) {
+      let subChanged = false;
+      const subs = segment.split(" · ").map((piece) => {
+        const sub = lookup(piece) ?? applyRules(piece);
+        if (sub !== undefined) {
+          subChanged = true;
+          return sub;
+        }
+        return piece;
+      });
+      if (subChanged) {
+        changed = true;
+        return subs.join(" · ");
+      }
+    }
+    return segment;
+  });
+  return changed ? parts.join(" / ") : undefined;
+}
+
 /**
  * 문구 하나를 화면 언어로 바꾼다.
  * - lang="ko" 면 원문(자리표시자만 치환)
- * - lang="en" 이면 사전 → 규칙 → 원문 순서로 시도
+ * - lang="en" 이면 사전 → 규칙 → 복합 라벨 → 원문 순서로 시도
  */
 export function translate(text: string, lang: Lang, vars?: Vars): string {
   if (typeof text !== "string" || text.length === 0) return text;
   const original = keepAsIs.get(normalizeKey(text)) ?? text;
   if (lang === "ko") return interpolate(original, vars);
-  // 사전 → 규칙 → 원문. 규칙은 "10-2026-0028285" 같은 숫자 문구도 영어 표기로 바꾼다.
-  const translated = lookup(original) ?? applyRules(original);
+  // 사전 → 규칙 → 복합 라벨 → 원문. 규칙은 "10-2026-0028285" 같은 숫자 문구도 영어 표기로 바꾼다.
+  const translated = lookup(original) ?? applyRules(original) ?? translateCompound(original);
   return interpolate(translated ?? original, vars);
 }
 
