@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PortfolioCard } from "./map";
-import { findBlankThumbnails } from "./thumbnail";
+import { findBlankThumbnails } from "./thumbnail.ts";
 
 const ID = /^[A-Za-z0-9_-]{8,200}$/;
 const REFRESH_MS = 60 * 1000;
@@ -242,9 +242,10 @@ export function toFilms(videos: DriveVideo[]): DriveFilm[] {
       first.title || humanize(first.name),
       categoryLabel,
       section,
-      ...sorted.map((entry) => `${entry.video.name} ${entry.variant.label}`),
+      ...sorted.map((entry) => `${entry.video.name} ${entry.variant.label} ${entry.video.search || ""}`),
     ]
       .join(" ")
+      .normalize("NFC")
       .toLowerCase();
 
     films.push({

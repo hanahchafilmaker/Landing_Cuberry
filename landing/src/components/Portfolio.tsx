@@ -221,7 +221,7 @@ export function Portfolio() {
         {chips.length > 1 && (
           <Reveal delay={1}>
             <div aria-label={t("폴더 필터")} role="group" className="mt-4 flex flex-wrap gap-1.5">
-              {[{ label: t("전체"), count: filmsForTab.length + worksForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
+              {[{ label: "전체", count: filmsForTab.length + worksForTab.length, value: ALL_CHIP }, ...chips.map((entry) => ({ ...entry, value: entry.label }))].map((entry) => (
                 <button
                   key={entry.value}
                   type="button"
@@ -235,7 +235,7 @@ export function Portfolio() {
                       : "border-line text-faint hover:border-line-4 hover:text-body",
                   )}
                 >
-                  {entry.label}
+                  {t(entry.label)}
                   <span className="ml-1 text-[9px] opacity-70">{entry.count}</span>
                 </button>
               ))}

@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import {
   CATEGORY_LABELS,
+  dedupeVideos,
   describeName,
   describeVideo,
   humanize,
@@ -49,6 +50,9 @@ assert.equal(isHiddenWork("WebDrama_ToyFarm_Trailer.mp4"), false);
 // ── 2. 섹션(칩) ─────────────────────────────────────────────────────
 assert.equal(sectionLabel("commercial", "Kosha"), "KOSHA");
 assert.equal(sectionLabel("commercial", "XCONDA"), "XCONDA");
+assert.equal(sectionLabel("commercial", "XCONDA_Commercial"), "XCONDA", "XCONDA_Commercial 도 XCONDA 칩으로 묶는다");
+assert.equal(sectionLabel("commercial", "External_Commercial"), "", "중간 묶음 폴더는 칩으로 쓰지 않고 하위 프로젝트로 내려간다");
+assert.equal(sectionLabel("commercial", "A_Thousand_Years_of_Love_AI_Music_Video_Drama"), "천년의 사랑");
 assert.equal(sectionLabel("commercial", "SeongnamCity"), "성남시");
 assert.equal(sectionLabel("commercial", "ScanPang"), "스캔팡");
 assert.equal(sectionLabel("commercial", "NewBrand"), "New Brand", "모르는 프로젝트 폴더는 읽기 좋게");
@@ -82,7 +86,7 @@ assert.match(english.variant, /영어/);
 // 규칙 위반 표기(ENGsub)도 자막 변형으로 인식한다
 assert.match(describeName("XCONDA_Turn_Commercial_v1_ENGsub.mp4", { category: "commercial" }).variant, /EN 자막/);
 
-// ── 4. 시리즈는 한 그룹 + 에피소드 ────────────────────────────────────
+// ── 4. 시리즈는 한 그룹 + 에피소드 (PartN · EP01 · EP01to05 · Highlight) ──
 const parts = [1, 2, 3, 4, 5].map((n) =>
   describeName(`XCONDA_SeedancePromo_Part${n}_${["TopGun", "Countryside", "Future", "Champagne", "Toothpaste"][n - 1]}_EN_v1.mp4`, {
     category: "commercial",
@@ -91,6 +95,55 @@ const parts = [1, 2, 3, 4, 5].map((n) =>
 );
 assert.equal(new Set(parts.map((part) => part.group)).size, 1, "시리즈 5편은 한 장으로 묶인다");
 assert.deepEqual(parts.map((part) => part.episode), [1, 2, 3, 4, 5]);
+
+// 2026-11-09 웹드라마 신규 입고: EP01 · EP02 · EP01to05 · Highlight 라벨과 그룹핑
+const division = [
+  "WebDrama_DIVISION0_Trailer_v1.mp4",
+  "WebDrama_DIVISION0_EP01_v1.mp4",
+  "WebDrama_DIVISION0_EP02_v1.mp4",
+  "WebDrama_DIVISION0_EP01to05_v1.mp4",
+].map((name) => describeName(name, { category: "webdrama" }));
+assert.equal(new Set(division.map((item) => item.group)).size, 1, "DIVISION0 트레일러·회차·합본은 한 그룹");
+assert.deepEqual(division.map((item) => item.episode), [0, 1, 2, 0]);
+assert.deepEqual(division.map((item) => item.variant), ["트레일러 / v1", "1화 / v1", "2화 / v1", "합본 1~5화 / v1"]);
+
+const el = [
+  "WebDrama_ELinWonderland_Trailer.mp4",
+  "WebDrama_ELinWonderland_Highlight_v1.mp4",
+  "WebDrama_ELinWonderland_EP01_v1.mp4",
+  "WebDrama_ELinWonderland_EP02_v1.mp4",
+].map((name) => describeName(name, { category: "webdrama" }));
+assert.equal(new Set(el.map((item) => item.group)).size, 1, "이엘 원더랜드 트레일러·하이라이트·회차는 한 그룹");
+assert.equal(el[0].title, "Web Drama EL in Wonderland");
+assert.equal(el[1].variant, "하이라이트 / v1");
+assert.equal(el[2].variant, "1화 / v1");
+assert.equal(el[3].variant, "2화 / v1");
+
+// 콜드사이트 한글 파일명 중복(macOS NFD 자모 분리 포함)은 정본이 있을 때 제거하고, 단독일 때는 유지한다
+const nfdColdEp1 = "\u110f\u1169\u11af\u1103\u1173\u1109\u1161\u110b\u1175\u1110\u1173_EP01-001.mp4";
+const nfdColdEp2 = "\u110f\u1169\u11af\u1103\u1173\u1109\u1161\u110b\u1175\u1110\u1173_EP02-002.mp4";
+assert.equal(
+  describeName(nfdColdEp1, { category: "webdrama" }).group,
+  describeName("WebDrama_ColdSite_EP01_v1.mp4", { category: "webdrama" }).group,
+  "NFD 한글 콜드사이트 파일도 정본 그룹으로 맞춘다",
+);
+const coldRecords = [
+  "WebDrama_ColdSite_Trailer_v2.mp4",
+  "WebDrama_ColdSite_Trailer_v2_dup.mp4",
+  "WebDrama_ColdSite_EP01_v1.mp4",
+  "WebDrama_ColdSite_EP02_v1.mp4",
+  nfdColdEp1,
+  nfdColdEp2,
+].map((name, i) => describeVideo({ id: `cold_${i}`, name }, { category: "webdrama", categoryLabel: "웹드라마", section: "" }));
+assert.deepEqual(
+  dedupeVideos(coldRecords).map((item) => item.name),
+  ["WebDrama_ColdSite_Trailer_v2.mp4", "WebDrama_ColdSite_EP01_v1.mp4", "WebDrama_ColdSite_EP02_v1.mp4"],
+  "정본이 있으면 한글 중복본·_dup 사본은 걷어낸다",
+);
+const soloDuplicate = dedupeVideos([
+  describeVideo({ id: "cold_only", name: nfdColdEp1 }, { category: "webdrama", categoryLabel: "웹드라마", section: "" }),
+]);
+assert.equal(soloDuplicate.length, 1, "정본이 없으면 단독 파일을 숨기지 않는다");
 
 // 서로 다른 작품은 합쳐지지 않는다
 const distinct = ["TV_FairyTalesForAHappyWorld_Gugbob.mp4", "TV_FairyTalesForAHappyWorld_Ramen.mp4", "TV_Chunhyangdan_Trailer.mp4"];
@@ -109,6 +162,17 @@ assert.equal(describeName("Kosha_daVinci_MonaLisa_v5.mp4", { category: "commerci
 const gumiho = describeName("TV_HometownOfLegends_NineTailedFox_Trailer.mp4", { category: "tv" });
 assert.match(gumiho.search, /구미호/);
 assert.match(gumiho.search, /전설의 고향/);
+const gumiho2 = describeName("TV_HometownOfLegends_Gumiho_Trailer.mp4", { category: "tv" });
+assert.match(gumiho2.search, /구미호/, "Gumiho 표기도 한글 검색된다");
+const mokguryeong = describeName("WebDrama_MokguryeongPoliceBureau_Trailer_v1_261109.mp4", { category: "webdrama" });
+assert.match(mokguryeong.search, /목구령 경찰국/);
+const thousandYears = describeName("XCONDA_ThousandYearsOfLove_MusicVideoDrama_4K_v1.mp4", { category: "commercial", section: "천년의 사랑" });
+assert.match(thousandYears.search, /천년의 사랑/);
+const traumaCenter = describeName("TV_KoreanWarMobileTraumaCenter_KBS.mp4", { category: "tv" });
+assert.match(traumaCenter.search, /이동외상센터/);
+assert.match(traumaCenter.search, /이동외과병원/);
+const mokgumeong = describeName("WebDrama_PovertyKnowsNoLaw_Trailer.mp4", { category: "webdrama" });
+assert.match(mokgumeong.search, /목구멍/);
 const toyfarm = describeName("WebDrama_ToyFarm_Trailer.mp4", { category: "webdrama" });
 assert.match(toyfarm.search, /토이팜/);
 const guide = describeName("Guide_XCONDA_05_AutoAngleGenerator_KO.mp4", { category: "guide", section: "한국어" });

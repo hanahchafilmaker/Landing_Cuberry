@@ -50,18 +50,38 @@ export function isHiddenWork(rawName) {
   return HIDDEN_WORKS.some((pattern) => pattern.test(name));
 }
 
+/**
+ * 광고 카테고리 안의 중간 묶음 폴더(예: External_Commercial) — 프로젝트명이 아니므로
+ * 칩으로 쓰지 않고 한 단계 안쪽 폴더(Kosha·ScanPang·SeongnamCity)에서 섹션을 잡는다.
+ */
+const COMMERCIAL_GROUP_FOLDER = /^(?:external|internal|client|outbound|외부|내부)(?:[\s._-]*(?:commercial|commerce|advert\w*|ads?|광고|커머셜|상업))?$/i;
+
 const COMMERCIAL_SECTIONS = [
-  { test: /^kosha$/i, label: "KOSHA" },
-  { test: /^xconda$/i, label: "XCONDA" },
+  { test: /^kosha(?:[\s._-]*(?:commercial|ads?|광고|커머셜))?$/i, label: "KOSHA" },
+  { test: /^xconda(?:[\s._-]*(?:commercial|ads?|광고|커머셜))?$/i, label: "XCONDA" },
   { test: /^seongnam/i, label: "성남시" },
-  { test: /^scanpang$/i, label: "스캔팡" },
+  { test: /^scanpang(?:[\s._-]*(?:commercial|ads?|광고|커머셜))?$/i, label: "스캔팡" },
   { test: /^jeju/i, label: "제주공모" },
+  { test: /^(?:a[\s._-]*)?thousand[\s._-]*years[\s._-]*of[\s._-]*love|천년의\s*사랑/i, label: "천년의 사랑" },
 ];
 
 const GUIDE_SECTIONS = [
   { test: /^ko$/i, label: "한국어" },
   { test: /^en$/i, label: "영어" },
   { test: /^ja$/i, label: "일본어" },
+];
+
+/**
+ * 파일명 규칙을 어기고 국문 제목으로 올라온 중복본(예: 콜드사이트_EP01-001.mp4)을
+ * 정본 영문 작품 그룹으로 맞춘다. 정본 파일이 함께 있으면 dedupeVideos 가 중복본을 걷어낸다.
+ */
+const KOREAN_WORK_GROUPS = [
+  { category: "webdrama", test: /^콜드\s*사이트$/, canonical: "WebDrama_ColdSite" },
+  { category: "webdrama", test: /^목구령\s*경찰국$/, canonical: "WebDrama_MokguryeongPoliceBureau" },
+  { category: "webdrama", test: /^(?:이엘\s*원더랜드|이상한\s*나라의\s*이엘)$/, canonical: "WebDrama_ELinWonderland" },
+  { category: "webdrama", test: /^디비전\s*(?:0|제로)$/, canonical: "WebDrama_DIVISION0" },
+  { category: "webdrama", test: /^(?:목구멍|가난은\s*죄가\s*없다)$/, canonical: "WebDrama_PovertyKnowsNoLaw" },
+  { category: "webdrama", test: /^토이\s*팜$/, canonical: "WebDrama_ToyFarm" },
 ];
 
 const AUDIO = { KO: "한국어", EN: "영어", JA: "일본어" };
@@ -73,6 +93,8 @@ const OUTPUT = {
   teaser: "티저",
   pilot: "파일럿",
   pilottest: "파일럿",
+  highlight: "하이라이트",
+  highlights: "하이라이트",
   showreel: "쇼릴",
   making: "메이킹",
 };
@@ -96,14 +118,19 @@ const QUALITY_LABEL = {
 const ALIASES = {
   hometownoflegends: "전설의 고향",
   ninetailedfox: "구미호",
+  gumiho: "구미호",
   chunhyangdan: "천향단",
   toyfarm: "토이팜",
-  coldsite: "콜드사이트",
-  elinwonderland: "이엘 원더랜드",
-  division0: "디비전 제로",
+  coldsite: "콜드사이트 콜드 사이트",
+  elinwonderland: "이엘 원더랜드 이상한 나라의 이엘",
+  mokguryeongpolicebureau: "목구령 경찰국 목구령경찰국",
+  mokguryeong: "목구령",
+  division0: "디비전 제로 디비전0 디비전 0",
   girldetective: "소녀탐정",
+  seorok: "서록",
   seedwar: "씨앗전쟁",
-  povertyknowsnolaw: "가난은 죄가 없다",
+  povertyknowsnolaw: "목구멍 가난은 죄가 없다",
+  fairytalesforahappyworld: "tv동화 행복한 세상",
   ramen: "라면",
   gugbob: "국밥",
   showreel: "쇼릴",
@@ -113,17 +140,29 @@ const ALIASES = {
   thegleaners: "이삭줍기",
   napoleoncrossingthealps: "알프스 넘는 나폴레옹",
   theconstructors: "건설자들",
+  girlwithapearlearring: "진주 귀걸이를 한 소녀 진주귀걸이",
   kimhongdo: "김홍도",
   rooftiling: "기와이기",
   thesmithy: "대장간",
   vangogh: "반 고흐",
   koreanwarspecial: "한국전쟁 특집",
+  koreanwarmobiletraumacenter: "한국전쟁 이동외상센터 이동외과병원",
+  mobiletraumacenter: "이동외상센터 이동외과병원",
+  thousandyearsoflove: "천년의 사랑 천년의사랑",
+  musicvideodrama: "뮤직비디오 드라마",
+  fashionad: "패션 광고",
+  brandfilm: "브랜드 필름 브랜드필름",
+  shortscommercial: "숏폼 광고",
   jejucontest: "제주 공모",
   scanpang: "스캔팡",
   seongnamcity: "성남시",
+  researchinstitute: "연구원 성남시정연구원",
+  elevator: "엘리베이터",
   xconda: "엑스콘다",
   kosha: "코샤",
   flexboard: "플렉스보드",
+  blockingboard: "블로킹보드 블로킹 보드",
+  turn: "턴",
   seedancepromo: "시댄스 프로모",
   discount30: "30% 할인",
   candy: "캔디",
@@ -155,6 +194,7 @@ const ALIASES = {
   cinegradeai: "시네 그레이드",
   arrowview: "애로우 뷰",
   directorssequence: "디렉터스 시퀀스",
+  highlight: "하이라이트",
   promotion: "프로모션",
   promotional: "홍보",
   contest: "공모전",
@@ -163,7 +203,8 @@ const ALIASES = {
   verticalshorts: "세로 숏폼",
 };
 
-const clean = (value) => String(value ?? "").trim();
+/** macOS 에서 올라온 자모 분리(NFD) 한글 파일명도 같은 글자로 읽히게 NFC 로 정규화한다. */
+const clean = (value) => String(value ?? "").normalize("NFC").trim();
 const lower = (value) => clean(value).toLowerCase();
 
 /** 최상위 폴더 이름 → { category, label, order } (모르는 폴더는 기타) */
@@ -185,8 +226,9 @@ export function rootFolder(rawName) {
 export function sectionLabel(category, rawName) {
   const name = clean(rawName);
   if (!name) return "";
-  // 카테고리 폴더 자신(01_Commercial 등)은 섹션이 아니다.
+  // 카테고리 폴더 자신(01_Commercial 등)이나 중간 묶음 폴더(External_Commercial 등)는 섹션이 아니다.
   if (category && rootFolder(name).category === category) return "";
+  if (category === "commercial" && COMMERCIAL_GROUP_FOLDER.test(name)) return "";
   const table = category === "commercial" ? COMMERCIAL_SECTIONS : category === "guide" ? GUIDE_SECTIONS : [];
   for (const entry of table) {
     if (entry.test.test(name)) return entry.label;
@@ -198,7 +240,9 @@ export function sectionLabel(category, rawName) {
 
 /** CamelCase·숫자 경계를 띄어 쓴 사람용 제목 */
 export function humanize(rawName) {
-  const text = clean(rawName).replace(/\.(mp4|m4v|mov|webm|avi|mkv)$/i, "");
+  const text = clean(rawName)
+    .replace(/\.(mp4|m4v|mov|webm|avi|mkv)$/i, "")
+    .replace(/(^|_)ELin(?=[A-Z])/g, "$1EL_in_");
   const words = [];
   // "FlexBoard2.0" 같은 버전 표기의 소수점은 살린다(2 0 으로 쪼개지지 않게).
   for (const token of text.replace(/(\d)\.(\d)/g, "$1\u0000$2").split(/[_\-.]+/)) {
@@ -231,8 +275,10 @@ export function describeName(rawName, { category = "", section = "" } = {}) {
   const episodeTokens = [];
   let version = 0;
   let episode = 0;
+  let episodeUnit = "편";
   let seriesCut = -1;
   let delivery = false;
+  let duplicate = false;
 
   for (const token of tokens) {
     const upper = token.toUpperCase();
@@ -246,12 +292,35 @@ export function describeName(rawName, { category = "", section = "" } = {}) {
       if (!subtitles.includes(label)) subtitles.push(label);
       continue;
     }
+    if (/^(?:dup|copy)\d*$/i.test(token)) {
+      duplicate = true;
+      continue;
+    }
     if (/^v\d+$/i.test(token)) {
       version = Math.max(version, Number(token.slice(1)) || 0);
       continue;
     }
-    if (/^part\d+$/i.test(token)) {
-      episode = Number(token.slice(4)) || 0;
+    const epRange = /^(?:ep|episode)0*(\d+)(?:to|~)0*(\d+)$/i.exec(token);
+    if (epRange) {
+      const from = Number(epRange[1]) || 0;
+      const to = Number(epRange[2]) || 0;
+      if (from > 0 && to >= from) {
+        const label = from === to ? `${from}화` : `합본 ${from}~${to}화`;
+        if (!outputs.includes(label)) outputs.push(label);
+        continue;
+      }
+    }
+    const epMatch = /^(?:ep|episode)0*(\d+)(?:-(\d+))?$/i.exec(token);
+    if (epMatch && Number(epMatch[1]) > 0) {
+      episode = Number(epMatch[1]);
+      episodeUnit = "화";
+      seriesCut = groupTokens.length;
+      if (epMatch[2]) duplicate = true;
+      continue;
+    }
+    if (/^part0*\d+$/i.test(token) && Number(token.slice(4)) > 0) {
+      episode = Number(token.slice(4));
+      episodeUnit = "편";
       seriesCut = groupTokens.length;
       continue;
     }
@@ -260,7 +329,8 @@ export function describeName(rawName, { category = "", section = "" } = {}) {
       continue;
     }
     if (OUTPUT[lower(token)]) {
-      outputs.push(OUTPUT[lower(token)]);
+      const label = OUTPUT[lower(token)];
+      if (!outputs.includes(label)) outputs.push(label);
       continue;
     }
     if (/^\d{6}(\d{2})?$/.test(token) || /^(19|20)\d{2}(0[1-9]|1[0-2])$/.test(token)) {
@@ -276,20 +346,31 @@ export function describeName(rawName, { category = "", section = "" } = {}) {
     else groupTokens.push(token);
   }
 
-  // 시리즈(PartN)는 같은 시리즈로 묶고, 에피소드별 이름은 변형(에피소드) 쪽에 남긴다.
-  const seriesBase = episode > 0 ? groupTokens.join("_") : "";
-  const groupTokensKey = seriesBase || groupTokens.join("_") || stem;
+  // 시리즈(PartN · EP01)는 같은 시리즈로 묶고, 에피소드별 이름은 변형(에피소드) 쪽에 남긴다.
+  const rawGroupKey = groupTokens.join("_") || stem;
+  const koreanMatch = KOREAN_WORK_GROUPS.find(
+    (entry) => (!entry.category || entry.category === category) && entry.test.test(rawGroupKey.replace(/_/g, " ")),
+  );
+  if (koreanMatch) duplicate = true;
+  const groupTokensKey = koreanMatch ? koreanMatch.canonical : rawGroupKey;
   const group = `${category || "other"}:${groupTokensKey.toLowerCase()}`;
 
+  const episodeLabel = episode
+    ? `${episode}${episodeUnit}${episodeTokens.length ? ` ${episodeTokens.join(" ")}` : ""}`
+    : "";
   const variantParts = [
     language.join(" · "),
     subtitles.join(" · "),
     outputs.join(" · "),
     delivery ? DELIVERY : "",
+    episodeLabel,
     version ? `v${version}` : "",
-    episode ? `${episode}편${episodeTokens.length ? ` ${episodeTokens.join(" ")}` : ""}` : "",
     qualities.join(" · "),
   ].filter(Boolean);
+
+  const searchTokens = koreanMatch
+    ? [...groupTokens, ...koreanMatch.canonical.split("_"), ...episodeTokens]
+    : [...groupTokens, ...episodeTokens];
 
   return {
     title: humanize(groupTokensKey),
@@ -299,13 +380,14 @@ export function describeName(rawName, { category = "", section = "" } = {}) {
     subtitles,
     outputs,
     delivery,
+    duplicate,
     version,
     episode,
     dates,
     qualities,
     category,
     section,
-    search: buildSearch(stem, [...groupTokens, ...episodeTokens], { category, section, language, subtitles, outputs, delivery, version, qualities }),
+    search: buildSearch(stem, searchTokens, { category, section, language, subtitles, outputs, delivery, version, qualities, episodeLabel }),
   };
 }
 
@@ -315,14 +397,51 @@ function buildSearch(stem, groupTokens, meta) {
     const alias = ALIASES[lower(token)];
     if (alias) words.add(alias);
   }
-  const whole = lower(stem);
+  const whole = [stem, ...groupTokens].map(lower).join(" ");
   for (const [key, alias] of Object.entries(ALIASES)) {
     if (whole.includes(key)) words.add(alias);
   }
   for (const value of [...meta.language, ...meta.subtitles, ...meta.outputs, ...meta.qualities]) words.add(value);
+  if (meta.episodeLabel) words.add(meta.episodeLabel);
   if (meta.delivery) words.add(DELIVERY);
   if (meta.version) words.add(`v${meta.version}`);
   return [...words].join(" ").toLowerCase();
+}
+
+/**
+ * 정본 파일과 함께 올라온 중복 업로드본(콜드사이트_EP01-001.mp4 · *_dup.mp4 등)을 걷어낸다.
+ * 같은 작품·같은 회차·같은 산출물/언어/자막/화질에 정본이 있을 때만 빼므로,
+ * 중복본만 단독으로 있는 작품이 사라지지는 않는다.
+ */
+export function dedupeVideos(videos) {
+  const signatureOf = (video) => {
+    const info = describeName(video.name, { category: video.category, section: video.section });
+    const key = [
+      info.group,
+      info.episode,
+      info.episode ? "" : info.outputs.join(","),
+      info.language.join(","),
+      info.subtitles.join(","),
+      info.delivery ? "delivery" : "",
+      info.qualities.join(","),
+    ].join("|");
+    return { key, duplicate: info.duplicate };
+  };
+
+  const annotated = videos.map((video) => ({ video, ...signatureOf(video) }));
+  const hasCanonical = new Set(annotated.filter((item) => !item.duplicate).map((item) => item.key));
+  const keptDuplicateKeys = new Set();
+  const result = [];
+  for (const item of annotated) {
+    if (!item.duplicate) {
+      result.push(item.video);
+      continue;
+    }
+    if (hasCanonical.has(item.key) || keptDuplicateKeys.has(item.key)) continue;
+    keptDuplicateKeys.add(item.key);
+    result.push(item.video);
+  }
+  return result;
 }
 
 /** 목록에 넣을 최종 레코드 — 서버가 이 형태 그대로 응답한다. */

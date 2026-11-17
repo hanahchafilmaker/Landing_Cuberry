@@ -76,6 +76,7 @@ export const en: Record<string, string> = {
   "일본어": "Japanese",
   "납품본": "Delivery",
   "트레일러": "Trailer",
+  "하이라이트": "Highlight",
   "쇼릴": "Showreel",
   "티저": "Teaser",
   "파일럿": "Pilot",
@@ -84,6 +85,10 @@ export const en: Record<string, string> = {
   "KO 자막": "KO subtitles",
   "EN 자막": "EN subtitles",
   "JA 자막": "JA subtitles",
+  "성남시": "Seongnam City",
+  "스캔팡": "ScanPang",
+  "제주공모": "Jeju Contest",
+  "천년의 사랑": "A Thousand Years of Love",
   "9:16": "9:16",
   "전 KBS PD": "Former KBS producer",
   "XCONDA 총괄": "Head of XCONDA",
@@ -630,9 +635,11 @@ export const koOnly: { text: string; reason: string }[] = [
  * 운영 CMS에서 금액·길이를 새로 입력해도 숫자와 단위가 영어로 바뀝니다.
  */
 export const rules: { pattern: RegExp; replace: (match: RegExpMatchArray) => string }[] = [
-  // 포트폴리오 카드 배지 — 5편 시리즈 / 3개 버전 / 3편 Future
+  // 포트폴리오 카드·버전 배지 — 5편 시리즈 / 3개 버전 / 1화 / 합본 1~5화 / 3편 Future
   { pattern: /^(\d+)편 시리즈$/, replace: (match) => `${match[1]}-episode series` },
   { pattern: /^(\d+)개 버전$/, replace: (match) => `${match[1]} versions` },
+  { pattern: /^(\d+)화$/, replace: (match) => `Ep. ${match[1]}` },
+  { pattern: /^합본 (\d+)~(\d+)화$/, replace: (match) => `Ep. ${match[1]}–${match[2]} compilation` },
   { pattern: /^(\d+)편 (.+)$/, replace: (match) => `Ep. ${match[1]} ${match[2]}` },
   // 29만원~ / 149만원
   {
